@@ -1,0 +1,107 @@
+// -------------
+// spinner.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'sass:math';
+@use 'sass:color';
+@use 'vars' as v;
+@use 'colors' as c;
+
+$spinner-offset: 187;
+$spinner-duration: 1.4s;
+
+.spinner {
+  .spinner-el {
+    display: block;
+    animation: spinner-rotator $spinner-duration linear infinite;
+
+    .path {
+      stroke-dasharray: $spinner-offset;
+      stroke-dashoffset: 0;
+      transform-origin: center;
+      animation:
+        spinner-dash $spinner-duration ease-in-out infinite, 
+        spinner-colors ($spinner-duration * 4) ease-in-out infinite;
+    }
+  }
+}
+
+.spinner-el {
+  display: none;
+}
+
+@keyframes spinner-rotator {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(270deg); }
+}
+
+/*
+@keyframes spinner-colors {
+	0% { stroke: #4285F4; }
+	25% { stroke: #DE3E35; }
+	50% { stroke: #F7C223; }
+	75% { stroke: #1B9A59; }
+  100% { stroke: #4285F4; }
+}
+*/
+@keyframes spinner-colors {
+	0% { stroke: c.$logo-red-light-alt; }
+  16% { stroke: rgb(color.channel(c.$logo-red-light-alt, "red", $space: rgb), color.channel(c.$logo-blue-light-alt, "green", $space: rgb), color.channel(c.$logo-red-light-alt, "blue", $space: rgb)) }
+	33% { stroke: rgb(color.channel(c.$logo-red-light-alt, "red", $space: rgb), color.channel(c.$logo-blue-light-alt, "green", $space: rgb), color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)) }
+	50% { stroke: c.$logo-blue-light-alt; }
+	66% { stroke: rgb(color.channel(c.$logo-blue-light-alt, "red", $space: rgb), color.channel(c.$logo-red-light-alt, "green", $space: rgb), color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)) }
+  83% { stroke: rgb(color.channel(c.$logo-red-light-alt, "red", $space: rgb), color.channel(c.$logo-red-light-alt, "green", $space: rgb), color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)) }
+}
+
+@keyframes spinner-dash {
+ 0% { stroke-dashoffset: $spinner-offset; }
+ 50% {
+   stroke-dashoffset: math.div($spinner-offset, 4);
+   transform: rotate(135deg);
+ }
+ 100% {
+   stroke-dashoffset: $spinner-offset;
+   transform: rotate(450deg);
+ }
+}
+
+.page-spinner {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: v.$z-index-spinner;
+  background: rgba(34,34,34,0.5);
+
+  .spinner {
+    width: 100%;
+    height: 350px;
+    position: fixed;
+    z-index: v.$z-index-spinner + 1;
+    top: 50%;
+    transform: translate(0, -50%);
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
+    align-items: center;
+  }
+ 
+  &.show {
+    display: block;
+  }
+  &.backstop { // just be a blocking backstop
+    display: block;
+    .spinner {
+      display: none;
+    }
+  }
+}
+
+// safari zoom bug
+.safari-desktop .spinner-el .path {
+  zoom: reset;
+}

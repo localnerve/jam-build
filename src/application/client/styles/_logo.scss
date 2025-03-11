@@ -1,0 +1,72 @@
+// -------------
+// logo.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'mixins' as m;
+@use 'colors' as c;
+ 
+.logo-tag {
+  margin: 0 0 0 0.2rem;
+  font-size: 0.8rem;
+  font-weight: normal;
+}
+
+@mixin logo-block {
+  --logo-blue: #{c.$logo-blue};
+  --logo-red: #{c.$logo-red};
+  --logo-chars: 10;
+  --logo-size: 2;
+
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+  margin: 0;
+
+  @include m.breakpoint (medium-small) {
+    --logo-size: 3;
+  }
+  @include m.breakpoint (medium) {
+    --logo-size: 2;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    --logo-blue: #{c.$logo-blue-light};
+    --logo-red: #{c.$logo-red-light};
+  }
+
+  .logo {
+    display: flex;
+    position: relative;
+    flex-flow: row nowrap;
+    justify-content: flex-start;
+    align-items: center;
+    font-size: calc(var(--logo-size) * 1rem);
+    font-weight: 400;
+
+    .text {
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .nl {
+      color: var(--logo-blue);
+    }
+    .nr {
+      margin-left: calc((var(--logo-size) / 3.5) * -1rem);
+      color: var(--logo-red);
+    }
+    .symbol {
+      position: absolute;
+      left: calc(var(--logo-chars) * (var(--logo-size) / 2 * 1rem) + 0.25rem);
+      width: calc(var(--logo-size) * 1.5 * 1rem);
+      height: calc(var(--logo-size) * 1.4 * 1rem);
+      fill: var(--logo-red);
+      stroke: var(--logo-red);
+      stroke-width: 1px;
+      fill-opacity: 1;
+    }
+  }
+}

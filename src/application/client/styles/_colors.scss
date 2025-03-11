@@ -1,0 +1,59 @@
+// -------------
+// colors.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'sass:color';
+
+$text-color: #002a52;
+$site-white: color.adjust(#fafafa, $lightness: -3%, $space: hsl);
+$site-black: #091E2B;
+
+$logo-red: #ea4335; // #FF5722; // #e77927;
+// #ff9e64 red over #002a52
+$logo-red-light-alt: #ff9e64;
+$logo-red-light: $site-white;
+$logo-blue: #1B7BA1;// #30a1e3;
+// #72c0e9 blue over #002a52
+$logo-blue-light-alt: #72c0e9;
+$logo-blue-light: $site-white;
+
+// #1B5A7F = 27, 90, 127
+$header-deco-color: linear-gradient(rgba(27, 90, 127, 0.9) 0%, #091E2B 50%);
+$footer-deco-color: linear-gradient(rgba(27, 90, 127, 0.9) 0%, #091E2B 85%);
+
+$color-dark-magnifying-glass: #438AFF;
+
+$color-theme-one: $text-color; // dark
+$color-theme-two: #29A8DB;          // mid
+$color-theme-three: #87ceeb;        // light
+$color-theme-four: #FF6333;
+$color-theme-five: #FF5722;
+$color-theme-six: #ea4335;
+$color-theme-seven: #220022;
+$color-theme-eight: #ea4335; // #de2900;
+$color-theme-nine: #bb2d00;
+$color-form-highlight: greenyellow;
+$color-theme-white: $site-white;
+$color-theme-black: $site-black;
+
+$color-main-white: $site-white;
+$color-main-accent-dark: $color-theme-one;
+$color-main-accent-lightest: $color-theme-five;
+$color-main-alert: $color-theme-eight;
+$color-main-alert-dark: $color-theme-four;
+$color-main-alert-vdark: $color-theme-six;
+
+$color-red-button: #d04030;
+$color-red-button-border: #a81d11;
+$color-red-button-hi-dark: #b83;
+
+$color-nav-active-background: $text-color;
+$color-nav-active-text: $site-white;
+$color-nav-dark: $color-theme-three; // #2af;
+
+$link-focus-dark: $color-theme-four;
+$link-focus-light: $color-form-highlight;
+
+// $twitter-color: rgba(29,161,242,1.00);

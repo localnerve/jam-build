@@ -1,0 +1,83 @@
+// -------------
+// mixins.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'sass:map';
+
+//
+// ----------------------------------------------------------
+// ie targeted block enablers
+// ----------------------------------------------------------
+//
+@mixin ie-10plus () {
+  @media
+    screen and (-ms-high-contrast: active),
+    screen and (-ms-high-contrast: none) {
+      @content;
+    }
+}
+
+@mixin ie-9plus () {
+  @media screen and (min-width:0\0) {
+    @content;
+  }
+}
+
+@mixin ie-8plus () {
+  @media screen\0 {
+    @content;
+  }
+}
+
+//
+// ----------------------------------------------------------
+// firefox target blocks
+// ----------------------------------------------------------
+//
+@mixin firefox-only () {
+  @supports (-moz-appearance: none) {
+    @content;
+  }
+}
+
+//
+// ----------------------------------------------------------
+// project and custom breakpoints
+// ----------------------------------------------------------
+//
+@mixin min-width ($width) {
+  @media only screen and (min-width: $width) {
+    @content;
+  }
+}
+
+@mixin breakpoint ($size) {
+  $breakpoints: (
+    medium-small: 31.25em, // 500px
+    medium: 41.75em,       // 668px
+    medium-large: 64em,    // 1024px
+    large: 75em,           // 1200px
+    xlarge: 90em,          // 1440px
+    xxlarge: 120em         // 1920px
+  );
+
+  @include min-width(map.get($breakpoints, $size)) {
+    @content;
+  }
+}
+
+@mixin landscape-phone () {
+  @media only screen and (orientation: landscape) and (max-height: 727px) {
+    @content;
+  }
+}
+
+@mixin height-constrained-landscape-phone () {
+  @media only screen and
+    (orientation: landscape) and
+    (max-height: 641px) {
+    @content;
+  }
+}

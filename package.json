@@ -1,0 +1,58 @@
+{
+  "name": "jam-build",
+  "version": "1.0.0",
+  "description": "A simple file-based jamstack webapp builder",
+  "main": "index.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "gulp build",
+    "build:debug": "node --inspect-brk ./node_modules/gulp/bin/gulp.js build",
+    "build:dev": "gulp dev-build",
+    "dev": "node src/dev-server.js",
+    "test": "echo \"no tests yet\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/localnerve/jam-build.git"
+  },
+  "keywords": [
+    "jam",
+    "build",
+    "web"
+  ],
+  "author": "Alex Grant <alex@localnerve.com>",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/localnerve/jam-build/issues"
+  },
+  "homepage": "https://github.com/localnerve/jam-build#readme",
+  "devDependencies": {
+    "@localnerve/csp-hashes": "^5.0.8",
+    "@localnerve/sass-asset-functions": "^6.8.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-replace": "^6.0.2",
+    "@rollup/plugin-terser": "^0.4.4",
+    "autoprefixer": "^10.4.21",
+    "express": "^4.21.2",
+    "glob": "^11.0.1",
+    "gulp": "^5.0.0",
+    "gulp-filter": "^9.0.1",
+    "gulp-html-minifier-terser": "^7.1.0",
+    "gulp-postcss": "^10.0.0",
+    "gulp-rev": "^11.0.0",
+    "gulp-rev-delete-original": "^0.2.3",
+    "gulp-rev-rewrite": "^6.0.0",
+    "handlebars": "^4.7.8",
+    "mkdirp": "^3.0.1",
+    "modern-normalize": "^3.0.1",
+    "plugin-error": "^2.0.1",
+    "rimraf": "^6.0.1",
+    "rollup": "^4.35.0",
+    "sass": "^1.85.1",
+    "sitemap": "^8.0.0",
+    "workbox-build": "^7.3.0",
+    "workbox-core": "^7.3.0",
+    "workbox-window": "^7.3.0"
+  }
+}

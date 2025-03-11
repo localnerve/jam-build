@@ -1,0 +1,15 @@
+// -------------
+// vars.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+$rem-base: 16px;
+$max-font-size: 22px;
+$max-font-breakpoint: 1920;
+
+$z-index-dialog: 7;
+$z-index-header: $z-index-dialog - 3;
+$z-index-spinner: $z-index-dialog - 2;
+$z-index-footer: 3;
+$z-index-perf-cta-button: $z-index-footer;

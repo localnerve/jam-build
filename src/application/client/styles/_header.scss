@@ -1,0 +1,340 @@
+// -------------
+// header.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'vars' as v;
+@use 'colors' as c;
+@use 'mixins' as m;
+@use 'logo' as l;
+
+// no-nav
+// Static pages that shouldn't present navigation: coming-soon, 503, etc.
+.no-nav {
+  button.menu {
+    display: none;
+  }
+  .ln-header .icon {
+    text-align: center;
+  }
+  .ln-header .icon.logo {
+    display: none;
+  }
+  .ln-header .icon.phone {
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
+    align-items: center;
+    span {
+      display: inline;
+      margin-left: 1rem;
+      font-size: 1.4em;
+    }
+  }
+  @include m.breakpoint (medium) {
+    .ln-header h1 {
+      flex: 1 1 auto;
+    }
+  }
+  @include m.breakpoint (medium-large) {
+    .ln-header h1 {
+      flex: 1 1 25%;
+    }
+  }
+  @include m.breakpoint (xlarge) {
+    .ln-header h1 {
+      flex: 0 1 38%;
+    }
+  }
+}
+ 
+.no-js .ln-header,
+.ln-header.fixed {
+  &::before {
+    box-shadow: 0 0 4px rgba(0,0,0,0.14), 0 4px 8px rgba(0,0,0,0.28);
+
+    @include m.breakpoint (medium) {
+      opacity: 0.97;
+    }
+  }
+
+  h1 {
+    @include m.breakpoint (medium) {
+      transform: scale(1.0) translate(4%, 0);
+    }
+    @include m.breakpoint (xlarge) {
+      transform: scale(1.1) translate(8%, 0);
+    }
+ 
+
+    .logo {
+      .nl {
+        color: var(--logo-blue);
+      }
+      .nr {
+        color: var(--logo-red);
+      }
+      .symbol {
+        fill: var(--logo-red);
+      }
+    }
+
+    .logo-tag {
+      color: var(--site-color);
+    }
+  }
+}
+.no-js .ln-header {
+  &~ h1:first-of-type {
+    margin-top: 1rem;
+  }
+  .icon.logo {
+    display: none;
+  }
+  .menu {
+    color: #bbb;
+  }
+}
+ 
+.no-messaging .icon.logo {
+  display: none;
+}
+
+.ln-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: var(--site-bg);
+  
+  will-change: box-shadow;
+  opacity: 0.97;
+  box-shadow: none;
+  transition: box-shadow;
+  
+  @include m.breakpoint (medium) {
+    will-change: opacity;
+    opacity: 0;
+    box-shadow: 0 0 4px rgba(0,0,0,0.14), 0 4px 8px rgba(0,0,0,0.28);
+    transition: opacity 0.2s;
+  }
+}
+
+.ln-header {
+  position: sticky;
+  position: -webkit-sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: v.$z-index-header;
+
+  .container {
+    padding: .6em 1em;
+
+    display: flex;
+    flex-flow: row wrap;
+    align-items: center;
+    justify-content: space-between;
+  
+    width: 100%;
+    @include m.min-width (1200px) { // large
+      width: 1200px;
+      margin: 0 auto;
+    }
+
+    @include m.breakpoint (medium-small) {
+      flex-flow: row nowrap;
+    }
+
+    & > * {
+      position: relative; // gets click target above flex-basis of h1
+    }
+  }
+
+  // undo user-agent button styles
+  button.menu {
+    -webkit-appearance: none; appearance: none;
+    border: none; background: transparent;
+    padding: 0; margin: 0;
+    text-align: left;
+    color: var(--site-color);
+  }
+  
+  .menu {
+    display: block;
+    flex: 1 1 auto;
+    svg {
+      width: 2.4em;
+      height: 1.6em;
+    }
+    @include m.breakpoint (medium) {
+      display: none;
+    }
+  }
+
+  .icon {
+    flex: 1 1 auto;
+
+    &.phone {
+      @include m.breakpoint (medium-large) {
+        margin-left: 2em;
+      }
+      span {
+        display: none;
+      }
+    }
+    svg {
+      width: 1.5em;
+      height: 1.5em;
+    }
+  }
+
+  h1 {
+    @include l.logo-block;
+    & {
+      flex: 1 1 36%;
+      display: none;
+    }
+
+    .logo {
+      .nl {
+        @include m.breakpoint (medium) {
+          color: c.$logo-blue-light;
+        }
+      }
+      .nr {
+        @include m.breakpoint (medium) {
+          color: c.$logo-red-light;
+        }
+      }
+      .symbol {
+        @include m.breakpoint (medium) {
+          fill: c.$logo-red-light;
+        }
+      }
+    }
+    .logo-tag {
+      @include m.breakpoint (medium) {
+        color: c.$site-white;
+      }
+    }
+
+    @include m.breakpoint (medium) {
+      display: flex;
+      transform: scale(1) translate(0, 26px);
+      align-items: flex-start;
+    }
+    @include m.breakpoint (medium-large) {
+      flex: 1 1 35%;
+      transform: scale(1.4) translate(18%, 18px);
+    }
+    @include m.breakpoint (xlarge) {
+      flex: 0 1 38%;
+      transform: scale(1.6) translate(24%, 32px);
+    }
+    @include m.min-width (1600px) {
+      transform: scale(1.6) translate(calc(23% - ((100vw - 1600px) * 0.1)), 35px);
+    }
+  }
+
+  &~ h1:first-of-type {
+    @include l.logo-block;
+    & {
+      margin: 0.5rem 1rem 1rem;
+      padding-bottom: 0.5rem;
+    }
+    @include m.breakpoint (medium) {
+      display: none;
+    }
+  }
+} // .ln-header
+
+.deco {
+  display: none;
+  @include m.breakpoint (medium) {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 530px;
+    width: 100%;
+    // background: radial-gradient(farthest-side ellipse at 100% 25%, transparent 50%, skyblue 60%, #091E2B 80%);
+    // background: radial-gradient(farthest-side ellipse at 88% 20%, rgba(135, 206, 235, 0) 50%, rgba(135, 206, 235, 1) 60%, rgba(9, 30, 43, 1) 80%);
+    background: radial-gradient(farthest-side ellipse at 88% 0%, rgba(135, 206, 235, 0) 50%, rgba(135, 206, 235, 1) 60%, rgba(9, 30, 43, 1) 80%);
+  }
+}
+
+/*
+ * BUGFIX
+ * Safari 16.3 introduced a NEW bug seen in the about page.
+ * Seen in desktop safari monterey macosx, I'm assuming everywhere webkit...
+ * The bug:
+ *   Can't find the proper z layer after rendering, deco renders above all elements.
+ * The fix:
+ *   Force transform z position (any negative integer works).
+ */
+.safari-or-ios-webkit {
+  .deco {
+    @include m.breakpoint (medium) {
+      transform: translateZ(-1px);
+    }
+  }
+}
+
+/* (old bugfixes left for crazy safari history)...
+.safari {
+  @include breakpoint (medium) {
+    .deco {
+      background: radial-gradient(farthest-side ellipse at 100% 25%, rgba(135, 206, 235, 0) 50%, rgba(135, 206, 235, 1) 60%, rgba(9, 30, 43, 1) 80%);
+    }
+  }
+}
+*/
+/*
+.safari {
+  @include breakpoint (medium) {
+    .deco {
+      background: #091E2B;
+      width: 105vw;
+      height: 45vw;
+      transform: skewY(30deg) translate(-35vw, 15vw);
+      clip-path: polygon(0 0, 100% 0, 70% 70%, 0 120%);
+      @include breakpoint (medium-large) {
+        left: 7vw;
+      }
+    }
+  }
+}
+*/
+
+// art-deco page-level background injection under logo.
+// not sure I want to keep this (in this form).
+// the visual divide is desirable.
+/*
+.deco {
+  display: none;
+  @include breakpoint (medium) {
+    display: block;
+    background: $header-deco-color; // linear-gradient(transparent, rgba(34, 00, 34, 0.9) 30%)
+    width: 105vw;
+    height: 45vw;
+    position: absolute;
+    z-index: 0;
+    transform: skewY(30deg) translate(-35vw, 15vw);
+    clip-path: polygon(0 0, 100% 0, 70% 70%, 0 120%);
+  }
+  @include breakpoint (medium-large) {
+    left: 7vw;
+  }
+}
+*/
+/*
+.safari .deco {
+  // .deco { transform } will fail in safari without the following block
+  //    symptom: will not render any content
+  // @safari-bug start
+  transform: skewY(30deg) translate3d(-35vw, 15vw, -1px);
+  // @safari-bug end
+}
+*/

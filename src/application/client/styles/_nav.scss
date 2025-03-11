@@ -1,0 +1,175 @@
+// -------------
+// nav.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'colors' as c;
+@use 'vars' as v;
+@use 'mixins' as m;
+
+.navigation {
+  .active {
+    background-image: linear-gradient(c.$color-nav-active-background, c.$color-nav-active-background);
+    background-repeat: no-repeat;
+    background-size: 100% 2px;
+    background-position: 0 1.5em;
+    padding-bottom: 0.5em;
+
+    @media (prefers-color-scheme: dark) {
+      background-image: linear-gradient(c.$color-nav-dark, c.$color-nav-dark);
+    }
+  }
+
+  ul {
+    list-style: none;
+    display: flex;
+    margin: 0;
+    padding: 0;
+  }
+
+  &.compact {
+    display: block; // override the head style (req'd to avoid flash reveal at init render)
+    position: fixed;
+    top: 0;
+    z-index: v.$z-index-header + 1;
+    transform: translateX(-106%);
+    transition: transform 0.12s ease;  
+    filter: drop-shadow(2px 2px 8px var(--site-color));
+
+    @include m.ie-10plus () {
+      box-shadow: 2px 2px 8px var(--site-color);
+    }
+  
+    &.show {
+      transform: translateX(0);
+    }
+  
+    button.close {
+      position: absolute;
+      right: 15%;
+      bottom: -4%;
+      color: var(--site-color);
+      background: var(--site-bg);
+      border: 1px solid var(--site-color);
+      border-radius: 50%;
+      padding: 1.5rem;
+      margin: 0;
+    }
+    button.close::before {
+      position: absolute;
+      content: '✖';
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    ul {
+      background: var(--site-bg);
+      clip-path: polygon(0% 0%, 98% 0%, 87.5% 19%, 100% 16%, 83% 60%, 94% 57%, 78% 100%, 39% 93%, 44% 100%, 0% 93%);
+  
+      flex-flow: column nowrap;
+      justify-content: flex-end;
+      align-items: center;
+    }
+    
+    li {
+      flex: 0 0 auto;
+      display: inline-block;
+      min-width: 60vw;
+      width: 100%;
+      text-align: center;
+      line-height: 2;
+      padding: 2rem 2rem 2rem 0;
+      text-transform: uppercase;
+      cursor: pointer;
+
+      @include m.ie-10plus () {
+        padding: 2rem;
+      }
+    }
+    li:last-child {
+      padding-bottom: 4rem;
+      @include m.ie-10plus () {
+        padding-bottom: unset;
+      }
+    }
+  }
+
+  &.desktop {
+    flex: 0 1 auto;
+    @include m.breakpoint (medium) {
+      font-size: v.$rem-base;
+      flex: 1 1 30%;
+    }
+    @include m.breakpoint (large) {
+      font-size: inherit;
+      flex: 1 1 34%;
+    }
+    ul {
+      flex-flow: row nowrap;
+      justify-content: flex-end;
+      align-items: center;
+      @include m.breakpoint (medium) {
+        justify-content: space-between;
+      }
+      @include m.breakpoint (medium-large) {
+        justify-content: flex-end;
+      }      
+    }
+    li {
+      flex: 1 1 auto;
+      text-align: center;
+      font-weight: bold;
+      position: relative;
+      @include m.breakpoint (medium) {
+        flex: 0 1 20%;
+        font-size: 1.2em;
+      }
+      @include m.breakpoint (medium-large) {
+        flex: 1 1 auto;
+      }      
+    }
+    li:not(.contact) {
+      display: none;
+      @include m.breakpoint (medium) {
+        display: list-item;
+      }
+    }
+    .contact {
+      a {
+        padding: 0.3em 0.3em;
+        border-radius: 0.4em;
+        color: #fff;
+        border: 1px solid c.$color-red-button-border;
+        background: c.$color-red-button;
+      }
+    }
+  }
+
+  &.footer {
+    ul {
+      flex-flow: row wrap;
+      justify-content: center;
+      line-height: 2;
+      margin: 0 0.5rem;
+      white-space: nowrap;
+    }
+
+    li:not(:last-child)::after {
+      content: '|';
+      margin: 0 1rem;
+    }
+
+    a {
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+  }
+}
+
+.no-nav {
+  .navigation:not(.legal) {
+    display: none;
+  }
+}

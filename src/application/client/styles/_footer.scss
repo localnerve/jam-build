@@ -1,0 +1,162 @@
+// -------------
+// footer.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'vars' as v;
+@use 'colors' as c;
+@use 'mixins' as m;
+@use 'logo' as l;
+
+.no-nav .ln-footer .business {
+  @include m.breakpoint (medium-large) {
+    margin-top: 1em;
+  }
+}
+.ln-footer {
+  position: relative;
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: space-evenly;
+  align-items: center;
+
+  // This is at this position in source order so theme colors override logo-block
+  .f-logo {
+    @include l.logo-block;
+    & {
+      margin: inherit;
+      width: 100%;
+    }
+  
+    @include m.breakpoint (medium) {
+      align-items: flex-start;
+      width: auto;
+      margin-right: 1rem;
+      min-width: 10em;
+    }
+    @include m.breakpoint (medium-large) {
+      --logo-size: 3;
+      margin-right: 3em;
+      .logo-tag {
+        font-size: 0.9em;
+        margin-left: 0.3rem;
+      }
+    }
+
+    .links {
+      margin-top: 1rem;
+      display: flex;
+      flex-flow: row nowrap;
+      justify-content: space-around;
+      align-items: center;
+      width: 100%;
+
+      a {
+        color: inherit;
+        fill: inherit;
+      }
+    }
+    .icon-in {
+      border-radius: 50%;
+      border: 1px solid var(--site-color);
+    }
+  }
+  
+  &.zag-follow {
+    padding-top: 18vw;
+    margin-top: -17vw;
+  }
+
+  &.zag-top {
+    clip-path: polygon(0% 0%, 33% 3vw, calc(33% - 3vw) 0%, 67% 3vw, calc(67% - 3vw) 0%, 100% 3vw, 100% 100%, 0% 100%);
+    margin-top: -5vw;
+    padding-top: 6vw;
+    z-index: v.$z-index-footer;
+  }
+
+  &.dark {
+    background: c.$footer-deco-color;
+    color: c.$site-white;
+    a {
+      color: c.$site-white;
+    }
+    a:focus {
+      filter: drop-shadow(0px 0px 8px c.$link-focus-light);
+    }
+  
+    .logo {
+      .nl {
+        color: c.$logo-blue-light;
+      }
+      .nr {
+        color: c.$logo-red-light;
+      }
+      .symbol {
+        fill: c.$logo-red-light;
+      }
+    }
+    .icon-in {
+      border-color: c.$site-white;
+    }
+    .navigation .active {
+      background-image: linear-gradient(c.$site-white, c.$site-white);
+    }
+  }
+  &.light {
+    background: var(--site-bg);
+    color: var(--site-color);
+    .navigation .active {
+      background-image: linear-gradient(c.$color-nav-active-background, c.$color-nav-active-background);
+    }
+  }
+  &.dark, &.light {
+    .navigation .active {
+      @media (prefers-color-scheme: dark) {
+        background-image: linear-gradient(c.$color-nav-dark, c.$color-nav-dark);
+      }
+    }
+  }
+  
+  & > *,
+  .business > *:not(:last-child) {
+    margin-bottom: 1em;
+  }
+
+  .business {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+    
+    a[itemprop='legalName'] {
+      display: none;
+    }
+
+    .contact {
+      margin-left: 2em;
+      line-height: 2;
+    }
+  }
+
+  .copyright {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    align-items: center;
+
+    text-align: center;
+    padding: 0 0.5em;
+    line-height: 2;
+    font-size: smaller;
+
+    & > span {
+      white-space: nowrap;
+    }
+
+    & > span:not(:last-child)::after {
+      content: '•';
+      padding: 0 0.25rem;
+    }
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "defaultTitle": "Business Name",
+  "defaultDescription": "This is a description.",
+  "appHost": "domain.com",
+  "elevator": "This is an elevator pitch.",
+  "pages": {
+    "home": {
+      "title": "Home",
+      "type": "nav",
+      "name": "home",
+      "route": "/",
+      "label": "Home",
+      "template": "main-example",
+      "file": "home",
+      "sitemap": {
+        "changefreq": "monthly",
+        "priority": 1.0
+      },
+      "order": 0
+    },
+    "about": {
+      "title": "About",
+      "type": "nav",
+      "name": "about",
+      "route": "/about",
+      "label": "About",
+      "template": "main-example",
+      "file": "about",
+      "sitemap": {
+        "changefreq": "monthly",
+        "priority": 0.8
+      },
+      "order": 1
+    },
+    "contact": {
+      "title": "Contact",
+      "type": "nav",
+      "name": "contact",
+      "route": "/contact",
+      "label": "Contact",
+      "template": "main-example",
+      "file": "contact",
+      "sitemap": {
+        "changefreq": "monthly",
+        "priority": 0.8
+      },
+      "order": 2
+    },
+    "terms": {
+      "title": "Terms and Conditions",
+      "type": "legal",
+      "name": "terms",
+      "route": "/terms",
+      "label": "Terms and Conditions",
+      "template": "main-example",
+      "file": "terms",
+      "sitemap": {
+        "changefreq": "monthly",
+        "priority": 0.5
+      },
+      "order": 0
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "type": "legal",
+      "name": "privacy",
+      "route": "/privacy",
+      "label": "Privacy Policy",
+      "template": "main-example",
+      "file": "privacy",
+      "sitemap": {
+        "changefreq": "monthly",
+        "priority": 0.5
+      },
+      "order": 1
+    },
+    "four04": {
+      "title": "Page Not Found",
+      "type": "none",
+      "name": "four04",
+      "route": "/404",
+      "label": "404",
+      "template": "main-example",
+      "file": "404",
+      "order": 0
+    }
+  },
+  "uaId": "UA-NNNNNNNNN-N",
+  "social": {
+    "facebook": "https://www.facebook.com/people/business",
+    "linkedin": "https://www.linkedin.com/in/business",
+    "twitterMeta": {
+      "image": "https://domain.com/images/ogimage-1200x630.png"
+    },
+    "og": {
+      "title": "Business Name",
+      "description": "This is a description.",
+      "type": "website",
+      "image": [
+        {
+          "url": "https://domain.com/images/ogimage-1200x675.png",
+          "type": "image/png",
+          "alt": "Business Name",
+          "width": "1200",
+          "height": "675"
+        },
+        {
+          "url": "https://domain.com/images/ogimage-1200x630.png",
+          "type": "image/png",
+          "alt": "Business Name",
+          "width": "1200",
+          "height": "630"
+        },
+        {
+          "url": "https://domain.com/images/ogimage-1640x924.png",
+          "type": "image/png",
+          "alt": "Bayberry Copywriting",
+          "width": "1640",
+          "height": "924"
+        },
+        {
+          "url": "https://domain.com/images/ogimage-400x630.png",
+          "type": "image/png",
+          "alt": "Bayberry Copywriting",
+          "width": "400",
+          "height": "630"
+        }
+      ]
+    }
+  },
+  "business": {
+    "shortName": "Business Name",
+    "url": "https://domain.com",
+    "domain": "domain.com",
+    "logo": "https://domain.com/images/logo.png",
+    "name": "Business Name, LLC",
+    "phone": "123-456-7890",
+    "email": "info@domain.com",
+    "address": {
+      "line1": "123 street st",
+      "line2": "",
+      "line3": "",
+      "city": "cityname",
+      "state": "statename",
+      "zip": "00000-0000",
+      "country": "US"
+    }
+  }
+}

@@ -1,0 +1,94 @@
+// -------------
+// prompt.scss
+//
+// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// -------------
+@use 'sass:color';
+@use 'vars' as v;
+@use 'colors' as c;
+@use 'mixins' as m;
+
+.pp-prompt {
+  display: none;
+  position: fixed;
+  z-index: v.$z-index-dialog;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  opacity: 1;
+  transition: opacity 0.5s;
+
+  filter: drop-shadow(2px 2px 8px var(--site-color));
+  @include m.ie-10plus () {
+    box-shadow: 2px 2px 8px var(--site-color);
+  }
+
+  &.show {
+    display: block;
+    &.update {
+      .pp-update {
+        display: flex;
+      }      
+    }
+    &.install {
+      .pp-install {
+        display: flex;
+      }      
+    }
+    &.homescreen {
+      .pp-homescreen {
+        display: flex;
+      }
+    }
+    &.updated {
+      .pp-updated {
+        display: flex;
+      }
+    }
+    &.welcome {
+      .pp-welcome {
+        display: flex;
+      }
+    }
+  }
+  &.hide {
+    opacity: 0;
+  }
+}
+.pp-update, .pp-install, .pp-homescreen,
+.pp-welcome, .pp-updated {
+  display: none;
+  flex-flow: column nowrap;
+  justify-content: space-around;
+  align-items: center;
+}
+.pp-items {
+  font-size: 1.2em;
+  line-height: 1.5;
+  padding: 1.5em;
+  background: var(--site-bg);
+  clip-path: polygon(0% 0%, 33% 3vw, calc(33% - 3vw) 0%, 67% 3vw, calc(67% - 3vw) 0%, 100% 3vw, 100% 100%, 0 100%);
+}
+.pp-ctrl {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 320px;
+  
+  button {
+    border-radius: 0.4em;
+    padding: 0.3em 0.3em;
+  }
+  .secondary {
+    border: 1px solid var(--site-color);
+    background-color: linear-gradient(var(--site-bg), #bbb);
+    color: var(--site-color);
+  }
+  .primary {
+    background-color: var(--site-color);
+    color: var(--site-bg);
+  }
+}
