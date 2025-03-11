@@ -155,6 +155,21 @@ function equals (value1, value2) {
 }
 
 /**
+ * Return the svg partial name by page.
+ *
+ * @param {Object} hb - The handlebars instance
+ * @param {String} page - The template data
+ * @returns {String} The name of the svg template for the page or 'svg-none'
+ */
+export function svgPage (hb, page) {
+  const svgPage = `svg-${page}`;
+  if (svgPage in hb.partials) {
+    return svgPage;
+  }
+  return 'svg-none';
+}
+
+/**
  * Setup handlebars for template rendering.
  *
  * @param {Handlebars} hbRef - A reference to handlebars.
@@ -173,6 +188,7 @@ function setupHandlebars (hbRef, pageFragments, inlineCss, scriptPartials) {
     equals,
     subChars,
     subWords,
+    svgPage: svgPage.bind(null, hbRef),
     debug
   });
 }
