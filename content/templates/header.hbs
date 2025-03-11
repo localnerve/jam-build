@@ -81,8 +81,8 @@
   </script>
 
   <link href="/styles/index.css" rel="stylesheet" />
-  {{#if (lookup (lookup siteData.pages page) external-css)}}
-    <link href="/styles/{{lookup (lookup siteData.pages page) 'externalCss'}}" rel="stylesheet" />
+  {{#if (lookup (lookup siteData.pages page) 'external-css')}}
+    <link href="/styles/{{lookup (lookup siteData.pages page) 'external-css'}}" rel="stylesheet" />
   {{/if}}
 </head>
 <body>
@@ -132,13 +132,13 @@
           </svg>
         </button>
         <h1>
-          <a class="logo" href="{{ siteData.pages.home.route }}" aria-label="LocalNerve, LLC">
+          <a class="logo" href="{{ siteData.pages.home.route }}" aria-label="{{ siteData.business.name }}">
             <span class="text">
             <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
             <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
             </span>
             <svg class="symbol">
-              <title>LocalNerve Logo</title>
+              <title>{{ siteData.business.shortName }} Logo</title>
               <use xlink:href="#logo"></use>
             </svg>
           </a>
@@ -147,16 +147,16 @@
         <div class="icon phone">
           <a href="tel:+1-{{ siteData.business.phone }}" aria-label="telephone number">
             <svg>
-              <title>LocalNerve Phone 1-{{ siteData.business.phone }}</title>
+              <title>{{ siteData.business.shortName }} Phone 1-{{ siteData.business.phone }}</title>
               <use xlink:href="#icon-phone"></use>
             </svg>
             <span>{{ siteData.business.phone }}</span>
           </a>
         </div>
         <div class="icon twitter">
-          <a href="{{ siteData.social.twitter }}" target="_blank" rel="noopener" aria-label="localnerve twitter">
+          <a href="{{ siteData.social.twitter }}" target="_blank" rel="noopener" aria-label="{{ siteData.business.shortName }} twitter">
             <svg>
-              <title>LocalNerve Twitter @localnerve</title>
+              <title>{{ siteData.business.shortName }} Twitter</title>
               <use xlink:href="#icon-twitter"></use>
             </svg>
           </a>
@@ -164,7 +164,7 @@
         <div class="icon logo">
           <a href="#">
             <svg class="symbol">
-              <title>LocalNerve Logo</title>
+              <title>{{ siteData.business.shortName }} Logo</title>
               <use xlink:href="#logo"></use>
             </svg>
           </a>

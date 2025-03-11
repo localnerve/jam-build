@@ -1,6 +1,6 @@
 @use 'mixins' as m;
 
-main h1 {
+main h2 {
   text-align: center;
 
   @include m.breakpoint (xlarge) {
