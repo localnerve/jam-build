@@ -186,7 +186,7 @@ export async function buildSwMain (settings) {
       '{privacy,terms}.html'
     ],
     globIgnores: [
-      'sitemap.xml', 'sw*.js', 'images/og-banner*', 
+      'sitemap.xml', 'sw*.js', 'images/ogimage*'
     ],
     dontCacheBustURLsMatching: /.+-[a-f0-9]{10}(?:\.min)?\..{2,11}$/,
     runtimeCaching: [
