@@ -16,7 +16,7 @@
 @mixin logo-block {
   --logo-blue: #{c.$logo-blue};
   --logo-red: #{c.$logo-red};
-  --logo-chars: 10;
+  --logo-chars: 12.5;
   --logo-size: 2;
 
   display: flex;

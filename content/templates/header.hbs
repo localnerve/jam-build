@@ -86,6 +86,9 @@
   {{/if}}
 </head>
 <body>
+    {{> svg-all }}
+    {{> (svgPage page) }}
+
     <div class="pp-prompt">
       <div class="pp-items">
         <div class="pp-update">
@@ -131,8 +134,8 @@
         <h1>
           <a class="logo" href="{{ siteData.pages.home.route }}" aria-label="LocalNerve, LLC">
             <span class="text">
-              <span class="nl">Local</span>
-              <span class="nr">Nerve</span>
+            <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
+            <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
             </span>
             <svg class="symbol">
               <title>LocalNerve Logo</title>
