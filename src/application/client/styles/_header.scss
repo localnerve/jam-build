@@ -199,23 +199,27 @@
     .logo {
       .nl {
         @include m.breakpoint (medium) {
-          color: c.$logo-blue-light;
+          color: var(--logo-blue);
+          // color: c.$logo-blue-light;
         }
       }
       .nr {
         @include m.breakpoint (medium) {
-          color: c.$logo-red-light;
+          color: var(--logo-red);
+          // color: c.$logo-red-light;
         }
       }
       .symbol {
         @include m.breakpoint (medium) {
-          fill: c.$logo-red-light;
+          color: c.$logo-red;
+          // fill: c.$logo-red-light;
         }
       }
     }
     .logo-tag {
       @include m.breakpoint (medium) {
-        color: c.$site-white;
+        color: var(--site-color);
+        // color: c.$site-white;
       }
     }
 

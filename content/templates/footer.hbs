@@ -10,7 +10,7 @@
           <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
         </span>
         <svg class="symbol">
-          <title>LocalNerve Logo</title>
+          <title>{{ siteData.business.shortName }} Logo</title>
           <use xlink:href="#logo"></use>
         </svg>
       </a>
@@ -18,19 +18,19 @@
       <div class="links">
         <a href="{{siteData.social.github.url}}" target="_blank" rel="noopener" aria-label="Github">
           <svg class="icon-gh" width="32" height="32" viewBox="0 0 16 16">
-            <title>Github</title>
+            <title>{{ siteData.business.shortName }} Github</title>
             <use xlink:href="#icon-github"></use>
           </svg>
         </a>
         <a href="{{siteData.social.stackoverflow.profile}}" target="_blank" rel="noopener" aria-label="Stackoverflow">
           <svg class="icon-so" width="32" height="32" viewBox="0 0 32 32">
-          <title>Stack Overflow</title>
+          <title>{{ siteData.business.shortName }} Stack Overflow</title>
             <use xlink:href="#stackoverflow"></use>
           </svg>
         </a>
         <a href="{{siteData.social.linkedin}}" target="_blank" rel="noopener" aria-label="LinkedIn">
           <svg class="icon-in" width="32" height="32" viewBox="0 0 2384 2384">
-            <title>Linked In</title>
+            <title>{{ siteData.business.shortName }} Linked In</title>
             <use x="14%" y="10%" xlink:href="#linkedin-in"></use>
           </svg>
         </a>
