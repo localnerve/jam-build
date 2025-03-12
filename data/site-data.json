@@ -89,6 +89,7 @@
   "social": {
     "facebook": "https://www.facebook.com/people/business",
     "linkedin": "https://www.linkedin.com/in/business",
+    "twitter": "https://x.com",
     "twitterMeta": {
       "image": "https://domain.com/images/ogimage-1200x630.png"
     },

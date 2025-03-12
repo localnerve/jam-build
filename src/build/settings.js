@@ -6,7 +6,7 @@
  */
 
 const srcClient = 'src/application/client';
-const dataDir = 'content';
+const dataDir = 'data';
 const dist = 'dist';
 const distImages = 'dist/images';
 const webImages = '/images';
