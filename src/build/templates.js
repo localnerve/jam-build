@@ -6,13 +6,11 @@
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import url from 'node:url';
-import Handlebars from "handlebars";
+import Handlebars from 'handlebars';
+import { default as hbHelpers, svgPage } from './hb-helpers.js';
 import { compileStyles } from './styles.js';
 import { compileScripts } from './scripts.js';
 import { loadSiteData } from './data.js';
-
-const thisDirname = url.fileURLToPath(new URL('.', import.meta.url));
 
 /**
  * Load the inline css files.
@@ -97,79 +95,6 @@ async function loadPageFragments (inputDir) {
 }
 
 /**
- * Lift words from a sentence.
- * 
- * @param {String} sentence - The input sentence.
- * @param {Number} start - The start index.
- * @param {Number} end - The end index (word not included).
- * @returns {String} The sliced words in a string.
- */
-export function subWords (sentence, start, end) {
-  const words = sentence.match(/\b[^\s]+\b/g);
-  if (words) {
-    return words.slice(start, end).join(' ');
-  }
-  return '';
-}
-
-/**
- * Slice a given word string.
- * 
- * @param {String} word - The input word.
- * @param {Number} start - The start index.
- * @param {Number} end - The end index (end char not included).
- * @returns {String} The sliced chars as a new string.
- */
-export function subChars (word, start, end) {
-  return word.slice(start, end);
-}
-
-/**
- * Just for dumping template context
- *
- * @param {Array} targets - references to some objects you want to inspect
- */
-/* eslint-disable no-console */
-export function debug (...targets) {
-  console.log('@@@ -- Current Context -- @@@');
-  console.log(this);
-  if (targets && targets.length > 0) {
-    console.log('@@@ -- Targets -- @@@');
-    targets.forEach((target, index) => {
-      console.log(`Target ${index}:\n`, target);
-    });
-  }
-  console.log('@@@ --------------------- @@@');
-}
-/* eslint-enable no-console */
-
-/**
- * Helper to test strict equality.
- *
- * @param {*} value1 
- * @param {*} value2 
- * @returns true if strict equal, false otherwise.
- */
-function equals (value1, value2) {
-  return value1 === value2;
-}
-
-/**
- * Return the svg partial name by page.
- *
- * @param {Object} hb - The handlebars instance
- * @param {String} page - The template data
- * @returns {String} The name of the svg template for the page or 'svg-none'
- */
-export function svgPage (hb, page) {
-  const svgPage = `svg-${page}`;
-  if (svgPage in hb.partials) {
-    return svgPage;
-  }
-  return 'svg-none';
-}
-
-/**
  * Setup handlebars for template rendering.
  *
  * @param {Handlebars} hbRef - A reference to handlebars.
@@ -185,11 +110,10 @@ function setupHandlebars (hbRef, pageFragments, inlineCss, scriptPartials) {
   hbRef.registerPartial(partials);
 
   hbRef.registerHelper({
-    equals,
-    subChars,
-    subWords,
-    svgPage: svgPage.bind(null, hbRef),
-    debug
+    ...hbHelpers,
+    ...{
+      svgPage: svgPage.bind(null, hbRef)
+    }
   });
 }
 
@@ -202,8 +126,19 @@ function setupHandlebars (hbRef, pageFragments, inlineCss, scriptPartials) {
  * @returns 
  */
 async function wrapTemplate (template, siteData, data) {
+  const noIndex = [
+    'four04', 'four03', 'five00', 'five03'
+  ];
+  const noNav = [
+    'five03'
+  ];
+
   data.siteData = siteData;
   data.active = data.page;
+  data.noIndex = noIndex.indexOf(data.page) > -1;
+  data.noNav = noNav.indexOf(data.page) > -1;
+  data.htmlClasses = data.noNav ? ['no-nav'] : [];
+
   return template(data);
 }
 
