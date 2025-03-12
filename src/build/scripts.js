@@ -16,10 +16,11 @@ import pkg from '../../package.json' with { type: 'json' };
  * @param {Object} settings - build settings.
  * @param {Object} settings.rollupInput - rollup input object.
  * @param {Object} settings.rollupOutput - rollup output object.
+ * @param {Object} [settings.replacements] - additional replacements.
  * @param {Boolean} settings.prod - True for production, false otherwise.
  */
 export async function createScripts (settings) {
-  const { rollupInput, rollupOutput, prod } = settings;
+  const { rollupInput, rollupOutput, prod, replacements = {} } = settings;
   const appVersion = pkg.version;
 
   rollupInput.plugins = [
@@ -32,7 +33,8 @@ export async function createScripts (settings) {
       'process.env.NODE_ENV': prod ? 
         JSON.stringify('production') : JSON.stringify('development'),
       preventAssignment: true,
-      APP_VERSION: JSON.stringify(appVersion)
+      APP_VERSION: JSON.stringify(appVersion),
+      ...replacements
     })
   ];
 

@@ -4,18 +4,12 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { promises as fs } from 'node:fs';
-import os from 'node:os';
-import { fileURLToPath }from 'node:url';
 import path from 'node:path';
-import hb from 'handlebars';
 import { glob } from 'glob';
 import { generateSW } from 'workbox-build';
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
 import pkg from '../../package.json' with { type: 'json' }
-
-const thisDirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Generate the version - build timestamp string.
@@ -27,47 +21,28 @@ function getVersionBuildstamp () {
 }
 
 /**
- * Generate sw custom file from template.
- *
- * @param {Object} settings - sw settings config object.
- * @param {Object} templateData - data for the sw.custom template.
- * @return {Promise} Resolves to basename of reved, generated asset in dist.
+ * Generate the sw.custom.js runtime distribution.
+ * 
+ * @param {Object} settings - Build settings.
+ * @param {*} replacements - Bundle replacments.
+ * @return {Promise} Resolves to basename of reved, generated asset in dist for use in script imports.
  */
-async function generateSWCustom (settings, templateData) {
+async function generateSWCustom (settings, replacements) {
   const {
     prod,
     dist,
     swCustomFilenameGlob,
-    swCustomTmp,
-    swCustomFilename
+    swCustomFileSrc
   } = settings;
-  
-  const tmpPrefix = `${os.tmpdir()}${path.sep}`;
-  const tmpBase = `${path.parse(await fs.mkdtemp(tmpPrefix)).name}.js`;
-  const tmpPath = `${await fs.mkdtemp(tmpPrefix)}${path.sep}${tmpBase}`;
 
-  // 1. Process the template file
-  const customTemplate = await fs.readFile(`${thisDirname}/sw.custom.hbs`, {
-    encoding: 'utf8'
-  });
-  const swCustomCode = hb.compile(customTemplate)(templateData);
+  const swCustomName = path.parse(swCustomFileSrc).name;
 
-  // 2. write the raw, unbundled code to a buildable tmp source
-  await fs.writeFile(tmpPath, swCustomCode);
-  const swCustomTmpSource = `./${swCustomTmp}/${swCustomFilename}`;
-  const newTmp = path.resolve(swCustomTmpSource);
-  await fs.mkdir(path.parse(newTmp).dir, {
-    recursive: true
-  });
-  await fs.copyFile(tmpPath, newTmp);
-
-  // 3. compile/write the code to dist
-  const swCustomName = path.parse(swCustomTmpSource).name;
   await createScripts({
     prod,
+    replacements,
     rollupInput: {
       input: {
-        [swCustomName]: swCustomTmpSource
+        [swCustomName]: swCustomFileSrc
       }  
     },
     rollupOutput: {
@@ -103,13 +78,10 @@ export async function buildSwMain (settings) {
 
   const cachePrefix = `${siteData.appHost}-${pkg.version}`;
   const { swMainGenerated, dist, prod } = settings;
-  const swDest = `${swMainGenerated}`;
 
   const ssrCacheable = Object.values(siteData.pages)
     .filter(page => page.type === 'nav')
     .map(page => page.route);
-
-  const ssrCacheableRoutes = ssrCacheable.map(route => `'${route}'`).join(',');
 
   const ssrConfig = {
     urlPattern: new RegExp(`${ssrCacheable.reduce((acc, cur) => {
@@ -145,13 +117,13 @@ export async function buildSwMain (settings) {
   };
 
   const publicSwCustomPath = await generateSWCustom(settings, {
-    ssrCacheableRoutes,
-    cachePrefix,
-    versionBuildstamp: getVersionBuildstamp()
+    SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable),
+    CACHE_PREFIX: JSON.stringify(cachePrefix),
+    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp())
   });
   
   return generateSW({
-    swDest,
+    swDest: swMainGenerated,
     skipWaiting: false,
     clientsClaim: true,
     mode: prod ? 'production' : 'development',
