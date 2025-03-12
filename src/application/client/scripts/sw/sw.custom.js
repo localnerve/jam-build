@@ -1,3 +1,14 @@
+/**
+ * Main serviceWorker custom additions.
+ * 
+ * Build time replacements:
+ *   SSR_CACHEABLE_ROUTES - derived from site-data.json
+ *   CACHE_PREFIX - derived from app host and version
+ *   VERSION_BUILDSTAMP - derived from version buildstamp at build time.
+ *
+ * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
+ */
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
 
 setCacheNameDetails({ prefix: CACHE_PREFIX });
