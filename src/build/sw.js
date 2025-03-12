@@ -4,16 +4,18 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import fs from 'node:fs';
+import { promises as fs } from 'node:fs';
 import os from 'node:os';
+import { fileURLToPath }from 'node:url';
 import path from 'node:path';
 import hb from 'handlebars';
 import { glob } from 'glob';
 import { generateSW } from 'workbox-build';
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
-import { customTemplate } from './sw.custom.template.js';
 import pkg from '../../package.json' with { type: 'json' }
+
+const thisDirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Generate the version - build timestamp string.
@@ -27,12 +29,11 @@ function getVersionBuildstamp () {
 /**
  * Generate sw custom file from template.
  *
- * @param {Object} templateData - data for the sw.custom template.
  * @param {Object} settings - sw settings config object.
- * @param {String} settings.swCustomTemplateFilename - The sw custom template filename.
+ * @param {Object} templateData - data for the sw.custom template.
  * @return {Promise} Resolves to basename of reved, generated asset in dist.
  */
-function generateSWCustom (templateData, settings) {
+async function generateSWCustom (settings, templateData) {
   const {
     prod,
     dist,
@@ -42,72 +43,54 @@ function generateSWCustom (templateData, settings) {
   } = settings;
   
   const tmpPrefix = `${os.tmpdir()}${path.sep}`;
-  const tmpBase = `${path.parse(fs.mkdtempSync(tmpPrefix)).name}.js`;
-  const tmpPath = `${fs.mkdtempSync(tmpPrefix)}${path.sep}${tmpBase}`;
+  const tmpBase = `${path.parse(await fs.mkdtemp(tmpPrefix)).name}.js`;
+  const tmpPath = `${await fs.mkdtemp(tmpPrefix)}${path.sep}${tmpBase}`;
 
   // 1. Process the template file
-  return (new Promise((resolve) => {
-    resolve(hb.compile(customTemplate)(templateData));
-  // 2. write the raw, unbundled code to a buildable tmp source
-  })).then(swCustomCode => {
-    return new Promise((resolve, reject) => {
-      fs.writeFile(tmpPath, swCustomCode, err => {
-        if (err) {
-          return reject(new Error(`Failed to write swCustom code: ${err}`));
-        }
-
-        const swCustomTmpSource = `./${swCustomTmp}/${swCustomFilename}`;
-        const newTmp = path.resolve(swCustomTmpSource);
-        fs.mkdirSync(path.parse(newTmp).dir, {
-          recursive: true
-        });
-
-        // bring local so deps can resolve during bundling
-        fs.copyFile(tmpPath, newTmp, err => {
-          if (err) {
-            return reject(new Error(`Failed to write swCustom tmp: ${err}`));
-          }
-          resolve(swCustomTmpSource);
-        });
-      });
-    });
-  // 3. bundle the code to dist
-  }).then(swCustomTmpSource => {
-    const name = path.parse(swCustomTmpSource).name;
-    return createScripts({
-      prod,
-      rollupInput: {
-        input: {
-          [name]: swCustomTmpSource
-        }  
-      },
-      rollupOutput: {
-        dir: dist,
-        format: 'umd',
-        hashCharacters: 'hex',
-        entryFileNames: () => {
-          const parts = name.split('.');
-          let pattern = `${parts[0]}-[hash:10]`;
-          for (let i = 1; i < parts.length; i++) {
-            pattern += `.${parts[i]}`;
-          }
-          return `${pattern}.js`;
-        }
-      }
-    });
-  // 4. resolve to public, reved /sw-a9reved9fa.custom.js filepath for importScripts
-  }).then(() => {
-    return glob(`${dist}/${swCustomFilenameGlob}`)
-      .then(matches => {
-        if (matches.length !== 1) {
-          throw new Error('Failed to find swCustom final file');
-        }
-        return matches[0].replace(dist, '');
-      })
-      .catch(() => {
-        throw new Error('Failed to find swCustom final file');
-      });
+  const customTemplate = await fs.readFile(`${thisDirname}/sw.custom.hbs`, {
+    encoding: 'utf8'
   });
+  const swCustomCode = hb.compile(customTemplate)(templateData);
+
+  // 2. write the raw, unbundled code to a buildable tmp source
+  await fs.writeFile(tmpPath, swCustomCode);
+  const swCustomTmpSource = `./${swCustomTmp}/${swCustomFilename}`;
+  const newTmp = path.resolve(swCustomTmpSource);
+  await fs.mkdir(path.parse(newTmp).dir, {
+    recursive: true
+  });
+  await fs.copyFile(tmpPath, newTmp);
+
+  // 3. compile/write the code to dist
+  const swCustomName = path.parse(swCustomTmpSource).name;
+  await createScripts({
+    prod,
+    rollupInput: {
+      input: {
+        [swCustomName]: swCustomTmpSource
+      }  
+    },
+    rollupOutput: {
+      dir: dist,
+      format: 'umd',
+      hashCharacters: 'hex',
+      entryFileNames: () => {
+        const parts = swCustomName.split('.');
+        let pattern = `${parts[0]}-[hash:10]`;
+        for (let i = 1; i < parts.length; i++) {
+          pattern += `.${parts[i]}`;
+        }
+        return `${pattern}.js`;
+      }
+    }
+  });
+
+  // 4. resolve to public, reved /sw-a9reved9fa.custom.js filepath for importScripts
+  const matches = await glob(`${dist}/${swCustomFilenameGlob}`);
+  if (matches.length !== 1) {
+    throw new Error('Failed to find sw.custom.js final file in dist');
+  }
+  return matches[0].replace(dist, '');
 }
 
 /**
@@ -161,13 +144,11 @@ export async function buildSwMain (settings) {
     }
   };
 
-  const versionBuildstamp = getVersionBuildstamp();
-
-  const publicSwCustomPath = await generateSWCustom({ 
-      ssrCacheableRoutes,
-      cachePrefix,
-      versionBuildstamp
-    }, settings);
+  const publicSwCustomPath = await generateSWCustom(settings, {
+    ssrCacheableRoutes,
+    cachePrefix,
+    versionBuildstamp: getVersionBuildstamp()
+  });
   
   return generateSW({
     swDest,

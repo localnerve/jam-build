@@ -1,14 +1,3 @@
-/**
- * Handlebars template for sw.custom.js for use in
- * generated sw.main.js
- *
- * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Private use for LocalNerve, LLC only. Unlicensed for any other use.
- */
-
-const html = String.raw;
-
-export const customTemplate = html`
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
 
 setCacheNameDetails({ prefix: '{{{ cachePrefix }}}' });
@@ -95,4 +84,3 @@ self.addEventListener('message', event => {
       break;
   }
 });
-`;
