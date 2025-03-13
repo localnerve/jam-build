@@ -19,15 +19,17 @@ export async function generateAssets (settings) {
     }${
       sitemapName
     }`;
+  
   const siteData = await loadSiteData(dataDir);
   const smStream = new SitemapStream({
     hostname: `https://${siteData.appHost}`
   });
+  const sitemapWebUrl = new URL(sitemapWeb, `https://${siteData.appHost}`);
 
   await fs.writeFile(`${dist}/robots.txt`, `
     User-agent: *
     Disallow:
-    sitemap: ${sitemapWeb}
+    sitemap: ${sitemapWebUrl}
     User-agent: ia_archiver
     Disallow: /`,
     'utf8'

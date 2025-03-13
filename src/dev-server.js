@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
+import compression from 'compression';
 
 const port = process.argv.reduce((dflt, item) => {
   const groups = item.match(/--PORT=(?<port>\d+)/i)?.groups;
@@ -16,10 +17,16 @@ const rootDir = process.argv.reduce((dflt, item) => {
   return groups?.rootdir || dflt;
 }, './dist');
 
+const useCompression = process.argv.some(item => item.match('COMPRESS'));
+
 const debug = process.argv.some(item => item.match('DEBUG'));
 
 const assetLogger = debug ? console.log : () => {};
 const server = express();
+
+if (useCompression) {
+  server.use(compression());
+}
 
 // if no /path exists, try /path.html
 server.use((req, res, next) => {
