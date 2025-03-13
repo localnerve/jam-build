@@ -54,6 +54,7 @@
       "label": "Terms and Conditions",
       "template": "main-example",
       "file": "terms",
+      "skip-all": true,
       "sitemap": {
         "changefreq": "monthly",
         "priority": 0.5
@@ -68,6 +69,7 @@
       "label": "Privacy Policy",
       "template": "main-example",
       "file": "privacy",
+      "skip-all": true,
       "sitemap": {
         "changefreq": "monthly",
         "priority": 0.5
@@ -82,6 +84,7 @@
       "label": "404",
       "template": "main-example",
       "file": "404",
+      "skip-all": true,
       "order": 0
     }
   },
@@ -89,6 +92,7 @@
   "social": {
     "facebook": "https://www.facebook.com/people/business",
     "linkedin": "https://www.linkedin.com/in/business",
+    "twitter": "https://x.com",
     "twitterMeta": {
       "image": "https://domain.com/images/ogimage-1200x630.png"
     },

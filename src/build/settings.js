@@ -6,16 +6,14 @@
  */
 
 const srcClient = 'src/application/client';
-const dataDir = 'content';
+const dataDir = 'data';
 const dist = 'dist';
 const distImages = 'dist/images';
 const webImages = '/images';
 const distFonts = 'dist/fonts';
 const webFonts = '/fonts';
 const swMainGenerated = `${dist}/sw.main.js`;
-const swCustomFilename = 'sw.custom.js';
 const swCustomFilenameGlob = 'sw-*.custom.js';
-const swCustomTmp = 'src/build/tmp';
 
 /**
  * Create the build settings.
@@ -53,6 +51,7 @@ export function createSettings (prod = true) {
     templates: {
       srcDir: dataDir,
       srcTemplates: `${dataDir}/templates`,
+      srcContent: `${dataDir}/content`,
       destDir: dist,
       cssOptions: {
         dir: `${srcClient}/styles/inline`,
@@ -73,9 +72,8 @@ export function createSettings (prod = true) {
     sw: {
       dataDir,
       swMainGenerated,
-      swCustomFilename,
       swCustomFilenameGlob,
-      swCustomTmp,
+      swCustomFileSrc: `${srcClient}/scripts/sw/sw.custom.js`,
       dist,
       prod
     },

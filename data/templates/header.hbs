@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-US" itemType="https://schema.org/WebPage" prefix="og:http://ogp.me/ns#"
+<html class="no-js {{#each htmlClasses}}{{~this}}{{/each}}" lang="en-US" itemType="https://schema.org/WebPage" prefix="og:http://ogp.me/ns#"
   xmlns:og="http://opengraphprotocol.org/schema/" xmlns:xlink="http://www.w3.org/1999/xlink">
 
 <head>
@@ -92,19 +92,19 @@
     <div class="pp-prompt">
       <div class="pp-items">
         <div class="pp-update">
-          {{{ pageUpdatePrompt }}}
+          {{> prompt-update }}
         </div>
         <div class="pp-install">
-          {{{ pageInstallPrompt }}}
+          {{> prompt-install }}
         </div>
         <div class="pp-homescreen">
-          {{{ pageHomescreenPrompt }}}
+          {{> prompt-homescreen }}
         </div>
         <div class="pp-welcome">
-          {{{ pageWelcomeMessage }}}
+          {{> message-welcome }}
         </div>
         <div class="pp-updated">
-          {{{ pageUpdatedMessage }}}
+          {{> message-updated }}
         </div>
       </div>
     </div>

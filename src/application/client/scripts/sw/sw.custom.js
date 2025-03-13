@@ -1,20 +1,20 @@
 /**
- * Handlebars template for sw.custom.js for use in
- * generated sw.main.js
+ * Main serviceWorker custom additions.
+ * 
+ * Build time replacements:
+ *   SSR_CACHEABLE_ROUTES - derived from site-data.json
+ *   CACHE_PREFIX - derived from app host and version
+ *   VERSION_BUILDSTAMP - derived from version buildstamp at build time.
  *
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-
-const html = String.raw;
-
-export const customTemplate = html`
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
 
-setCacheNameDetails({ prefix: '{{{ cachePrefix }}}' });
+setCacheNameDetails({ prefix: CACHE_PREFIX });
 
 function updateRuntimeCache () {
-  const urls = [{{{ ssrCacheableRoutes }}}];
+  const urls = SSR_CACHEABLE_ROUTES;
   const cacheName = cacheNames.runtime;
   return caches.open(cacheName)
     .then(cache => cache.addAll(urls))
@@ -44,7 +44,7 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  const versionedCachePrefix = '{{{ cachePrefix }}}';
+  const versionedCachePrefix = CACHE_PREFIX;
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
       keys.map(key => {
@@ -79,7 +79,7 @@ self.addEventListener('message', event => {
     case 'version':
       sendReply({
         action: 'ln-version-buildstamp',
-        version: '{{{ versionBuildstamp }}}'
+        version: VERSION_BUILDSTAMP
       });
       break;
     case 'runtime-update':
@@ -95,4 +95,3 @@ self.addEventListener('message', event => {
       break;
   }
 });
-`;
