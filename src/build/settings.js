@@ -51,6 +51,7 @@ export function createSettings (prod = true) {
     templates: {
       srcDir: dataDir,
       srcTemplates: `${dataDir}/templates`,
+      srcContent: `${dataDir}/content`,
       destDir: dist,
       cssOptions: {
         dir: `${srcClient}/styles/inline`,

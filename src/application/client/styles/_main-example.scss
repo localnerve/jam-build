@@ -1,9 +1,13 @@
 @use 'mixins' as m;
 
-main h2 {
-  text-align: center;
+.main-example {
+  padding: 1em 2em;
 
-  @include m.breakpoint (xlarge) {
-    margin-top: 1em;
+  h2 {
+    text-align: center;
+  
+    @include m.breakpoint (xlarge) {
+      margin-top: 1em;
+    }
   }
 }

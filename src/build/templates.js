@@ -95,16 +95,58 @@ async function loadPageFragments (inputDir) {
 }
 
 /**
+ * load the content directory into an output object.
+ * 
+ * @param {String} inputDir - The content template directory.
+ */
+async function loadContent (inputDir) {
+  const entries = await fs.readdir(inputDir, {
+    recursive: true,
+    withFileTypes: true
+  });
+
+  const names = {};
+  const partials = {};
+
+  for (const entry of entries) {
+    if (entry.isFile()) {
+      const basename = path.basename(entry.parentPath);
+      const partialName = `${basename}-${path.parse(entry.name).name}`;
+      const contentName = `${path.parse(entry.name).name}`;
+      const partialContent = await fs.readFile(
+        path.join(entry.parentPath, entry.name), {
+          encoding: 'utf8'
+        }
+      );
+      
+      if (!names[basename]) {
+        names[basename] = {};
+      }
+      names[basename][contentName] = partialName;
+      partials[partialName] = partialContent;
+    }
+  }
+
+  return {
+    names,
+    partials
+  };
+}
+
+/**
  * Setup handlebars for template rendering.
  *
  * @param {Handlebars} hbRef - A reference to handlebars.
- * @param {Object} pageFragments - The page fragments object hash by { page: content }
- * @param {Object} inlineCss - The inline css object hash by { partial-name: content }
+ * @param {Object} pagePartials - The page templates object hash by { partial-name: content }
+ * @param {Object} contentPartials - The contentn templates object hash by { partial-name: content }}
+ * @param {Object} inlineCssPartials - The inline css object hash by { partial-name: content }
  * @param {Object} scriptPartials - The inline script object hash by { partial-name: content }
  */
-function setupHandlebars (hbRef, pageFragments, inlineCss, scriptPartials) {
+function setupHandlebars (
+  hbRef, pagePartials, contentPartials, inlineCssPartials, scriptPartials
+) {
   const partials = {
-    ...pageFragments, ...inlineCss, ...scriptPartials
+    ...pagePartials, ...contentPartials, ...inlineCssPartials, ...scriptPartials
   };
 
   hbRef.registerPartial(partials);
@@ -146,21 +188,32 @@ async function wrapTemplate (template, siteData, data) {
  * Create the handlebars templates and compile them.
  * 
  * @param {String} srcDir - The source directory for the content.
- * @param {String} srcTemplates - The source directory for the templates.
+ * @param {String} srcTemplates - The source directory for the page templates.
+ * @param {String} srcContent - The source directory for the page content templates.
  * @param {Object} cssOptions - The options to compile the inline css.
  * @param {Object} scriptOptions - The options to compile the inline scripts.
  * @returns 
  */
-async function createTemplates (srcDir, srcTemplates, cssOptions, scriptOptions) {
+async function createTemplates (
+  srcDir, srcTemplates, srcContent, cssOptions, scriptOptions
+) {
   const siteData = await loadSiteData(srcDir);
-  const pageFragments = await loadPageFragments(srcTemplates);
+  const pagePartials = await loadPageFragments(srcTemplates);
   const inlineCss = await loadInlineCss(cssOptions);
   const inlineScriptPartials = await loadInlineScripts(scriptOptions);
+  const content = await loadContent(srcContent);
 
   siteData.inlineCss = inlineCss.names;
+  siteData.content = content.names;
 
   const hb = Handlebars;
-  setupHandlebars(hb, pageFragments, inlineCss.partials, inlineScriptPartials);
+  setupHandlebars(
+    hb,
+    pagePartials,
+    content.partials,
+    inlineCss.partials,
+    inlineScriptPartials
+  );
 
   const templates = [];
   for (const page of Object.values(siteData.pages)) {
@@ -188,18 +241,18 @@ async function createTemplates (srcDir, srcTemplates, cssOptions, scriptOptions)
  */
 export async function renderHtml (settings) {
   const {
-    destDir, srcDir, srcTemplates, cssOptions, scriptOptions
+    destDir, srcDir, srcTemplates, srcContent, cssOptions, scriptOptions
   } = settings;
 
   const templates = await createTemplates(
-    srcDir, srcTemplates, cssOptions, scriptOptions
+    srcDir, srcTemplates, srcContent, cssOptions, scriptOptions
   );
 
   return Promise.all(templates.map(async page => {
-    const content = await page.template({
+    const rendered = await page.template({
       page: page.name
     });
 
-    return fs.writeFile(path.join(destDir, `${page.file}.html`), content);
+    return fs.writeFile(path.join(destDir, `${page.file}.html`), rendered);
   }));
 }

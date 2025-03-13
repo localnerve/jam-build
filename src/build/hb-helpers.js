@@ -34,6 +34,25 @@ export function subChars (word, start, end) {
 }
 
 /**
+ * Capitalize the first character of every word in a sentence.
+ * 
+ * @param {String} sentence - A sentence of words.
+ */
+export function capFirst (sentence) {
+  const words = sentence.match(/\b[^\s]+\b/g);
+  if (words) {
+    const newWords = new Array(words.length);
+    let newWord;
+    for (let i = 0; i < words.length; i++) {
+      newWord = `${words[i][0].toLocaleUpperCase()}${words[i].slice(1)}`;
+      newWords[i] = newWord;
+    }
+    return newWords.join(' ');
+  }
+  return '';
+}
+
+/**
  * Just for dumping template context
  *
  * @param {Array} targets - references to some objects you want to inspect
@@ -79,6 +98,7 @@ export function svgPage (hb, page) {
 }
 
 export default {
+  capFirst,
   debug,
   equals,
   subChars,
