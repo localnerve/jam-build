@@ -52,14 +52,14 @@
     ],
     "screenshots": [
         {
-            "src": "/images/og-banner-400x630.png",
+            "src": "/images/ogimage-400x630.png",
             "sizes": "400x630",
             "type": "image/png",
             "form_factor": "narrow",
             "label": "LocalNerve Web Developer"
         },
         {
-            "src": "/images/og-banner-1200x630.png",
+            "src": "/images/ogimage-1200x630.png",
             "sizes": "1200x630",
             "type": "image/png",
             "form_factor": "wide",

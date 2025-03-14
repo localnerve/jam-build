@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
