@@ -4,7 +4,7 @@
   </h2>
   
   {{! content for specific pages, if it exists }}
-  {{#with (lookup siteData.content page)}}
+  {{#with (lookup content page)}}
 
   <section class="section {{lookup this 'section-0'}}">
     {{> (lookup this 'section-0') ..}}
@@ -14,7 +14,7 @@
 
   {{#unless (lookup (lookup siteData.pages page) 'skip-all')}}
   {{! content for all pages that use this template }}
-  {{#with (lookup siteData.content 'all')}}
+  {{#with (lookup content 'all')}}
 
   <section class="section {{lookup this 'section-0'}}">
     {{> (lookup this 'section-0') ..}}
