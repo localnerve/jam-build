@@ -102,11 +102,11 @@
       "type": "website",
       "image": [
         {
-          "url": "https://domain.com/images/ogimage-1200x675.png",
+          "url": "https://domain.com/images/ogimage-1200x400.png",
           "type": "image/png",
           "alt": "Business Name",
           "width": "1200",
-          "height": "675"
+          "height": "400"
         },
         {
           "url": "https://domain.com/images/ogimage-1200x630.png",
@@ -114,13 +114,6 @@
           "alt": "Business Name",
           "width": "1200",
           "height": "630"
-        },
-        {
-          "url": "https://domain.com/images/ogimage-1640x924.png",
-          "type": "image/png",
-          "alt": "Bayberry Copywriting",
-          "width": "1640",
-          "height": "924"
         },
         {
           "url": "https://domain.com/images/ogimage-400x630.png",
@@ -136,7 +129,7 @@
     "shortName": "Business Name",
     "url": "https://domain.com",
     "domain": "domain.com",
-    "logo": "https://domain.com/images/logo.png",
+    "logo": "https://domain.com/images/logo.svg",
     "name": "Business Name, LLC",
     "phone": "123-456-7890",
     "email": "info@domain.com",

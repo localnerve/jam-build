@@ -6,7 +6,10 @@
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
   <meta content="initial-scale=1, width=device-width, minimum-scale=1, maximum-scale=5" name="viewport" />
+
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" href="/styles/index.css" as="style">
+
   <meta http-equiv="Content-Security-Policy" content="
     base-uri 'self';
     default-src 'self';
@@ -40,6 +43,7 @@
   <meta name="msapplication-TileColor" content="#da532c" />
   <meta name="msapplication-config" content="/browserconfig.xml" />
   <meta name="theme-color" content="#1B7BA1" />
+  <link rel="manifest" href="/site.webmanifest" />
 
   <meta property="og:title" content="{{ siteData.social.og.title }}" />
   <meta property="og:description" content="{{ siteData.social.og.description }}" />
@@ -134,8 +138,8 @@
         <h1>
           <a class="logo" href="{{ siteData.pages.home.route }}" aria-label="{{ siteData.business.name }}">
             <span class="text">
-            <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
-            <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
+              <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
+              <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
             </span>
             <svg class="symbol">
               <title>{{ siteData.business.shortName }} Logo</title>
@@ -174,3 +178,16 @@
         </nav>
       </div>
     </header>
+    <h1>
+      <a class="logo" href="/">
+        <span class="text">
+          <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
+          <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
+        </span>
+        <svg class="symbol">
+          <title>{{ siteData.business.shortName }} Logo</title>
+          <use xlink:href="#logo"></use>
+        </svg>
+      </a>
+      <p class="logo-tag">{{ siteData.elevator }}</p>
+    </h1>
