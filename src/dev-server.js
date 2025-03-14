@@ -18,10 +18,10 @@ const rootDir = process.argv.reduce((dflt, item) => {
 }, './dist');
 
 const useCompression = process.argv.some(item => item.match('COMPRESS'));
-
 const debug = process.argv.some(item => item.match('DEBUG'));
 
 const assetLogger = debug ? console.log : () => {};
+
 const server = express();
 
 if (useCompression) {
@@ -33,13 +33,13 @@ server.use((req, res, next) => {
   const filePath = path.resolve(rootDir, '.'+req.path);
   fs.access(filePath, err => {
     if (err) {
-      fs.access(filePath + '.html', err => {
+      fs.access(`${filePath}.html`, err => {
         if (!err) {
           let path = req.path;
           if (path[path.length - 1] === '/') {
             path = path.slice(0, -1);
           }
-          req.url = path + '.html';
+          req.url = `${path}.html`;
         }
         assetLogger(req.url);
         next();
