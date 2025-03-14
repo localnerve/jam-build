@@ -1,3 +1,4 @@
 # Jam Build
 
-> A basic project boilerplate for jam websites
+> A high-performance, file-based project boilerplate for custom webapps
+
