@@ -74,9 +74,9 @@
     {{> inlineCss-all }}
   </style>
   {{/if}}
-  {{#if (lookup siteData.inlineCss page)}}
+  {{#if (lookup inlineCss page)}}
   <style>
-    {{> (lookup siteData.inlineCss page)}}
+    {{> (lookup inlineCss page)}}
   </style>
   {{/if}}
 

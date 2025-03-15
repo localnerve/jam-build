@@ -14,7 +14,8 @@ import { loadSiteData } from './data.js';
 
 /**
  * Load the inline css files.
- *
+ * inline css is matched to siteData.page.name by inline css filename.
+ * 
  * @param {Object} options - The cssOptions.
  * @param {String} options.dir - The directory with all the inline css files.
  * @param {Boolean} options.prod - True if production, false otherwise.
@@ -67,12 +68,12 @@ async function loadInlineScripts (options) {
 }
 
 /**
- * Load the page fragments.
+ * Load the page partials.
  * 
  * @param {String} inputDir - The directory with the all the template files.
  * @returns {Object} The page fragments object hash by { page: content }
  */
-async function loadPageFragments (inputDir) {
+async function loadPagePartials (inputDir) {
   const files = await fs.readdir(inputDir);
 
   const fragments = await Promise.all(files.map(
@@ -95,9 +96,10 @@ async function loadPageFragments (inputDir) {
 }
 
 /**
- * load the content directory into an output object.
+ * Load the content partials into an output object.
  * 
  * @param {String} inputDir - The content template directory.
+ * @return {Object} The names of the partials by page.content-name and the partials themselves.
  */
 async function loadContent (inputDir) {
   const entries = await fs.readdir(inputDir, {
@@ -163,11 +165,10 @@ function setupHandlebars (
  * Template function wrapper to decorate the data prior to rendering.
  *
  * @param {CompiledTemplate} template - The compiled handlebars template.
- * @param {Object} siteData - The site data.
  * @param {Object} data - The data to render the template with.
  * @returns 
  */
-async function wrapTemplate (template, siteData, data) {
+async function wrapTemplate (template, data) {
   const noIndex = [
     'four04', 'four03', 'five00', 'five03'
   ];
@@ -175,7 +176,6 @@ async function wrapTemplate (template, siteData, data) {
     'five03'
   ];
 
-  data.siteData = siteData;
   data.active = data.page;
   data.noIndex = noIndex.indexOf(data.page) > -1;
   data.noNav = noNav.indexOf(data.page) > -1;
@@ -187,24 +187,21 @@ async function wrapTemplate (template, siteData, data) {
 /**
  * Create the handlebars templates and compile them.
  * 
- * @param {String} srcDir - The source directory for the content.
- * @param {String} srcTemplates - The source directory for the page templates.
+ * @param {String} srcData - The source directory for the content.
+ * @param {String} srcPage - The source directory for the page templates.
  * @param {String} srcContent - The source directory for the page content templates.
- * @param {Object} cssOptions - The options to compile the inline css.
+ * @param {Object} styleOptions - The options to compile the inline css.
  * @param {Object} scriptOptions - The options to compile the inline scripts.
  * @returns 
  */
 async function createTemplates (
-  srcDir, srcTemplates, srcContent, cssOptions, scriptOptions
+  srcData, srcPage, srcContent, styleOptions, scriptOptions
 ) {
-  const siteData = await loadSiteData(srcDir);
-  const pagePartials = await loadPageFragments(srcTemplates);
-  const inlineCss = await loadInlineCss(cssOptions);
+  const siteData = await loadSiteData(srcData);
+  const pagePartials = await loadPagePartials(srcPage);
+  const inlineCss = await loadInlineCss(styleOptions);
   const inlineScriptPartials = await loadInlineScripts(scriptOptions);
   const content = await loadContent(srcContent);
-
-  siteData.inlineCss = inlineCss.names;
-  siteData.content = content.names;
 
   const hb = Handlebars;
   setupHandlebars(
@@ -224,9 +221,12 @@ async function createTemplates (
         null,
         hb.compile(
           String.raw`{{> header }}{{> ${page.template} }}{{> footer}}`
-        ),
-        siteData
-      )
+        )
+      ),
+      // invariants
+      inlineCss: inlineCss.names,
+      content: content.names,
+      siteData
     });
   }
 
@@ -241,16 +241,19 @@ async function createTemplates (
  */
 export async function renderHtml (settings) {
   const {
-    destDir, srcDir, srcTemplates, srcContent, cssOptions, scriptOptions
+    destDir, srcData, srcPage, srcContent, styleOptions, scriptOptions
   } = settings;
 
   const templates = await createTemplates(
-    srcDir, srcTemplates, srcContent, cssOptions, scriptOptions
+    srcData, srcPage, srcContent, styleOptions, scriptOptions
   );
 
   return Promise.all(templates.map(async page => {
     const rendered = await page.template({
-      page: page.name
+      page: page.name,
+      siteData: page.siteData,
+      inlineCss: page.inlineCss,
+      content: page.content
     });
 
     return fs.writeFile(path.join(destDir, `${page.file}.html`), rendered);

@@ -49,11 +49,11 @@ export function createSettings (prod = true) {
       }
     },
     templates: {
-      srcDir: dataDir,
-      srcTemplates: `${dataDir}/templates`,
-      srcContent: `${dataDir}/content`,
+      srcData: dataDir,
+      srcPage: `${dataDir}/page-partials`,
+      srcContent: `${dataDir}/content-partials`,
       destDir: dist,
-      cssOptions: {
+      styleOptions: {
         dir: `${srcClient}/styles/inline`,
         prod
       },
