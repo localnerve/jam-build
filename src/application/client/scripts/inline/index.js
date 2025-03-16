@@ -11,46 +11,6 @@ import './app.js';     // App Comm mediator
 import './sw.js';      // Forward msgs from sw
 
 (function () {
-
-  /**
-   * Maintain no-nav pseudo-state by root element class or qs.
-   */
-  function noNavCheck (htmlElement) {
-    function noNavUpdate () {
-      let anchors, href, hasNn, i;
-      const currentHostname = window.location.hostname;
-      htmlElement.classList.add('no-nav');
-      anchors = document.querySelectorAll('a');
-      if (anchors && anchors.length > 0) {
-        for (i = 0; i < anchors.length; i++) {
-          if (anchors[i].hostname === currentHostname) {
-            href = anchors[i].getAttribute('href');
-            hasNn = href.indexOf('?') > -1 && href.indexOf('nonav') > -1;
-            if (!hasNn) {
-              href += '?nonav=true';
-              anchors[i].setAttribute('href', href);
-            }
-          }
-        }
-      }
-    }
-
-    let nonav = htmlElement.classList.contains('no-nav');
-    if (!nonav) {
-      const m = /nonav=([^&]+)/.exec(window.location.search);
-      nonav = m && m.length > 1 && m[1].toLowerCase().trim() === 'true';
-    }
-    if (nonav) {
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', noNavUpdate, {
-          once: true
-        });
-      } else {
-        noNavUpdate();
-      }
-    }
-  }
-
   /**
    * Detect if the browser can use the modern app build.
    * This covers partial support of safari 10.1 (not modernjs)
@@ -115,8 +75,6 @@ import './sw.js';      // Forward msgs from sw
 
   const htmlElement = document.documentElement;
   htmlElement.classList.remove('no-js');
-
-  noNavCheck(htmlElement);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', loader, { once: true });
