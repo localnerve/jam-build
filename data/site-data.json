@@ -86,6 +86,39 @@
       "file": "404",
       "skip-all": true,
       "order": 0
+    },
+    "four03": {
+      "title": "Forbidden",
+      "type": "none",
+      "name": "four03",
+      "route": "/403",
+      "label": "403",
+      "template": "main-example",
+      "file": "403",
+      "skip-all": true,
+      "order": 0
+    },
+    "five00": {
+      "title": "Internal Server Error",
+      "type": "none",
+      "name": "five00",
+      "route": "/500",
+      "label": "500",
+      "template": "main-example",
+      "file": "500",
+      "skip-all": true,
+      "order": 0
+    },
+    "five03": {
+      "title": "Service Unavailable",
+      "type": "none",
+      "name": "five03",
+      "route": "/503",
+      "label": "503",
+      "template": "main-example",
+      "file": "503",
+      "skip-all": true,
+      "order": 0
     }
   },
   "uaId": "UA-NNNNNNNNN-N",
