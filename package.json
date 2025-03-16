@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -9,7 +9,10 @@
     "build": "gulp build",
     "build:debug": "node --inspect-brk ./node_modules/gulp/bin/gulp.js build",
     "build:dev": "gulp dev-build",
-    "dev": "node src/dev-server.js --COMPRESS --PORT=5000",
+    "dev": "node src/server.js --PORT=5000",
+    "dev:debug": "node --inspect-brk src/server.js --PORT=5000 --DEBUG",
+    "maint": "node src/server.js --PORT=5000 --MAINTENANCE='Fri, 21 Mar 2025 05:00:00 GMT'",
+    "start": "NODE_ENV=production node src/server.js --PORT=5000",
     "test": "echo \"no tests yet\" && exit 1"
   },
   "repository": {
