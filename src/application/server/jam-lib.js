@@ -4,7 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import fs from 'node:fs';
+import { default as fs, promises as afs } from 'node:fs';
 import path from 'node:path';
 
 /**
@@ -28,12 +28,18 @@ export function processArgs () {
     return groups?.maintenance || dflt;
   }, false);
 
+  const envPath = process.argv.reduce((acc, item) => {
+    const groups = item.match(/--ENV-PATH=(?<envPath>[\w-/.]+)/i)?.groups;
+    return groups?.envPath || acc;
+  }, '');
+
   const noCompression = process.argv.some(item => item.match('NO-COMPRESS'));
   const noHeaders = process.argv.some(item => item.match('NO-HEADERS'));
   const debug = process.argv.some(item => item.match('DEBUG'));
 
   return {
     debug,
+    envPath,
     maintenance,
     noCompression,
     noHeaders,
@@ -179,4 +185,22 @@ export function errorHandler (logger, root, err, req, res, next) {
   }
   setHeaders(logger, res, req.path);
   res.status(500).sendFile('500.html', { root });
+}
+
+/**
+ * Load a host env file into the current environment.
+ *
+ * @param {String} envFilePath - Path to the json host env file.
+ */
+export async function setHostEnv (envFilePath) {
+  const jsonFile = path.resolve(envFilePath);
+  try {
+    const configText = await afs.readFile(jsonFile, { encoding: 'utf8' });
+    const config = JSON.parse(configText); 
+    for (const [key, val] of Object.entries(config)) {
+      process.env[key] = val;
+    }
+  } catch (e) {
+    console.warn(`host env "${jsonFile}" not loaded, this might be ok`, e.code); // eslint-disable-line
+  }
 }
