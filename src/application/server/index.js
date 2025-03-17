@@ -1,5 +1,5 @@
 /**
- * Contained web server.
+ * Main app server.
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
@@ -14,7 +14,7 @@ import {
   processArgs,
   setHeaders,
   staticFiles
-} from './server-lib.js';
+} from './jam-lib.js';
 
 const {
   debug,
@@ -24,8 +24,10 @@ const {
   port,
   rootDir
 } = processArgs();
+/* eslint-disable no-console */
 const logger = debug ? console.log : () => {};
 const errorLogger = console.error;
+/* eslint-enable no-console */
 
 const server = express();
 

@@ -11,13 +11,15 @@
  */
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
 
-setCacheNameDetails({ prefix: CACHE_PREFIX });
+setCacheNameDetails({
+  prefix: CACHE_PREFIX // eslint-disable-line
+});
 
 function updateRuntimeCache () {
-  const urls = SSR_CACHEABLE_ROUTES;
+  const urls = SSR_CACHEABLE_ROUTES; // eslint-disable-line
   const cacheName = cacheNames.runtime;
   return caches.open(cacheName)
-    .then(cache => cache.addAll(urls))
+    .then(cache => cache.addAll(urls));
 }
 
 function sendResponse (event, response) {
@@ -28,7 +30,7 @@ function sendResponse (event, response) {
     respondTo.postMessage(response);
   } else {
     if (self.clients) {
-      result = clients.matchAll().then(clients => {
+      result = self.clients.matchAll().then(clients => {
         for (let i = 0; i < clients.length; i++) {
           clients[i].postMessage(response);
         }
@@ -44,7 +46,7 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  const versionedCachePrefix = CACHE_PREFIX;
+  const versionedCachePrefix = CACHE_PREFIX; // eslint-disable-line
   event.waitUntil(
     caches.keys().then(keys => Promise.all(
       keys.map(key => {
@@ -79,7 +81,7 @@ self.addEventListener('message', event => {
     case 'version':
       sendReply({
         action: 'ln-version-buildstamp',
-        version: VERSION_BUILDSTAMP
+        version: VERSION_BUILDSTAMP // eslint-disable-line
       });
       break;
     case 'runtime-update':
