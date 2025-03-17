@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -11,6 +11,7 @@
     "build:dev": "gulp dev-build",
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
+    "install-arm": "pushd node_modules/@localnerve/gulp-imagemin && npm run install-arm && popd",
     "lint": "eslint .",
     "maint": "node src/application/server --PORT=5000 --MAINTENANCE='Fri, 21 Mar 2025 05:00:00 GMT'",
     "start": "NODE_ENV=production node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
@@ -38,6 +39,8 @@
   "devDependencies": {
     "@eslint/js": "^9.22.0",
     "@localnerve/csp-hashes": "^5.0.8",
+    "@localnerve/gulp-imagemin": "^11.5.3",
+    "@localnerve/gulp-responsive": "^7.0.1",
     "@localnerve/sass-asset-functions": "^6.8.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
@@ -64,5 +67,14 @@
     "workbox-build": "^7.3.0",
     "workbox-core": "^7.3.0",
     "workbox-window": "^7.3.0"
+  },
+  "overrides": {
+    "download": "npm:@xhmikosr/downloader",
+    "bin-wrapper": "npm:@xhmikosr/bin-wrapper",
+    "bin-build": "npm:@localnerve/bin-build",
+    "sourcemap-codec": "npm:@jridgewell/sourcemap-codec",
+    "got": "^13.0.0",
+    "semver-regex": "^4.0.5",
+    "cross-spawn": "^7.0.6"
   }
 }

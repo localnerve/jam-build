@@ -34,6 +34,11 @@ export function createSettings (prod = true) {
       distFonts,
       webFonts
     },
+    images: {
+      prod,
+      distImages,
+      responsiveConfig: {}
+    },
     scripts: {
       dist,
       prod,
