@@ -1,0 +1,12 @@
+/private
+/overrides
+/node_modules
+/dist
+/tmp
+/test-results
+/docs
+/art
+.github
+.git
+.gitignore
+.vscode

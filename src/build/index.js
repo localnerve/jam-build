@@ -17,6 +17,7 @@ import { generateAssets } from './assets.js';
 import { renderHtml } from './templates.js';
 import { minifyHtml } from './html.js';
 import { buildSwMain } from './sw.js';
+import { getImageSequence } from './images.js';
 import { assetRevision, pageRevision } from './revision.js';
 
 /**
@@ -35,6 +36,7 @@ function createBuild (settings) {
     generateAssets.bind(null, settings.assets),
     dirCopy.bind(null, settings.copyImages),
     dirCopy.bind(null, settings.copyAssets),
+    getImageSequence(settings.images),
     assetRevision.bind(null, settings.revision),
     renderHtml.bind(null, settings.templates),
     pageRevision.bind(null, settings.revision),
