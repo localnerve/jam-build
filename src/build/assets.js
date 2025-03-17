@@ -32,8 +32,7 @@ export async function generateAssets (settings) {
     sitemap: ${sitemapWebUrl}
     User-agent: ia_archiver
     Disallow: /`,
-    'utf8'
-  );
+  'utf8');
 
   const sitemapLinks = [];
   for (const page of Object.values(siteData.pages)) {

@@ -9,7 +9,7 @@ import { glob } from 'glob';
 import { generateSW } from 'workbox-build';
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
-import pkg from '../../package.json' with { type: 'json' }
+import pkg from '../../package.json' with { type: 'json' };
 
 /**
  * Generate the version - build timestamp string.

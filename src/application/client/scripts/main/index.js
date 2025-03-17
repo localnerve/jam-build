@@ -1,6 +1,8 @@
 /**
  * Client entry point
  * 
+ * APP_VERSION is replaced on bundle.
+ *
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
@@ -52,7 +54,7 @@ function updateVersion () {
  */
 function setupPage (support) {
   const page = document.querySelector('meta[name="page"]').content;
-  console.log(`@@@ TODO: call setup for ${page}`);
+  console.log(`@@@ TODO: call setup for ${page}`, support); // eslint-disable-line
 }
 
 /**
