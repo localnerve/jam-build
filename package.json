@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -9,11 +9,11 @@
     "build": "npm run lint && gulp build",
     "build:debug": "node --inspect-brk ./node_modules/gulp/bin/gulp.js build",
     "build:dev": "gulp dev-build",
-    "dev": "node src/application/server/index.js --PORT=5000",
-    "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --DEBUG",
+    "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
+    "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
     "lint": "eslint .",
-    "maint": "node src/application/server/index.js --PORT=5000 --MAINTENANCE='Fri, 21 Mar 2025 05:00:00 GMT'",
-    "start": "NODE_ENV=production node src/application/server/index.js --PORT=5000",
+    "maint": "node src/application/server --PORT=5000 --MAINTENANCE='Fri, 21 Mar 2025 05:00:00 GMT'",
+    "start": "NODE_ENV=production node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "test": "echo \"no tests yet\" && exit 1"
   },
   "repository": {

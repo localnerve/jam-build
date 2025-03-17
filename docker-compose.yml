@@ -1,0 +1,14 @@
+name: jam-build-container
+services:
+  jam-build:
+    build: .
+    image: jam-build:latest
+    secrets:
+      - source: jam
+        target: jam-env.json
+    ports:
+      - 127.0.0.1:8088:8088/tcp
+secrets:
+  jam:
+    file: ./private/host-env.json
+    

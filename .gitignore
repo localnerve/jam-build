@@ -131,3 +131,6 @@ dist
 
 # no tmp
 tmp
+
+# no private
+private
