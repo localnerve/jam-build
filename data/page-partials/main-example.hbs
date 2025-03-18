@@ -6,9 +6,17 @@
   {{! content for specific pages, if it exists }}
   {{#with (lookup content page)}}
 
+  {{#if (lookup this 'hero-0')}}
+  <section class="section hero {{lookup this 'hero-0'}}">
+    {{> (lookup this 'hero-0') ..}}
+  </section>
+  {{/if}}
+
+  {{#if (lookup this 'section-0')}}
   <section class="section {{lookup this 'section-0'}}">
     {{> (lookup this 'section-0') ..}}
   </section>
+  {{/if}}
 
   {{/with}}
 

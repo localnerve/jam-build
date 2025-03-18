@@ -1,4 +1,5 @@
 @use 'mixins' as m;
+@use 'colors' as c;
 
 .main-example {
   padding: 1em 2em;
@@ -8,6 +9,77 @@
   
     @include m.breakpoint (xlarge) {
       margin-top: 1em;
+    }
+  }
+
+  .section {
+    position: relative;
+  }
+
+  .home-hero-0 {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-670-size.jpg');
+    @include m.breakpoint (medium) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-1024-size.jpg');
+    }
+    @include m.breakpoint (medium-large) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-1440-size.jpg');
+    }
+    @include m.breakpoint (xlarge) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-1920-size.jpg');
+    }
+  }
+  .about-hero-0 {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-670-size.jpg');
+    @include m.breakpoint (medium) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-1024-size.jpg');
+    }
+    @include m.breakpoint (medium-large) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-1440-size.jpg');
+    }
+    @include m.breakpoint (xlarge) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-1920-size.jpg');
+    }
+  }
+  .contact-hero-0 {
+    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-670-size.jpg');
+    @include m.breakpoint (medium) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-1024-size.jpg');
+    }
+    @include m.breakpoint (medium-large) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-1440-size.jpg');
+    }
+    @include m.breakpoint (xlarge) {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-1920-size.jpg');
+    }
+  }
+
+  .hero {
+    width: 100%;
+    height: 20rem;
+    display: flex;
+    padding: 0 0.5em;
+    flex-flow: column nowrap;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+
+    h3 {
+      font-size: 3em;
+      margin-top: 0;
+      margin-bottom: 0.5em;
+      color: #{c.$site-white};
+
+      @include m.breakpoint (medium-small) {
+        font-size: 5em;
+      }
+    }
+  
+    p {
+      font-size: 1.5em;
+      color: #{c.$site-white};;
     }
   }
 }
