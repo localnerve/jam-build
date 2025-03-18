@@ -35,7 +35,6 @@ function createBuild (settings) {
     createScripts.bind(null, settings.scripts),
     generateAssets.bind(null, settings.assets),
     dirCopy.bind(null, settings.copyImages),
-    dirCopy.bind(null, settings.copyAssets),
     getImageSequence(settings.images),
     assetRevision.bind(null, settings.revision),
     renderHtml.bind(null, settings.templates),

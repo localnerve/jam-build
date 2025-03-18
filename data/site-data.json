@@ -3,6 +3,9 @@
   "defaultDescription": "This is a description.",
   "appHost": "domain.com",
   "elevator": "This is an elevator pitch.",
+  "themeColor": "#1B7BA1",
+  "backgroundColor": "#1B5A7F",
+  "tileColor": "#DA532C",
   "pages": {
     "home": {
       "title": "Home",
