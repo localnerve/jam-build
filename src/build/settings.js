@@ -37,7 +37,37 @@ export function createSettings (prod = true) {
     images: {
       prod,
       distImages,
-      responsiveConfig: {}
+      responsiveConfig: {
+        'hero-*.jpg': [{
+          quality: 80,
+          width: 670,
+          progressive: true,
+          rename: {
+            suffix: '-670-size'
+          }
+        }, {
+          quality: 80,
+          width: 1024,
+          progressive: true,
+          rename: {
+            suffix: '-1024-size'
+          }
+        }, {
+          quality: 65,
+          width: 1440,
+          progressive: true,
+          rename: {
+            suffix: '-1440-size'
+          }
+        }, {
+          quality: 65,
+          width: 1920,
+          progressive: true,
+          rename: {
+            suffix: '-1920-size'
+          }
+        }]
+      }
     },
     scripts: {
       dist,
