@@ -1,7 +1,7 @@
 {
-    "name": "BusinessName, LLC",
-    "short_name": "BusinessName",
-    "description": "BusinessName description",
+    "name": "{{ business.name }}",
+    "short_name": "{{ business.shortName }}",
+    "description": "{{ defaultDescription }}",
     "icons": [
         {
             "src": "/images/android-chrome-36x36.png",
@@ -56,18 +56,18 @@
             "sizes": "400x630",
             "type": "image/png",
             "form_factor": "narrow",
-            "label": "LocalNerve Web Developer"
+            "label": "BusinessName Application"
         },
         {
             "src": "/images/ogimage-1200x630.png",
             "sizes": "1200x630",
             "type": "image/png",
             "form_factor": "wide",
-            "label": "LocalNerve Web Developer"
+            "label": "BusinessName Application"
         }
     ],
-    "theme_color": "#1B7BA1",
-    "background_color": "#1B5A7F",
+    "theme_color": "{{ themeColor }}",
+    "background_color": "{{ backgroundColor }}",
     "start_url": "/?utm_source=homescreen",
     "display": "standalone"
 }

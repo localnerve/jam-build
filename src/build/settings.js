@@ -95,13 +95,10 @@ export function createSettings (prod = true) {
       srcDir: `${srcClient}/images`,
       destDir: `${dist}/images`
     },
-    copyAssets: {
-      srcDir: `${srcClient}/assets`,
-      destDir: dist
-    },
     assets: {
       dist,
       dataDir,
+      assetsDir: `${srcClient}/assets`,
       sitemapName: 'sitemap.xml',
       sitemapWebPath: '/'
     }
