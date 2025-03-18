@@ -33,11 +33,12 @@
   <meta name="page" content="{{ page }}" />
 
   <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" sizes="180x180" />
-  <link rel="shortcut icon" href="/images/favicon-180x180.png" type="image/png" sizes="180x180">
+  <link rel="icon" href="/images/favicon-180x180.png" type="image/png" sizes="180x180">
   <link rel="icon" href="/images/favicon-32x32.png" type="image/png" sizes="32x32">
   <link rel="icon" href="/images/favicon-16x16.png" type="image/png" sizes="16x16">
-  <link rel="mask-icon" href="/images/safari-pinned-tab.svg" color="#ea4335" />
+  <link rel="icon" href="/images/favicon.ico" type="image/x-icon" />
   <link rel="shortcut icon" href="/images/favicon.ico" />
+  <link rel="mask-icon" href="/images/safari-pinned-tab.svg" color="#ea4335" />
   <meta name="apple-mobile-web-app-title" content="{{siteData.business.shortName}}" />
   <meta name="application-name" content="{{siteData.business.shortName}}" />
   <meta name="msapplication-TileColor" content="#da532c" />
@@ -48,7 +49,7 @@
   <meta property="og:title" content="{{ siteData.social.og.title }}" />
   <meta property="og:description" content="{{ siteData.social.og.description }}" />
   <meta property="og:url" content="https://{{ siteData.appHost }}/{{ page }}" />
-  <meta property="og:site_name" content="Bayberry Copywriting">
+  <meta property="og:site_name" content="{{ siteData.business.shortName }}">
   <meta property="og:type" content="website" />
   {{#each siteData.social.og.image}}
   <meta property="og:image" content="{{url}}" />
