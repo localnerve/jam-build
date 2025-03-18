@@ -93,25 +93,21 @@ export function staticFiles (logger, rootDir, req, res, next) {
 }
 
 /**
- * 503 handler.
- * Rewrite all requests to 503.
- * 
- * @param {function} logger - Logging function.
- * @param {String|Number} retryAfter - The retry after HTTP date.
- * @param {Request} req - The express request object.
- * @param {Response} res - The express response object.
- * @param {Function} next - The express next function.
+ * Load a host env file into the current environment.
+ *
+ * @param {String} envFilePath - Path to the json host env file.
  */
-export function maintenanceHandler (logger, retryAfter, req, res, next) {
-  if (isPageRoute(req.path)) {
-    logger('503', req.url);
-    req.url = '503.html';
-    if (Date.parse(retryAfter) || parseInt(retryAfter)) {
-      res.set('Retry-After', retryAfter);
+export async function setHostEnv (envFilePath) {
+  const jsonFile = path.resolve(envFilePath);
+  try {
+    const configText = await afs.readFile(jsonFile, { encoding: 'utf8' });
+    const config = JSON.parse(configText); 
+    for (const [key, val] of Object.entries(config)) {
+      process.env[key] = val;
     }
-    res.status(503);
+  } catch (e) {
+    console.warn(`host env "${jsonFile}" not loaded, this might be ok`, e.code); // eslint-disable-line
   }
-  next();
 }
 
 /**
@@ -188,19 +184,23 @@ export function errorHandler (logger, root, err, req, res, next) {
 }
 
 /**
- * Load a host env file into the current environment.
- *
- * @param {String} envFilePath - Path to the json host env file.
+ * 503 handler.
+ * Rewrite all requests to 503.
+ * 
+ * @param {function} logger - Logging function.
+ * @param {String|Number} retryAfter - The retry after HTTP date.
+ * @param {Request} req - The express request object.
+ * @param {Response} res - The express response object.
+ * @param {Function} next - The express next function.
  */
-export async function setHostEnv (envFilePath) {
-  const jsonFile = path.resolve(envFilePath);
-  try {
-    const configText = await afs.readFile(jsonFile, { encoding: 'utf8' });
-    const config = JSON.parse(configText); 
-    for (const [key, val] of Object.entries(config)) {
-      process.env[key] = val;
+export function maintenanceHandler (logger, retryAfter, req, res, next) {
+  if (isPageRoute(req.path)) {
+    logger('503', req.url);
+    req.url = '503.html';
+    if (Date.parse(retryAfter) || parseInt(retryAfter)) {
+      res.set('Retry-After', retryAfter);
     }
-  } catch (e) {
-    console.warn(`host env "${jsonFile}" not loaded, this might be ok`, e.code); // eslint-disable-line
+    res.status(503);
   }
+  next();
 }
