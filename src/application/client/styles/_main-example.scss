@@ -16,40 +16,19 @@
     position: relative;
   }
 
-  .home-hero-0 {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-670-size.jpg');
-    @include m.breakpoint (medium) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-1024-size.jpg');
-    }
-    @include m.breakpoint (medium-large) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-1440-size.jpg');
-    }
-    @include m.breakpoint (xlarge) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-ballon-1920-size.jpg');
-    }
-  }
-  .about-hero-0 {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-670-size.jpg');
-    @include m.breakpoint (medium) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-1024-size.jpg');
-    }
-    @include m.breakpoint (medium-large) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-1440-size.jpg');
-    }
-    @include m.breakpoint (xlarge) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-field-1920-size.jpg');
-    }
-  }
-  .contact-hero-0 {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-670-size.jpg');
-    @include m.breakpoint (medium) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-1024-size.jpg');
-    }
-    @include m.breakpoint (medium-large) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-1440-size.jpg');
-    }
-    @include m.breakpoint (xlarge) {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/images/hero-stream-1920-size.jpg');
+  $pages: home, about, contact;
+  @each $page in $pages {
+    .#{$page}-hero-0 {
+      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-670-size.jpg');
+      @include m.breakpoint (medium) {
+        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-1024-size.jpg');
+      }
+      @include m.breakpoint (medium-large) {
+        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-1440-size.jpg');
+      }
+      @include m.breakpoint (xlarge) {
+        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-1920-size.jpg');
+      }      
     }
   }
 
