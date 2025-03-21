@@ -16,19 +16,17 @@
     position: relative;
   }
 
-  $pages: home, about, contact;
+  $pages: lookup('nav-pages');
   @each $page in $pages {
+    $images: lookup('images', 'hero-#{$page}');
     .#{$page}-hero-0 {
-      background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-670-size.jpg');
-      @include m.breakpoint (medium) {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-1024-size.jpg');
+      $last-width: -1;
+      @each $width, $image in $images {
+        @include m.min-width('#{$last-width + 1}px') {
+          background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url($image);
+        }
+        $last-width: m.number($width);
       }
-      @include m.breakpoint (medium-large) {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-1440-size.jpg');
-      }
-      @include m.breakpoint (xlarge) {
-        background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url('hero-#{$page}-1920-size.jpg');
-      }      
     }
   }
 

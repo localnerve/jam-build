@@ -26,16 +26,17 @@ import { assetRevision, pageRevision } from './revision.js';
  * @param {Object} settings - build parameters.
  * @returns {Stream} A gulp series.
  */
-function createBuild (settings) {
+async function createBuild (settings) {
+  const imageProcessingSequence = await getImageSequence(settings.images);
   return gulp.series(
     rimraf.bind(null, settings.dist, {}),
     mkdirp.bind(null, settings.dist, {}),
     mkdirp.bind(null, settings.distImages, {}),
+    dirCopy.bind(null, settings.copyImages),
+    imageProcessingSequence,
     createStyles.bind(null, settings.styles),
     createScripts.bind(null, settings.scripts),
     generateAssets.bind(null, settings.assets),
-    dirCopy.bind(null, settings.copyImages),
-    getImageSequence(settings.images),
     assetRevision.bind(null, settings.revision),
     renderHtml.bind(null, settings.templates),
     pageRevision.bind(null, settings.revision),
@@ -46,5 +47,5 @@ function createBuild (settings) {
 
 const prodSettings = createSettings();
 const devSettings = createSettings(false);
-export const build = createBuild(prodSettings);
-export const devBuild = createBuild(devSettings);
+export const build = await createBuild(prodSettings);
+export const devBuild = await createBuild(devSettings);

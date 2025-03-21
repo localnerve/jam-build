@@ -4,17 +4,21 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import path from 'node:path';
 import gulp from 'gulp';
 import gulpResponsive from '@localnerve/gulp-responsive';
 import gulpImageMin, {mozjpeg, optipng, svgo} from '@localnerve/gulp-imagemin';
+import { loadSiteData } from './data.js';
 
 /**
  * Generate responsive images
  * 
  * @param {Object} settings - build settings.
  * @param {String} settings.distImages - dist root dir of images.
+ * @param {Object} settings.responsiveConfig - The responsive config.
+ * @param {Object} data - The siteData data object.
  */
-function responsive (settings) {
+function responsive (settings, data) {
   const { distImages, responsiveConfig } = settings;
 
   if (Object.keys(responsiveConfig).length > 0) {
@@ -24,11 +28,17 @@ function responsive (settings) {
       .pipe(gulpResponsive(responsiveConfig, {
         errorOnUnusedConfig: false,
         errorOnUnusedImage: false,
-        passThroughUnused : true
+        passThroughUnused : true,
+        postprocess: (originalFile, config, newFile) => {
+          const key = path.parse(originalFile.relative).name;
+          if (!data.images[key]) {
+            data.images[key] = {};
+          }
+          data.images[key][config.width] = newFile.relative;
+        }
       }))
       .pipe(gulp.dest(distImages));
   }
-
   return Promise.resolve();
 }
 
@@ -65,10 +75,15 @@ function imagemin (settings) {
  * Create the image processing steps.
  * 
  * @param {Object} settings - build settings.
+ * @param {String} settings.dataDir - The data directory.
  */
-export function getImageSequence (settings) {
+export async function getImageSequence (settings) {
+  const { dataDir, webImages } = settings;
+  const data = await loadSiteData(dataDir);
+  data.images = { webImages };
+
   return gulp.series(
-    responsive.bind(null, settings),
+    responsive.bind(null, settings, data),
     imagemin.bind(null, settings)
   );
 }

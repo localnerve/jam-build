@@ -12,6 +12,7 @@ import gulpPostcss from 'gulp-postcss';
 import * as dartSass from 'sass';
 import autoprefixer from 'autoprefixer';
 import assetFunctions from '@localnerve/sass-asset-functions';
+import { loadSiteData } from './data.js';
 
 
 /**
@@ -76,10 +77,11 @@ function streamSass () {
  * @param {String} settings.webFonts - web root of fonts.
  * @param {Boolean} settings.prod - True if production, false otherwise.
  */
-export function createStyles (settings) {
+export async function createStyles (settings) {
   const {
-    dist, srcClient, prod, distImages, webImages, distFonts, webFonts
+    dist, srcClient, prod, distImages, webImages, distFonts, webFonts, dataDir
   } = settings;
+  const data = await loadSiteData(dataDir);
   const sassStream = streamSass();
   return gulp.src([`${srcClient}/**/*.scss`, `!${srcClient}/**/inline/**`])
     .pipe(sassStream({
@@ -92,7 +94,13 @@ export function createStyles (settings) {
         images_path: distImages,
         http_images_path: webImages,
         fonts_path: distFonts,
-        http_fonts_path: webFonts
+        http_fonts_path: webFonts,
+        data: {
+          'nav-pages': Object.values(data.pages)
+            .filter(page => page.type === 'nav')
+            .map(page => page.name),
+          images: data.images
+        }
       })
     }).on('error', sassStream.logError))
     .pipe(
