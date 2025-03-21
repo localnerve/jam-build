@@ -83,6 +83,46 @@ export function equals (value1, value2) {
 }
 
 /**
+ * Helper to concatenate given strings.
+ * 
+ * @param  {...any} args - The arguments, strings are filtered from here.
+ * @returns A concatenated string from given strings.
+ */
+export function concat (...args) {
+  return args.filter(arg => typeof arg === 'string').join('');
+}
+
+/**
+ * Store a temporary state variable.
+ * 
+ * @param {Object} reference - A storage object.
+ * @param {any} value1 - A value to store.
+ */
+export function setState (reference, value1) {
+  reference.__state = value1;
+}
+
+/**
+ * Retrieve a temporary state variable.
+ *
+ * @param {Object} reference - A storage object.
+ * @returns {Any} some state variable.
+ */
+export function getState (reference) {
+  return reference.__state;
+}
+
+/**
+ * Add one to a given numeric input.
+ * 
+ * @param {String|Number} input - A numeric value.
+ * @returns {String} A number incremented by one.
+ */
+export function inc (input) {
+  return ((+input) + 1).toString();
+}
+
+/**
  * Return the svg partial name by page.
  *
  * @param {Object} hb - The handlebars instance
@@ -99,8 +139,12 @@ export function svgPage (hb, page) {
 
 export default {
   capFirst,
+  concat,
   debug,
   equals,
+  getState,
+  inc,
+  setState,
   subChars,
   subWords,
   svgPage
