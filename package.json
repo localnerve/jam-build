@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -13,7 +13,7 @@
     "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
     "install-arm": "pushd node_modules/@localnerve/gulp-imagemin && npm run install-arm && popd",
     "lint": "eslint .",
-    "maint": "node src/application/server --PORT=5000 --MAINTENANCE='Fri, 21 Mar 2025 05:00:00 GMT'",
+    "maint": "node src/application/server --PORT=5000 --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "test": "echo \"no tests yet\" && exit 1"
   },

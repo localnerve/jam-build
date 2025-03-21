@@ -8,18 +8,21 @@
   <meta content="initial-scale=1, width=device-width, minimum-scale=1, maximum-scale=5" name="viewport" />
 
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <link rel="preload" href="/styles/index.css" as="style" />
 
+  {{! preload any hero images for this page }}
   {{#with (lookup content page)}}
   {{#if (lookup this 'hero-0')}}
-  <link rel="preload" href="/images/hero-{{../page}}-670-size.jpg" as="image" media="(max-width: 670px)" />
-  <link rel="preload" href="/images/hero-{{../page}}-1024-size.jpg" as="image" media="(min-width: 671px) and (max-width: 1024px)" />
-  <link rel="preload" href="/images/hero-{{../page}}-1440-size.jpg" as="image" media="(min-width: 1025px) and (max-width: 1440px)" />
-  <link rel="preload" href="/images/hero-{{../page}}-1920-size.jpg" as="image" media="(min-width: 1441px)" />
+  {{setState ../siteData.images -1}}
+  {{#each (lookup ../siteData.images (concat 'hero-' ../page))}}
+  <link rel="preload" href="{{../../siteData.images.webImages}}/{{this}}" as="image"
+    media="(min-width: {{concat (inc (getState ../../siteData.images)) 'px'}}) {{#unless @last}}and (max-width: {{concat @key 'px'}}){{/unless}}" />
+  {{setState ../../siteData.images @key}}
+  {{/each}}
   {{/if}}
   {{/with}}
 
+  {{! CSP }}
   <meta http-equiv="Content-Security-Policy" content="
     base-uri 'self';
     default-src 'self';
