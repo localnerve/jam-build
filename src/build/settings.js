@@ -27,6 +27,7 @@ export function createSettings (prod = true) {
     distImages: `${dist}/images`,
     styles: {
       dist,
+      dataDir,
       srcClient,
       prod,
       distImages,
@@ -37,6 +38,8 @@ export function createSettings (prod = true) {
     images: {
       prod,
       distImages,
+      webImages,
+      dataDir,
       responsiveConfig: {
         'hero-*.jpg': [{
           quality: 80,

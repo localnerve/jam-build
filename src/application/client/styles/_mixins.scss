@@ -5,6 +5,8 @@
 // Private use for LocalNerve, LLC only. Unlicensed for any other use. 
 // -------------
 @use 'sass:map';
+@use "sass:string";
+@use 'sass:list';
 
 //
 // ----------------------------------------------------------
@@ -80,4 +82,26 @@
     (max-height: 641px) {
     @content;
   }
+}
+
+// convert a sass string number to a sass number number
+@function number($string) {
+  $strings: '0' '1' '2' '3' '4' '5' '6' '7' '8' '9';
+  $numbers: 0 1 2 3 4 5 6 7 8 9;
+  $result: 0;
+
+  @for $i from 1 through string.length($string) {
+    $character: string.slice($string, $i, $i);
+    $index: list.index($strings, $character);
+  
+    @if not $index {
+      @warn "Unknown character `#{$character}`.";
+      @return false;
+    }
+  
+    $number: list.nth($numbers, $index);
+    $result: $result * 10 + $number;
+  }
+
+  @return $result;
 }
