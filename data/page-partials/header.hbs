@@ -16,7 +16,7 @@
   {{setState ../siteData.images -1}}
   {{#each (lookup ../siteData.images (concat 'hero-' ../page))}}
   <link rel="preload" href="{{../../siteData.images.webImages}}/{{this}}" as="image"
-    media="(min-width: {{concat (inc (getState ../../siteData.images)) 'px'}}) {{#unless @last}}and (max-width: {{concat @key 'px'}}){{/unless}}" />
+    media="{{#unless @first}}(min-width: {{concat (inc (getState ../../siteData.images)) 'px'}}){{#unless (or @first @last)}} and {{/unless}}{{/unless}}{{#unless @last}}(max-width: {{concat @key 'px'}}){{/unless}}" />
   {{setState ../../siteData.images @key}}
   {{/each}}
   {{/if}}

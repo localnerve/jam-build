@@ -123,6 +123,18 @@ export function inc (input) {
 }
 
 /**
+ * Helper to evaluate 'or' truth.
+ * 
+ * @param {any} val1 - The first operand.
+ * @param {String} operator - and or or operator.
+ * @param {any} val2 - The second operand.
+ * @returns {Boolean} true if either val1 or val2 are true, false otherwise.
+ */
+export function or (val1, val2) {
+  return (val1 || val2);
+}
+
+/**
  * Return the svg partial name by page.
  *
  * @param {Object} hb - The handlebars instance
@@ -144,6 +156,7 @@ export default {
   equals,
   getState,
   inc,
+  or,
   setState,
   subChars,
   subWords,
