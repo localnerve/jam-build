@@ -135,5 +135,6 @@ $spinner-duration: 1.4s;
 
 // safari zoom bug
 .safari-desktop .spinner-el .path {
+  // stylelint-disable-next-line declaration-property-value-keyword-no-deprecated
   zoom: reset;
 }
