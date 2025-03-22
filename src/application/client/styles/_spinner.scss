@@ -12,6 +12,10 @@
 $spinner-offset: 187;
 $spinner-duration: 1.4s;
 
+.spinner-el {
+  display: none;
+}
+
 .spinner {
   .spinner-el {
     display: block;
@@ -28,54 +32,80 @@ $spinner-duration: 1.4s;
   }
 }
 
-.spinner-el {
-  display: none;
-}
-
 @keyframes spinner-rotator {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(270deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  
+  100% {
+    transform: rotate(270deg);
+  }
 }
 
-/*
 @keyframes spinner-colors {
-	0% { stroke: #4285F4; }
-	25% { stroke: #DE3E35; }
-	50% { stroke: #F7C223; }
-	75% { stroke: #1B9A59; }
-  100% { stroke: #4285F4; }
-}
-*/
-@keyframes spinner-colors {
-	0% { stroke: c.$logo-red-light-alt; }
-  16% { stroke: rgb(color.channel(c.$logo-red-light-alt, "red", $space: rgb), color.channel(c.$logo-blue-light-alt, "green", $space: rgb), color.channel(c.$logo-red-light-alt, "blue", $space: rgb)) }
-	33% { stroke: rgb(color.channel(c.$logo-red-light-alt, "red", $space: rgb), color.channel(c.$logo-blue-light-alt, "green", $space: rgb), color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)) }
-	50% { stroke: c.$logo-blue-light-alt; }
-	66% { stroke: rgb(color.channel(c.$logo-blue-light-alt, "red", $space: rgb), color.channel(c.$logo-red-light-alt, "green", $space: rgb), color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)) }
-  83% { stroke: rgb(color.channel(c.$logo-red-light-alt, "red", $space: rgb), color.channel(c.$logo-red-light-alt, "green", $space: rgb), color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)) }
+	0% {
+    stroke: c.$logo-red-light-alt;
+  }
+  
+  16% {
+    stroke: rgb(
+      color.channel(c.$logo-red-light-alt, "red", $space: rgb),
+      color.channel(c.$logo-blue-light-alt, "green", $space: rgb),
+      color.channel(c.$logo-red-light-alt, "blue", $space: rgb)
+    )
+  }
+	
+  33% {
+    stroke: rgb(
+      color.channel(c.$logo-red-light-alt, "red", $space: rgb),
+      color.channel(c.$logo-blue-light-alt, "green", $space: rgb),
+      color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)
+    )
+  }
+	
+  50% {
+    stroke: c.$logo-blue-light-alt;
+  }
+	
+  66% {
+    stroke: rgb(
+      color.channel(c.$logo-blue-light-alt, "red", $space: rgb),
+      color.channel(c.$logo-red-light-alt, "green", $space: rgb),
+      color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)
+    )
+  }
+  
+  83% {
+    stroke: rgb(
+      color.channel(c.$logo-red-light-alt, "red", $space: rgb),
+      color.channel(c.$logo-red-light-alt, "green", $space: rgb),
+      color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)
+    )
+  }
 }
 
 @keyframes spinner-dash {
- 0% { stroke-dashoffset: $spinner-offset; }
- 50% {
-   stroke-dashoffset: math.div($spinner-offset, 4);
-   transform: rotate(135deg);
- }
- 100% {
-   stroke-dashoffset: $spinner-offset;
-   transform: rotate(450deg);
- }
+  0% {
+    stroke-dashoffset: $spinner-offset;
+  }
+
+  50% {
+    stroke-dashoffset: math.div($spinner-offset, 4);
+    transform: rotate(135deg);
+  }
+  
+  100% {
+    stroke-dashoffset: $spinner-offset;
+    transform: rotate(450deg);
+  }
 }
 
 .page-spinner {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  top: 0; right: 0; bottom: 0; left: 0; // stylelint-disable-line declaration-block-no-redundant-longhand-properties
   z-index: v.$z-index-spinner;
-  background: rgba(34,34,34,0.5);
+  background: rgba(34 34 34 / 50%);
 
   .spinner {
     width: 100%;
@@ -93,8 +123,10 @@ $spinner-duration: 1.4s;
   &.show {
     display: block;
   }
+
   &.backstop { // just be a blocking backstop
     display: block;
+
     .spinner {
       display: none;
     }

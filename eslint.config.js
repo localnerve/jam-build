@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import compat from "eslint-plugin-compat";
 import globals from 'globals';
 
 const commonRules = {
@@ -21,6 +22,9 @@ const commonRules = {
   ]
 };
 
+const compatConfig = compat.configs["flat/recommended"];
+compatConfig.rules = { ...compatConfig.rules, ...commonRules };
+
 export default [{
   name: 'global',
   ignores: [
@@ -33,14 +37,7 @@ export default [{
 }, {
   name: 'app-client',
   files: ['src/application/client/**/*.js'],
-  languageOptions: {
-    globals: {
-      ...globals.browser
-    }
-  },
-  rules: {
-    ...commonRules
-  }
+  ...compatConfig
 }, {
   name: 'app-sw',
   files: [

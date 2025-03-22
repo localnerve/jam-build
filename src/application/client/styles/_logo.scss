@@ -29,6 +29,7 @@
   @include m.breakpoint (medium-small) {
     --logo-size: 3;
   }
+
   @include m.breakpoint (medium) {
     --logo-size: 2;
   }
@@ -51,13 +52,16 @@
       line-height: 1.1;
       white-space: nowrap;
     }
+
     .nl {
       color: var(--logo-blue);
     }
+
     .nr {
       margin-left: calc((var(--logo-size) / 3.5) * -1rem);
       color: var(--logo-red);
     }
+
     .symbol {
       position: absolute;
       left: calc(var(--logo-chars) * (var(--logo-size) / 2 * 1rem) + 0.25rem);

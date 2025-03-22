@@ -3,7 +3,6 @@
 @use 'vars' as v;
 @use 'colors' as c;
 @use 'mixins' as m;
-
 @forward 'modern-normalize';
 @forward 'logo';
 @forward 'nav';
@@ -11,12 +10,12 @@
 @forward 'footer';
 @forward 'prompt';
 @forward 'spinner';
-
 @forward 'main-example';
 
 html {
   font-size: v.$rem-base;
 }
+
 body {
   font-family: 'Open Sans', sans-serif;
   font-display: swap;
@@ -24,9 +23,7 @@ body {
   --site-color: #{c.$text-color};
   --site-fill: #{c.$text-color};
   --site-bg: #{c.$site-white};
-
   --site-link-focus: #{c.$link-focus-dark};
-
   --link-focus-light: #{c.$link-focus-light};
 
   color: var(--site-color);
@@ -44,19 +41,21 @@ body {
   @include m.min-width (320px) {
     font-size: calc(#{v.$rem-base} + #{math.div(v.$max-font-size - v.$rem-base,1px)} * ((100vw - 320px) / #{v.$max-font-breakpoint - 320}));
   }
+
   @include m.min-width (#{v.$max-font-breakpoint}px) {
     font-size: v.$max-font-size;
   }
 }
 
-a:focus, button:focus, summary:focus {
-  filter: drop-shadow(0px 0px 8px var(--site-link-focus));
-}
-a, a:visited, a:link, a:any-link {
+a, a:visited, a:link, a:any-link { // stylelint-disable-line plugin/no-unsupported-browser-features
   text-decoration: none;
   color: var(--site-color);
   fill: var(--site-fill);
   outline: 0;
+}
+
+a:focus, button:focus, summary:focus {
+  filter: drop-shadow(0 0 8px var(--site-link-focus));
 }
 
 main {

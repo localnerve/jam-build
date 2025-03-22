@@ -17,13 +17,22 @@
   }
 
   $pages: lookup('nav-pages');
+
   @each $page in $pages {
     $images: lookup('images', 'hero-#{$page}');
     .#{$page}-hero-0 {
       $last-width: -1;
+
       @each $width, $image in $images {
         @include m.min-width('#{$last-width + 1}px') {
-          background-image: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), image-url($image);
+          background-color: rgba(0 0 0 / 50%);
+          // stylelint-disable-next-line plugin/no-unsupported-browser-features
+          background-image:
+            linear-gradient(
+              rgba(0 0 0 / 50%),
+              rgba(0 0 0 / 50%)
+            ),
+            image-url($image);
         }
         $last-width: m.number($width);
       }

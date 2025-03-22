@@ -1,0 +1,8 @@
+[production]
+> 0.3%
+Firefox ESR
+not dead
+iOS >=13.4
+
+[legacy]
+IE 11
