@@ -9,11 +9,6 @@
 @use 'mixins' as m;
 @use 'logo' as l;
 
-.no-nav .ln-footer .business {
-  @include m.breakpoint (medium-large) {
-    margin-top: 1em;
-  }
-}
 .ln-footer {
   position: relative;
   display: flex;
@@ -24,7 +19,10 @@
   // This is at this position in source order so theme colors override logo-block
   .f-logo {
     @include l.logo-block;
-    & {
+
+    // Keep old sass behavior for properties that appear after nested rules [mixed-decls]
+    // These override the logo-block output above
+    & { // stylelint-disable-line no-duplicate-selectors
       margin: inherit;
       width: 100%;
     }
@@ -35,9 +33,12 @@
       margin-right: 1rem;
       min-width: 10em;
     }
+
     @include m.breakpoint (medium-large) {
       --logo-size: 3;
+
       margin-right: 3em;
+
       .logo-tag {
         font-size: 0.9em;
       }
@@ -56,6 +57,7 @@
         fill: inherit;
       }
     }
+
     .icon-in {
       border-radius: 50%;
       border: 1px solid var(--site-color);
@@ -68,6 +70,7 @@
   }
 
   &.zag-top {
+    // stylelint-disable-next-line plugin/no-unsupported-browser-features
     clip-path: polygon(0% 0%, 33% 3vw, calc(33% - 3vw) 0%, 67% 3vw, calc(67% - 3vw) 0%, 100% 3vw, 100% 100%, 0% 100%);
     margin-top: -5vw;
     padding-top: 6vw;
@@ -77,41 +80,63 @@
   &.dark {
     background: c.$footer-deco-color;
     color: c.$site-white;
-    a {
+
+    a { // stylelint-disable-line no-descending-specificity
       color: c.$site-white;
     }
+
     a:focus {
-      filter: drop-shadow(0px 0px 8px c.$link-focus-light);
+      filter: drop-shadow(0 0 8px c.$link-focus-light);
     }
   
     .logo {
       .nl {
         color: c.$logo-blue-light;
       }
+
       .nr {
         color: c.$logo-red-light;
       }
+
       .symbol {
         fill: c.$logo-red-light;
       }
     }
+  
     .icon-in {
       border-color: c.$site-white;
     }
+
     .navigation .active {
+      // stylelint-disable-next-line plugin/no-unsupported-browser-features
       background-image: linear-gradient(c.$site-white, c.$site-white);
+
+      @supports not (background-image: linear-gradient(c.$site-white, c.$site-white)) {
+        background-image: image-url('site-white.svg');
+        background-size: 100%;
+      }
     }
   }
+
   &.light {
     background: var(--site-bg);
     color: var(--site-color);
+
     .navigation .active {
+      // stylelint-disable-next-line plugin/no-unsupported-browser-features
       background-image: linear-gradient(c.$color-nav-active-background, c.$color-nav-active-background);
+
+      @supports not (background-image: linear-gradient(c.$color-nav-active-background, c.$color-nav-active-background)) {
+        background-image: image-url('site-text.svg');
+        background-size: 100%;
+      }
     }
   }
+
   &.dark, &.light {
     .navigation .active {
       @media (prefers-color-scheme: dark) {
+        // stylelint-disable-next-line plugin/no-unsupported-browser-features
         background-image: linear-gradient(c.$color-nav-dark, c.$color-nav-dark);
       }
     }
@@ -143,7 +168,6 @@
     flex-flow: row wrap;
     justify-content: center;
     align-items: center;
-
     text-align: center;
     padding: 0 0.5em;
     line-height: 2;
@@ -157,5 +181,16 @@
       content: '•';
       padding: 0 0.25rem;
     }
+  }
+}
+
+.no-js .ln-footer .copyright span:not(:last-child)::after {
+  content: '';
+  padding: 0;
+}
+
+.no-nav .ln-footer .business {
+  @include m.breakpoint (medium-large) {
+    margin-top: 1em;
   }
 }

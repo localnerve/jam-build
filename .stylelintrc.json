@@ -1,0 +1,23 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "stylelint-config-standard-scss"
+  ],
+  "plugins": [
+    "stylelint-no-unsupported-browser-features"
+  ],
+  "rules": {
+    "at-rule-no-unknown": null,
+    "declaration-property-value-no-unknown": null,
+    "media-feature-range-notation": "prefix",
+    "plugin/no-unsupported-browser-features": [
+      true, {
+        "ignore": ["css-nesting"]
+      }
+    ],
+    "scss/at-rule-no-unknown": true,
+    "scss/comment-no-empty": null,
+    "scss/dollar-variable-empty-line-before": null
+  },
+  "defaultSeverity": "warning"
+}

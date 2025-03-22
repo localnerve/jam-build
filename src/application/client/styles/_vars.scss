@@ -8,6 +8,8 @@ $rem-base: 16px;
 $max-font-size: 22px;
 $max-font-breakpoint: 1920;
 
+$site-shadow: 2px 2px 8px var(--site-color);
+
 $z-index-dialog: 7;
 $z-index-header: $z-index-dialog - 3;
 $z-index-spinner: $z-index-dialog - 2;

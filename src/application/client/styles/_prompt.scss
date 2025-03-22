@@ -9,6 +9,14 @@
 @use 'colors' as c;
 @use 'mixins' as m;
 
+.pp-update, .pp-install, .pp-homescreen,
+.pp-welcome, .pp-updated {
+  display: none;
+  flex-flow: column nowrap;
+  justify-content: space-around;
+  align-items: center;
+}
+
 .pp-prompt {
   display: none;
   position: fixed;
@@ -18,58 +26,60 @@
   width: 100%;
   opacity: 1;
   transition: opacity 0.5s;
+  filter: drop-shadow(v.$site-shadow);
 
-  filter: drop-shadow(2px 2px 8px var(--site-color));
-  @include m.ie-10plus () {
-    box-shadow: 2px 2px 8px var(--site-color);
+  @include m.ie-10plus {
+    box-shadow: v.$site-shadow;
   }
 
   &.show {
     display: block;
+
     &.update {
       .pp-update {
         display: flex;
       }      
     }
+
     &.install {
       .pp-install {
         display: flex;
       }      
     }
+
     &.homescreen {
       .pp-homescreen {
         display: flex;
       }
     }
+
     &.updated {
       .pp-updated {
         display: flex;
       }
     }
+
     &.welcome {
       .pp-welcome {
         display: flex;
       }
     }
   }
+
   &.hide {
     opacity: 0;
   }
 }
-.pp-update, .pp-install, .pp-homescreen,
-.pp-welcome, .pp-updated {
-  display: none;
-  flex-flow: column nowrap;
-  justify-content: space-around;
-  align-items: center;
-}
+
 .pp-items {
   font-size: 1.2em;
   line-height: 1.5;
   padding: 1.5em;
   background: var(--site-bg);
+  // stylelint-disable-next-line plugin/no-unsupported-browser-features
   clip-path: polygon(0% 0%, 33% 3vw, calc(33% - 3vw) 0%, 67% 3vw, calc(67% - 3vw) 0%, 100% 3vw, 100% 100%, 0 100%);
 }
+
 .pp-ctrl {
   display: flex;
   flex-flow: row nowrap;
@@ -80,13 +90,15 @@
   
   button {
     border-radius: 0.4em;
-    padding: 0.3em 0.3em;
+    padding: 0.3em;
   }
+
   .secondary {
     border: 1px solid var(--site-color);
     background-color: linear-gradient(var(--site-bg), #bbb);
     color: var(--site-color);
   }
+
   .primary {
     background-color: var(--site-color);
     color: var(--site-bg);

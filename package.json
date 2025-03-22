@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.15",
+  "version": "1.0.16",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -12,7 +12,9 @@
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
     "install-arm": "pushd node_modules/@localnerve/gulp-imagemin && npm run install-arm && popd",
-    "lint": "eslint .",
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "eslint .",
+    "lint:css": "stylelint src/**/*.scss",
     "maint": "node src/application/server --PORT=5000 --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "test": "echo \"no tests yet\" && exit 1"
@@ -24,7 +26,8 @@
   "keywords": [
     "jam",
     "build",
-    "web"
+    "web",
+    "app"
   ],
   "author": "Alex Grant <alex@localnerve.com>",
   "license": "UNLICENSED",
@@ -37,7 +40,7 @@
     "express": "^4.21.2"
   },
   "devDependencies": {
-    "@eslint/js": "^9.22.0",
+    "@eslint/js": "^9.23.0",
     "@localnerve/csp-hashes": "^5.0.8",
     "@localnerve/gulp-imagemin": "^11.5.4",
     "@localnerve/gulp-responsive": "^7.2.0",
@@ -46,7 +49,8 @@
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-terser": "^0.4.4",
     "autoprefixer": "^10.4.21",
-    "eslint": "^9.22.0",
+    "eslint": "^9.23.0",
+    "eslint-plugin-compat": "^6.0.2",
     "glob": "^11.0.1",
     "globals": "^16.0.0",
     "gulp": "^5.0.0",
@@ -64,6 +68,10 @@
     "rollup": "^4.36.0",
     "sass": "^1.86.0",
     "sitemap": "^8.0.0",
+    "stylelint": "^16.16.0",
+    "stylelint-config-standard": "^37.0.0",
+    "stylelint-config-standard-scss": "^14.0.0",
+    "stylelint-no-unsupported-browser-features": "^8.0.4",
     "workbox-build": "^7.3.0",
     "workbox-core": "^7.3.0",
     "workbox-window": "^7.3.0"

@@ -198,11 +198,12 @@ export function wrapNavAnchorClick (elements) {
  */
 function getPageElements () {
   const hdr = document.querySelector('.ln-header');
+  const body = document.querySelector('body');
 
   const target = document.createElement('div');
   target.style.position = 'absolute';
   target.style.width = '100%';
-  target.style.height = '500px';
+  target.style.height = `${body.offsetHeight}px`;
   hdr.parentElement.insertBefore(target, hdr.nextElementSibling);
 
   return {
@@ -214,7 +215,7 @@ function getPageElements () {
       .concat(Array.from(document.querySelectorAll('a[href^="#"]'))),
     hdr: document.querySelector('.ln-header'),
     target,
-    body: document.querySelector('body')
+    body
   };
 }
 

@@ -13,7 +13,7 @@
 // ie targeted block enablers
 // ----------------------------------------------------------
 //
-@mixin ie-10plus () {
+@mixin ie-10plus() {
   @media
     screen and (-ms-high-contrast: active),
     screen and (-ms-high-contrast: none) {
@@ -21,13 +21,13 @@
     }
 }
 
-@mixin ie-9plus () {
-  @media screen and (min-width:0\0) {
+@mixin ie-9plus() {
+  @media screen and (min-width:0\0) { // stylelint-disable-line
     @content;
   }
 }
 
-@mixin ie-8plus () {
+@mixin ie-8plus() {
   @media screen\0 {
     @content;
   }
@@ -38,7 +38,7 @@
 // firefox target blocks
 // ----------------------------------------------------------
 //
-@mixin firefox-only () {
+@mixin firefox-only() {
   @supports (-moz-appearance: none) {
     @content;
   }
@@ -49,13 +49,13 @@
 // project and custom breakpoints
 // ----------------------------------------------------------
 //
-@mixin min-width ($width) {
+@mixin min-width($width) {
   @media only screen and (min-width: $width) {
     @content;
   }
 }
 
-@mixin breakpoint ($size) {
+@mixin breakpoint($size) {
   $breakpoints: (
     medium-small: 31.25em, // 500px
     medium: 41.75em,       // 668px
@@ -70,13 +70,13 @@
   }
 }
 
-@mixin landscape-phone () {
+@mixin landscape-phone() {
   @media only screen and (orientation: landscape) and (max-height: 727px) {
     @content;
   }
 }
 
-@mixin height-constrained-landscape-phone () {
+@mixin height-constrained-landscape-phone() {
   @media only screen and
     (orientation: landscape) and
     (max-height: 641px) {
