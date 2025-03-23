@@ -93,6 +93,25 @@ export function concat (...args) {
 }
 
 /**
+ * Helper to extract parts of a string that are word characters that exclude other words.
+ * 
+ * @param {String} subject - The string to operate on.
+ * @param {Array} args - zero or more substrings to remove.
+ * @returns {String} The striped string.
+ */
+export function strip (subject, ...args) {
+  const exclusions = args.filter(arg => typeof arg === 'string');
+  const intermediate = subject.replace(/[^A-Za-z]+/g, '');
+
+  let word = intermediate;
+  for (let i = 0; i < exclusions.length; i++) {
+    word = word.replace(exclusions[i], '');
+  }
+
+  return word;
+}
+
+/**
  * Store a temporary state variable.
  * 
  * @param {Object} reference - A storage object.
@@ -158,6 +177,7 @@ export default {
   inc,
   or,
   setState,
+  strip,
   subChars,
   subWords,
   svgPage
