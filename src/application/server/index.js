@@ -41,6 +41,7 @@ const errorLogger = console.error;
 /* eslint-enable no-console */
 
 const server = express();
+server.disable('x-powered-by');
 
 if (!noCompression) {
   server.use(compression());
