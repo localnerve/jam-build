@@ -13,7 +13,7 @@
       "name": "home",
       "route": "/",
       "label": "Home",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "home",
       "sitemap": {
         "changefreq": "monthly",
@@ -27,7 +27,7 @@
       "name": "about",
       "route": "/about",
       "label": "About",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "about",
       "sitemap": {
         "changefreq": "monthly",
@@ -41,7 +41,7 @@
       "name": "contact",
       "route": "/contact",
       "label": "Contact",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "contact",
       "sitemap": {
         "changefreq": "monthly",
@@ -55,7 +55,7 @@
       "name": "terms",
       "route": "/terms",
       "label": "Terms and Conditions",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "terms",
       "skip-all": true,
       "sitemap": {
@@ -70,7 +70,7 @@
       "name": "privacy",
       "route": "/privacy",
       "label": "Privacy Policy",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "privacy",
       "skip-all": true,
       "sitemap": {
@@ -85,7 +85,7 @@
       "name": "four04",
       "route": "/404",
       "label": "404",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "404",
       "skip-all": true,
       "order": 0
@@ -96,7 +96,7 @@
       "name": "four03",
       "route": "/403",
       "label": "403",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "403",
       "skip-all": true,
       "order": 0
@@ -107,7 +107,7 @@
       "name": "five00",
       "route": "/500",
       "label": "500",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "500",
       "skip-all": true,
       "order": 0
@@ -118,7 +118,7 @@
       "name": "five03",
       "route": "/503",
       "label": "503",
-      "template": "main-example",
+      "template": "main-banner",
       "file": "503",
       "skip-all": true,
       "order": 0
