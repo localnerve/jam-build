@@ -1,12 +1,14 @@
-/private
-/overrides
-/node_modules
-/dist
-/tmp
-/test-results
-/docs
-/art
+private
+overrides
+node_modules
+dist
+tmp
+test-results
+docs
+art
 .github
 .git
 .gitignore
 .vscode
+# The package-lock.json contains info that prevents @localnerve/gulp-imagemin from installing on a different os
+package-lock.json
