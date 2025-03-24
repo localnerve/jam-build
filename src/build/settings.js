@@ -9,9 +9,11 @@ const srcClient = 'src/application/client';
 const dataDir = 'data';
 const dist = 'dist';
 const distImages = 'dist/images';
-const webImages = '/images';
 const distFonts = 'dist/fonts';
+const webImages = '/images';
 const webFonts = '/fonts';
+const webStyles = '/styles';
+const webScripts = '/';
 const swMainGenerated = `${dist}/sw.main.js`;
 const swCustomFilenameGlob = 'sw-*.custom.js';
 
@@ -24,7 +26,7 @@ export function createSettings (prod = true) {
   return {
     prod,
     dist,
-    distImages: `${dist}/images`,
+    distImages,
     styles: {
       dist,
       dataDir,
@@ -33,7 +35,8 @@ export function createSettings (prod = true) {
       distImages,
       webImages,
       distFonts,
-      webFonts
+      webFonts,
+      webStyles
     },
     images: {
       prod,
@@ -74,7 +77,9 @@ export function createSettings (prod = true) {
     },
     scripts: {
       dist,
+      dataDir,
       prod,
+      webScripts,
       rollupInput: {
         input: [
           `${srcClient}/scripts/main/index.js`,

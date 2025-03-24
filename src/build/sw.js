@@ -72,6 +72,7 @@ async function generateSWCustom (settings, replacements) {
  * Generate the sw.main.js file and dependencies.
  * 
  * @param {Object} settings - swSettings object.
+ * @param {String} settings.dataDir - The site-data directory.
  */
 export async function buildSwMain (settings) {
   const siteData = await loadSiteData(settings.dataDir);

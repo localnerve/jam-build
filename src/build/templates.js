@@ -7,7 +7,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import Handlebars from 'handlebars';
-import { default as hbHelpers, svgPage } from './hb-helpers.js';
+import { default as hbHelpers } from './hb-helpers.js';
 import { compileStyles } from './styles.js';
 import { compileScripts } from './scripts.js';
 import { loadSiteData } from './data.js';
@@ -139,13 +139,14 @@ async function loadContent (inputDir) {
  * Setup handlebars for template rendering.
  *
  * @param {Handlebars} hbRef - A reference to handlebars.
+ * @param {Object} siteData - The site data.
  * @param {Object} pagePartials - The page templates object hash by { partial-name: content }
  * @param {Object} contentPartials - The contentn templates object hash by { partial-name: content }}
  * @param {Object} inlineCssPartials - The inline css object hash by { partial-name: content }
  * @param {Object} scriptPartials - The inline script object hash by { partial-name: content }
  */
 function setupHandlebars (
-  hbRef, pagePartials, contentPartials, inlineCssPartials, scriptPartials
+  hbRef, siteData, pagePartials, contentPartials, inlineCssPartials, scriptPartials
 ) {
   const partials = {
     ...pagePartials, ...contentPartials, ...inlineCssPartials, ...scriptPartials
@@ -156,7 +157,10 @@ function setupHandlebars (
   hbRef.registerHelper({
     ...hbHelpers,
     ...{
-      svgPage: svgPage.bind(null, hbRef)
+      svgPage: hbHelpers.svgPage.bind(null, hbRef),
+      imageUrl: hbHelpers.fileUrl.bind(null, siteData.images.webImages),
+      styleUrl: hbHelpers.fileUrl.bind(null, siteData.styles.webStyles),
+      scriptUrl: hbHelpers.fileUrl.bind(null, siteData.scripts.webScripts)
     }
   });
 }
@@ -206,6 +210,7 @@ async function createTemplates (
   const hb = Handlebars;
   setupHandlebars(
     hb,
+    siteData,
     pagePartials,
     content.partials,
     inlineCss.partials,
