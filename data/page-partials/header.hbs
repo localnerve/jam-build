@@ -8,15 +8,16 @@
   <meta content="initial-scale=1, width=device-width, minimum-scale=1, maximum-scale=5" name="viewport" />
 
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preload" href="/styles/index.css" as="style" />
-
+  <link rel="preload" href="{{styleUrl 'index.css'}}" as="style" />
   {{! preload any hero images for this page }}
   {{#with (lookup content page)}}
   {{#if (lookup this 'hero-0')}}
   {{setState ../siteData.images -1}}
   {{#each (lookup ../siteData.images (concat 'hero-' ../page))}}
-  <link rel="preload" href="{{../../siteData.images.webImages}}/{{this}}" as="image"
-    media="{{#unless @first}}(min-width: {{concat (inc (getState ../../siteData.images)) 'px'}}){{#unless (or @first @last)}} and {{/unless}}{{/unless}}{{#unless @last}}(max-width: {{concat @key 'px'}}){{/unless}}" />
+  <link rel="preload" href="{{imageUrl this}}" as="image"
+    media="{{#unless @first}}(min-width: {{
+    concat (inc (getState ../../siteData.images)) 'px'
+    }}){{#unless (or @first @last)}} and {{/unless}}{{/unless}}{{#unless @last}}(max-width: {{concat @key 'px'}}){{/unless}}" />
   {{setState ../../siteData.images @key}}
   {{/each}}
   {{/if}}
@@ -45,18 +46,18 @@
   <link rel="canonical" href="https://{{ siteData.appHost }}/{{ page }}" />
   <meta name="page" content="{{ page }}" />
 
-  <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" sizes="180x180" />
-  <link rel="icon" href="/images/favicon-180x180.png" type="image/png" sizes="180x180">
-  <link rel="icon" href="/images/favicon-32x32.png" type="image/png" sizes="32x32">
-  <link rel="icon" href="/images/favicon-16x16.png" type="image/png" sizes="16x16">
-  <link rel="icon" href="/images/favicon.ico" type="image/x-icon" />
-  <link rel="shortcut icon" href="/images/favicon.ico" />
-  <link rel="mask-icon" href="/images/safari-pinned-tab.svg" color="#ea4335" />
+  <link rel="apple-touch-icon" href="{{imageUrl 'apple-touch-icon.png'}}" sizes="180x180" />
+  <link rel="icon" href="{{imageUrl 'favicon-180x180.png'}}" type="image/png" sizes="180x180">
+  <link rel="icon" href="{{imageUrl 'favicon-32x32.png'}}" type="image/png" sizes="32x32">
+  <link rel="icon" href="{{imageUrl 'favicon-16x16.png'}}" type="image/png" sizes="16x16">
+  <link rel="icon" href="{{imageUrl 'favicon.ico'}}" type="image/x-icon" />
+  <link rel="shortcut icon" href="{{imageUrl 'favicon.ico'}}" />
+  <link rel="mask-icon" href="{{imageUrl 'safari-pinned-tab.svg'}}" color="#ea4335" />
   <meta name="apple-mobile-web-app-title" content="{{siteData.business.shortName}}" />
   <meta name="application-name" content="{{siteData.business.shortName}}" />
-  <meta name="msapplication-TileColor" content="#da532c" />
+  <meta name="msapplication-TileColor" content="{{siteData.tileColor}}" />
   <meta name="msapplication-config" content="/browserconfig.xml" />
-  <meta name="theme-color" content="#1B7BA1" />
+  <meta name="theme-color" content="{{siteData.themeColor}}" />
   <link rel="manifest" href="/site.webmanifest" />
 
   <meta property="og:title" content="{{ siteData.social.og.title }}" />
@@ -77,8 +78,8 @@
   <meta name="twitter:description" content="{{ siteData.social.og.description }}" />
   <meta name="twitter:card" content="summary_large_image" />
 
-  <meta name="appjs" content="/index.js" />
-  <meta name="swregjs" content="/sw.reg.js" />
+  <meta name="appjs" content="{{scriptUrl 'index.js'}}" />
+  <meta name="swregjs" content="{{scriptUrl 'sw.reg.js'}}" />
 
   <style>
     {{> inlineCss-fonts }}
@@ -98,9 +99,9 @@
     {{> inlineJs-all }}
   </script>
 
-  <link href="/styles/index.css" rel="stylesheet" />
+  <link href="{{styleUrl 'index.css'}}" rel="stylesheet" />
   {{#if (lookup (lookup siteData.pages page) 'external-css')}}
-    <link href="/styles/{{lookup (lookup siteData.pages page) 'external-css'}}" rel="stylesheet" />
+    <link href="{{styleUrl ''}}{{lookup (lookup siteData.pages page) 'external-css'}}" rel="stylesheet" />
   {{/if}}
 </head>
 <body>

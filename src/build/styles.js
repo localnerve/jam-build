@@ -14,7 +14,6 @@ import autoprefixer from 'autoprefixer';
 import assetFunctions from '@localnerve/sass-asset-functions';
 import { loadSiteData } from './data.js';
 
-
 /**
  * gulp-sass replacement plugin.
  * Bare minimum to just call sass.compile and produce the css file.
@@ -70,19 +69,27 @@ function streamSass () {
  *
  * @param {Object} settings - build settings.
  * @param {String} settings.dist - dir root of dist production files.
+ * @param {Boolean} settings.prod - True if production, false otherwise.
  * @param {String} settings.srcClient - dir root of src client files.
  * @param {String} settings.distImages - dir root of images in prod dist.
  * @param {String} settings.webImages - web root of images.
  * @param {String} settings.distFonts - dir root of fonts in prod dist.
  * @param {String} settings.webFonts - web root of fonts.
- * @param {Boolean} settings.prod - True if production, false otherwise.
+ * @param {String} settings.dataDir - The siteData directory.
+ * @param {String} [settings.webStyles] - web root of styles, if supplied creates the styles data namespace.
  */
 export async function createStyles (settings) {
   const {
-    dist, srcClient, prod, distImages, webImages, distFonts, webFonts, dataDir
+    dist, srcClient, prod, distImages,
+    webImages, distFonts, webFonts, dataDir, webStyles
   } = settings;
-  const data = await loadSiteData(dataDir);
   const sassStream = streamSass();
+  const data = await loadSiteData(dataDir);
+
+  if (webStyles) {
+    data.styles = { webStyles: webStyles.replace(/\/$/, '') };
+  }
+
   return gulp.src([`${srcClient}/**/*.scss`, `!${srcClient}/**/inline/**`])
     .pipe(sassStream({
       style: prod ? 'compressed' : 'expanded', // compressed === css minifier output.

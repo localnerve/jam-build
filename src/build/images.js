@@ -76,11 +76,12 @@ function imagemin (settings) {
  * 
  * @param {Object} settings - build settings.
  * @param {String} settings.dataDir - The data directory.
+ * @param {String} settings.webImages - The directory to images as seen from the web.
  */
 export async function getImageSequence (settings) {
   const { dataDir, webImages } = settings;
   const data = await loadSiteData(dataDir);
-  data.images = { webImages };
+  data.images = { webImages: webImages.replace(/\/$/, '') };
 
   return gulp.series(
     responsive.bind(null, settings, data),

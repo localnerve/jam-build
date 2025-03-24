@@ -8,21 +8,32 @@ import { rollup } from 'rollup';
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
+import { loadSiteData } from './data.js';
 import pkg from '../../package.json' with { type: 'json' };
 
 /**
  * Bundle and write javascript to the dist directory.
  * 
  * @param {Object} settings - build settings.
+ * @param {Boolean} settings.prod - True for production, false otherwise.
  * @param {Object} settings.rollupInput - rollup input object.
  * @param {Object} settings.rollupOutput - rollup output object.
+ * @param {String} [settings.dataDir] - The directory of site-data.
+ * @param {String} [settings.webScripts] - The path to the root of scripts on the web. If supplied, creates the data.scripts namespace.
  * @param {Object} [settings.replacements] - additional replacements.
- * @param {Boolean} settings.prod - True for production, false otherwise.
  */
 export async function createScripts (settings) {
-  const { rollupInput, rollupOutput, prod, replacements = {} } = settings;
+  const {
+    rollupInput, rollupOutput, prod,
+    replacements = {}, dataDir, webScripts
+  } = settings;
   const appVersion = pkg.version;
-
+  
+  if (dataDir && webScripts) {
+    const data = await loadSiteData(dataDir);
+    data.scripts = { webScripts: webScripts.replace(/\/$/, '') };
+  }
+  
   rollupInput.plugins = [
     resolve({
       paths: [

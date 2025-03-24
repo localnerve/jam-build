@@ -134,3 +134,6 @@ tmp
 
 # no private
 private
+
+# no code-workspace
+*.code-workspace

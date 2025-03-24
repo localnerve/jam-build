@@ -72,21 +72,10 @@ export function debug (...targets) {
 /* eslint-enable no-console */
 
 /**
- * Helper to test strict equality.
- *
- * @param {*} value1 
- * @param {*} value2 
- * @returns true if strict equal, false otherwise.
- */
-export function equals (value1, value2) {
-  return value1 === value2;
-}
-
-/**
  * Helper to concatenate given strings.
  * 
- * @param  {...any} args - The arguments, strings are filtered from here.
- * @returns A concatenated string from given strings.
+ * @param  {Array} args - The arguments, strings are filtered from here.
+ * @returns {String} A concatenated string from given strings.
  */
 export function concat (...args) {
   return args.filter(arg => typeof arg === 'string').join('');
@@ -115,7 +104,7 @@ export function strip (subject, ...args) {
  * Store a temporary state variable.
  * 
  * @param {Object} reference - A storage object.
- * @param {any} value1 - A value to store.
+ * @param {*} value1 - A value to store.
  */
 export function setState (reference, value1) {
   reference.__state = value1;
@@ -125,7 +114,7 @@ export function setState (reference, value1) {
  * Retrieve a temporary state variable.
  *
  * @param {Object} reference - A storage object.
- * @returns {Any} some state variable.
+ * @returns {*} some state variable.
  */
 export function getState (reference) {
   return reference.__state;
@@ -142,15 +131,25 @@ export function inc (input) {
 }
 
 /**
+ * Helper to test strict equality.
+ *
+ * @param {*} value1 
+ * @param {*} value2 
+ * @returns {Boolean} true if strict equal, false otherwise.
+ */
+export function equals (value1, value2) {
+  return value1 === value2;
+}
+
+/**
  * Helper to evaluate 'or' truth.
  * 
- * @param {any} val1 - The first operand.
- * @param {String} operator - and or or operator.
- * @param {any} val2 - The second operand.
+ * @param {*} value1 - The first operand.
+ * @param {*} value2 - The second operand.
  * @returns {Boolean} true if either val1 or val2 are true, false otherwise.
  */
-export function or (val1, val2) {
-  return (val1 || val2);
+export function or (value1, value2) {
+  return value1 || value2;
 }
 
 /**
@@ -168,11 +167,23 @@ export function svgPage (hb, page) {
   return 'svg-none';
 }
 
+/**
+ * Helper to root all file urls to the file web root.
+ * 
+ * @param {String} root - The root of the file on the web.
+ * @param {String} file - The relative path to the file.
+ * @returns {String} The full url to the image.
+ */
+export function fileUrl (root, file) {
+  return `${root}/${file}`;
+}
+
 export default {
   capFirst,
   concat,
   debug,
   equals,
+  fileUrl,
   getState,
   inc,
   or,
