@@ -1,14 +1,14 @@
 {
   "name": "jam-build",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "gulp build",
-    "build:debug": "node --inspect-brk ./node_modules/gulp/bin/gulp.js build",
-    "build:dev": "npm run lint && gulp dev-build",
+    "build": "node --no-experimental-require-module ./node_modules/gulp/bin/gulp.js build",
+    "build:debug": "node --no-experimental-require-module --inspect-brk ./node_modules/gulp/bin/gulp.js build",
+    "build:dev": "npm run lint && node --no-experimental-require-module ./node_modules/gulp/bin/gulp.js dev-build",
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
     "install-arm": "pushd node_modules/@localnerve/gulp-imagemin && npm run install-arm && popd",
