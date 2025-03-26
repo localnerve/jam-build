@@ -24,9 +24,10 @@ import { assetRevision, pageRevision } from './revision.js';
  * Main website build.
  * 
  * @param {Object} settings - build parameters.
+ * @param {Object} args - command line arguments.
  * @returns {Stream} A gulp series.
  */
-async function createBuild (settings) {
+async function createBuild (settings, args) {
   const imageProcessingSequence = await getImageSequence(settings.images);
   return gulp.series(
     rimraf.bind(null, settings.dist, {}),
@@ -38,14 +39,24 @@ async function createBuild (settings) {
     createScripts.bind(null, settings.scripts),
     generateAssets.bind(null, settings.assets),
     assetRevision.bind(null, settings.revision),
-    renderHtml.bind(null, settings.templates),
+    renderHtml.bind(null, settings.templates, args),
     pageRevision.bind(null, settings.revision),
     buildSwMain.bind(null, settings.sw),
-    minifyHtml.bind(null, settings.html)
+    minifyHtml.bind(null, settings.html),
+    async function audit () {
+      if (args.dump) {
+        const { loadSiteData } = await import('./data.js');
+        const fs = await import('node:fs/promises');
+        const data = await loadSiteData('data');
+        await fs.mkdir('dump', { recursive: true });
+        await fs.writeFile('dump/site-data.json', JSON.stringify(data, null, 2));
+        await fs.writeFile('dump/build-settings.json', JSON.stringify(settings, null, 2));
+      }
+    }
   );
 }
 
 const prodSettings = createSettings();
 const devSettings = createSettings(false);
-export const build = await createBuild(prodSettings);
-export const devBuild = await createBuild(devSettings);
+export const build = createBuild.bind(null, prodSettings);
+export const devBuild = createBuild.bind(null, devSettings);

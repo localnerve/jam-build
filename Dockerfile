@@ -32,4 +32,4 @@ RUN --mount=type=secret,id=jam-build,target=/home/node/app/private/host-env.json
   npm run build
 EXPOSE 8088
 
-CMD ["node", "src/application/server", "--PORT=8088", "--ENV-PATH=/run/secrets/jam-env.json"]
+ENTRYPOINT ["npm", "start", "--", "--PORT=8088", "--ENV-PATH=/run/secrets/jam-env.json"]
