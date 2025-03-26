@@ -137,3 +137,6 @@ private
 
 # no code-workspace
 *.code-workspace
+
+#no debug files
+dump*

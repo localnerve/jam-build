@@ -196,10 +196,11 @@ async function wrapTemplate (template, data) {
  * @param {String} srcContent - The source directory for the page content templates.
  * @param {Object} styleOptions - The options to compile the inline css.
  * @param {Object} scriptOptions - The options to compile the inline scripts.
+ * @param {Object} args - The runtime arguments.
  * @returns 
  */
 async function createTemplates (
-  srcData, srcPage, srcContent, styleOptions, scriptOptions
+  srcData, srcPage, srcContent, styleOptions, scriptOptions, args
 ) {
   const siteData = await loadSiteData(srcData);
   const pagePartials = await loadPagePartials(srcPage);
@@ -235,6 +236,16 @@ async function createTemplates (
     });
   }
 
+  if (args.dump) {
+    await fs.mkdir('dump', { recursive: true });
+    await fs.writeFile('dump/render-templates.json', JSON.stringify(
+      templates, null, 2
+    ));
+    await fs.writeFile('dump/hb-partials.json', JSON.stringify({
+      ...pagePartials, ...content.partials, ...inlineCss.partials, inlineScriptPartials
+    }, null, 2));
+  }
+
   return templates;
 }
 
@@ -242,15 +253,16 @@ async function createTemplates (
  * Render the html pages to the file system.
  * 
  * @param {Object} settings - The build settings.
- * @returns {Array} An array of promises that resolve to the written files.
+ * @param {Object} args - The runtime arguments.
+ * @returns {Array} An array of promises that resolve to the written file results.
  */
-export async function renderHtml (settings) {
+export async function renderHtml (settings, args) {
   const {
     destDir, srcData, srcPage, srcContent, styleOptions, scriptOptions
   } = settings;
 
   const templates = await createTemplates(
-    srcData, srcPage, srcContent, styleOptions, scriptOptions
+    srcData, srcPage, srcContent, styleOptions, scriptOptions, args
   );
 
   return Promise.all(templates.map(async page => {

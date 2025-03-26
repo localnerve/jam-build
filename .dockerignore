@@ -6,6 +6,7 @@ tmp
 test-results
 docs
 art
+dump
 .github
 .git
 .gitignore

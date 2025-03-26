@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -9,14 +9,15 @@
     "build": "node --no-experimental-require-module ./node_modules/gulp/bin/gulp.js build",
     "build:debug": "node --no-experimental-require-module --inspect-brk ./node_modules/gulp/bin/gulp.js build",
     "build:dev": "npm run lint && node --no-experimental-require-module ./node_modules/gulp/bin/gulp.js dev-build",
+    "build:dev:debug": "node --no-experimental-require-module --inspect-brk ./node_modules/gulp/bin/gulp.js dev-build",
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "dev:debug": "node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
     "install-arm": "pushd node_modules/@localnerve/gulp-imagemin && npm run install-arm && popd",
     "lint": "npm run lint:js && npm run lint:css",
     "lint:js": "eslint .",
     "lint:css": "stylelint src/**/*.scss",
-    "maint": "node src/application/server --PORT=5000 --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
-    "start": "NODE_ENV=production node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
+    "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
+    "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
     "test": "echo \"no tests yet\" && exit 1"
   },
   "repository": {
