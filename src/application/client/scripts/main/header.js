@@ -13,7 +13,7 @@ const offscreenNavClass = 'show';
 /**
  * Derive all intersection data from the header.
  * Calculates the intersection height from hdrHeight.
- * SIDE-EFFECT: Update intersection target.style.top.
+ * SIDE-EFFECT: Update intersection target.style.top, height.
  *
  * @param {Object} elements - page elements.
  * @param {HTMLElement} elements.hdr - The header element.
@@ -24,8 +24,11 @@ function calcIntersectionData ({ hdr, target }) {
   const hdrHeight = getNumber(window.getComputedStyle(hdr).height);
   const intersectionHeight = hdrHeight / 1.5;
   const targetStyle = target.style;
+  const hdrFactor = 1.08;
 
-  targetStyle.top = `${hdrHeight * 1.08}px`;
+  targetStyle.top = `${hdrHeight * hdrFactor}px`;
+  targetStyle.height =
+    `${hdr.parentElement.offsetHeight - (hdrHeight * hdrFactor)}px`;
 
   return {
     hdrHeight,
@@ -198,12 +201,11 @@ export function wrapNavAnchorClick (elements) {
  */
 function getPageElements () {
   const hdr = document.querySelector('.ln-header');
-  const body = document.querySelector('body');
 
   const target = document.createElement('div');
   target.style.position = 'absolute';
   target.style.width = '100%';
-  target.style.height = `${body.offsetHeight}px`;
+  target.style.pointerEvents = 'none';
   hdr.parentElement.insertBefore(target, hdr.nextElementSibling);
 
   return {
@@ -215,7 +217,7 @@ function getPageElements () {
       .concat(Array.from(document.querySelectorAll('a[href^="#"]'))),
     hdr: document.querySelector('.ln-header'),
     target,
-    body
+    body: document.querySelector('body')
   };
 }
 
