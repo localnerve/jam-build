@@ -6,8 +6,7 @@
   {{! content for specific pages, if it exists }}
   {{#with (lookup content page)}}
   {{#each this}}
-  {{setState .. (strip this ../../page)}} {{! store unique name tokens in temp state}}
-  <section class="section {{#unless (equals (getState ..) 'section')}}{{getState ..}} {{/unless}}{{this}}">
+  <section class="{{strip this ../../page}} {{this}}">
     {{> (lookup .. @key) ../..}}
   </section>
   {{/each}}
@@ -17,7 +16,7 @@
   {{! content for all pages that use this template }}
   {{#with (lookup content 'all')}}
   {{#each this}}
-  <section class="section {{this}}">
+  <section class="{{strip this 'all'}} {{this}}">
     {{> (lookup .. @key) ../..}}
   </section>
   {{/each}}

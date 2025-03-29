@@ -40,6 +40,8 @@ const logger = debug ? console.log : () => {};
 const errorLogger = console.error;
 /* eslint-enable no-console */
 
+await setHostEnv(envPath);
+
 const server = express();
 server.disable('x-powered-by');
 
@@ -65,7 +67,6 @@ server.use(express.static(rootDir, {
 server.use(notFoundHandler.bind(null, logger, rootDir));
 server.use(errorHandler.bind(null, logger, rootDir));
 
-setHostEnv(envPath);
 server.listen(port, err => {
   if (err) {
     return errorLogger(err);

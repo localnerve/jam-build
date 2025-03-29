@@ -14,6 +14,7 @@
 
   .section {
     position: relative;
+    padding: 0.5rem 1rem;
   }
 
   $pages: lookup('nav-pages');
@@ -40,6 +41,7 @@
   }
 
   .hero {
+    position: relative;
     width: 100%;
     height: 20rem;
     display: flex;
@@ -67,5 +69,10 @@
       font-size: 1.5em;
       color: #{c.$site-white};;
     }
+  }
+
+  .extra {
+    background: var(--site-color);
+    color: var(--site-bg);
   }
 }

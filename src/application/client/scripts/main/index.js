@@ -53,7 +53,7 @@ function updateVersion () {
  * @param {Object} support - The browser support profile
  */
 function setupPage (support) {
-  const page = document.querySelector('meta[name="page"]').content;
+  const { content:page } = document.querySelector('meta[name="page"]');
   console.log(`@@@ TODO: call setup for ${page}`, support); // eslint-disable-line
 }
 

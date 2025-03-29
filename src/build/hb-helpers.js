@@ -82,22 +82,24 @@ export function concat (...args) {
 }
 
 /**
- * Helper to extract parts of a string that are word characters that exclude other words.
+ * Helper to extract parts of a string that are word characters but exclude other words.
  * 
  * @param {String} subject - The string to operate on.
  * @param {Array} args - zero or more substrings to remove.
- * @returns {String} The striped string.
+ * @returns {String} Space delimited words
  */
 export function strip (subject, ...args) {
   const exclusions = args.filter(arg => typeof arg === 'string');
-  const intermediate = subject.replace(/[^A-Za-z]+/g, '');
+  const intermediate = subject.match(/[A-Z]+/gi);
 
-  let word = intermediate;
-  for (let i = 0; i < exclusions.length; i++) {
-    word = word.replace(exclusions[i], '');
+  const words = [];
+  for (let i = 0; i < intermediate.length; i++) {
+    if (!exclusions.includes(intermediate[i])) {
+      words.push(intermediate[i]);
+    }
   }
 
-  return word;
+  return words.join(' ');
 }
 
 /**
