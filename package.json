@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "description": "A simple file-based jamstack webapp builder",
   "main": "index.js",
   "type": "module",
@@ -46,6 +46,7 @@
     "@localnerve/gulp-imagemin": "^11.5.4",
     "@localnerve/gulp-responsive": "^7.2.0",
     "@localnerve/sass-asset-functions": "^6.10.0",
+    "@rollup/plugin-dynamic-import-vars": "^2.1.5",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-terser": "^0.4.4",
@@ -67,6 +68,7 @@
     "plugin-error": "^2.0.1",
     "rimraf": "^6.0.1",
     "rollup": "^4.37.0",
+    "rollup-plugin-output-manifest": "^2.0.0",
     "sass": "^1.86.0",
     "sitemap": "^8.0.0",
     "stylelint": "^16.17.0",

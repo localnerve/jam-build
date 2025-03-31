@@ -14,6 +14,7 @@ const webImages = '/images';
 const webFonts = '/fonts';
 const webStyles = '/styles';
 const webScripts = '/';
+const jsManifestFilename = 'rollup-manifest.json';
 const swMainGenerated = `${dist}/sw.main.js`;
 const swCustomFilenameGlob = 'sw-*.custom.js';
 
@@ -80,15 +81,30 @@ export function createSettings (prod = true) {
       dataDir,
       prod,
       webScripts,
+      jsManifestFilename,
+      replacements: {
+        PAGE_MODULES: JSON.stringify(['home'])
+      },
       rollupInput: {
         input: [
           `${srcClient}/scripts/main/index.js`,
+          `${srcClient}/scripts/main/pages/home.js`,
           `${srcClient}/scripts/sw/sw.reg.js`
         ]
       },
       rollupOutput: {
         dir: dist,
-        entryFileNames: '[name].js'
+        hashCharacters: 'hex',
+        entryFileNames: info => {
+          if (prod) {
+            const swParts = info.name.match(/^sw\.(?<rest>.+)/);
+            if (swParts) {
+              return `sw-[hash:10].${swParts.groups.rest}.js`;
+            }
+            return '[name]-[hash:10].js';
+          }
+          return '[name].js';
+        }
       }
     },
     templates: {
@@ -127,7 +143,8 @@ export function createSettings (prod = true) {
     },
     revision: {
       dist,
-      prod
+      prod,
+      jsManifestFilename
     },
     copyImages: {
       srcDir: `${srcClient}/images`,

@@ -8,8 +8,13 @@ import { rollup } from 'rollup';
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
+import dynamicImportVariables from '@rollup/plugin-dynamic-import-vars';
+import pluginOutputManifest from 'rollup-plugin-output-manifest';
 import { loadSiteData } from './data.js';
 import pkg from '../../package.json' with { type: 'json' };
+
+// gross
+const { default: outputManifest } = pluginOutputManifest;
 
 /**
  * Bundle and write javascript to the dist directory.
@@ -18,13 +23,14 @@ import pkg from '../../package.json' with { type: 'json' };
  * @param {Boolean} settings.prod - True for production, false otherwise.
  * @param {Object} settings.rollupInput - rollup input object.
  * @param {Object} settings.rollupOutput - rollup output object.
+ * @param {String} settings.jsManifestFilename - Filename for the generated manifest file.
  * @param {String} [settings.dataDir] - The directory of site-data.
  * @param {String} [settings.webScripts] - The path to the root of scripts on the web. If supplied, creates the data.scripts namespace.
  * @param {Object} [settings.replacements] - additional replacements.
  */
 export async function createScripts (settings) {
   const {
-    rollupInput, rollupOutput, prod,
+    rollupInput, rollupOutput, prod, jsManifestFilename,
     replacements = {}, dataDir, webScripts
   } = settings;
   const appVersion = pkg.version;
@@ -35,6 +41,13 @@ export async function createScripts (settings) {
   }
   
   rollupInput.plugins = [
+    dynamicImportVariables({
+      errorWhenNoFilesFound: true
+    }),
+    outputManifest({
+      fileName: jsManifestFilename,
+      isMerge: true
+    }),
     resolve({
       paths: [
         './node_modules'
