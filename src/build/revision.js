@@ -27,6 +27,7 @@ export function assetRevision (settings) {
       '!**/*.html',
       '!**/robots.txt',
       '!**/sitemap.xml',
+      '!**/*manifest.json',
       '!**/*-+([a-f0-9]).*' // don't match any pre-revved
     ], { restore: true });
 
@@ -56,10 +57,19 @@ export function assetRevision (settings) {
  * @param {Boolean} prod - True if production, false otherwise.
  */
 export function pageRevision (settings) {
-  const { prod, dist } = settings;
+  const { prod, dist, jsManifestFilename } = settings;
 
   if (prod) {
-    const manifest = fs.readFileSync(`${dist}/rev-manifest.json`);
+    const jsManifest = fs.readFileSync(`${dist}/${jsManifestFilename}`);
+    const revManifest = fs.readFileSync(`${dist}/rev-manifest.json`);
+
+    const mergedManifest = {
+      ...JSON.parse(revManifest.toString()),
+      ...JSON.parse(jsManifest.toString())
+    };
+
+    const manifest = Buffer.from(JSON.stringify(mergedManifest));
+
     return gulp.src(`${dist}/**/*.html`)
       .pipe(revRewrite({ manifest }))
       .pipe(gulp.dest(dist));

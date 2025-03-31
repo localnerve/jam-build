@@ -54,7 +54,12 @@ function updateVersion () {
  */
 function setupPage (support) {
   const { content:page } = document.querySelector('meta[name="page"]');
-  console.log(`@@@ TODO: call setup for ${page}`, support); // eslint-disable-line
+  if (window.App.pageModules.includes(page)) {
+    import(`./pages/${page}.js`).then(module => {
+      const { default:setup } = module;
+      setup(support);
+    });
+  }
 }
 
 /**
@@ -104,5 +109,7 @@ function start () {
 }
 
 window.App.version = APP_VERSION; // eslint-disable-line
+window.App.pageModules = PAGE_MODULES; // eslint-disable-line
+
 // Add entry point to app exec mediator
 window.App.add('start', start);
