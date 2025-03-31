@@ -67,7 +67,7 @@
     "modern-normalize": "^3.0.1",
     "plugin-error": "^2.0.1",
     "rimraf": "^6.0.1",
-    "rollup": "^4.37.0",
+    "rollup": "^4.38.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "sass": "^1.86.0",
     "sitemap": "^8.0.0",
