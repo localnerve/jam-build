@@ -75,15 +75,30 @@ export async function createScripts (settings) {
  * 
  * @param {Object} options - rollup options.
  * @param {Boolean} prod - True for production, false otherwise.
- * @param {Object} options.input - rollup input options.
- * @param {Object} options.output - rollup output options.
+ * @param {Object} [replacements] - Key value hash of any replacements to look for.
+ * @param {Object} options.inputOptions - rollup input options.
+ * @param {Object} options.outputOptions - rollup output options.
  * @returns {Array} Array of rollup compiled output objects. 
  */
 export async function compileScripts (options) {
-  const { prod } = options;
+  const { prod, replacements = false } = options;
+  const plugins = [];
 
   if (prod) {
-    options.inputOptions.plugins = [terser()];
+    plugins.push(terser());
+  }
+
+  if (replacements) {
+    plugins.push(replace({
+      preventAssignment: true,
+      ...replacements
+    }));
+  }
+
+  if (options.inputOptions.plugins) {
+    options.inputOptions.plugins.push(...plugins);
+  } else {
+    options.inputOptions.plugins = plugins;
   }
 
   const bundle = await rollup(options.inputOptions);

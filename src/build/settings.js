@@ -118,6 +118,14 @@ export function createSettings (prod = true) {
       },
       scriptOptions: {
         prod,
+        replacements: {
+          POLY_TEST_FN: 'function polyTest () {\
+return !("fetch" in window && \
+"Promise" in window && \
+"from" in Array); }',
+          POLY_TEST: 'polyTest',
+          POLY_URL: JSON.stringify('https://polyfill-fastly.io/v3/polyfill.min.js?features=fetch,es6')
+        },
         inputOptions: {
           input: {
             inline: `${srcClient}/scripts/inline/index.js`
@@ -132,6 +140,7 @@ export function createSettings (prod = true) {
       dataDir,
       swMainGenerated,
       swCustomFilenameGlob,
+      jsManifestFilename,
       swCustomFileSrc: `${srcClient}/scripts/sw/sw.custom.js`,
       dist,
       prod
