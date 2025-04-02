@@ -32,12 +32,14 @@ async function generateSWCustom (settings, replacements) {
     prod,
     dist,
     swCustomFilenameGlob,
-    swCustomFileSrc
+    swCustomFileSrc,
+    jsManifestFilename
   } = settings;
 
   const swCustomName = path.parse(swCustomFileSrc).name;
 
   await createScripts({
+    jsManifestFilename,
     prod,
     replacements,
     rollupInput: {
