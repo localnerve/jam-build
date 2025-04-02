@@ -2,7 +2,11 @@
 @use 'colors' as c;
 
 .main-banner {
-  padding: 1em 2em;
+  padding: 1em 1em;
+
+  @include m.breakpoint(medium) {
+    padding: 1em 2em;
+  }
 
   h2 {
     text-align: center;
