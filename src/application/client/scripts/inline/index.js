@@ -1,7 +1,10 @@
 /**
  * inline browser javascript.
  * 
- * This app runs the whole page every time, no state.
+ * Variables replaced at bundle time:
+ *   POLY_TEST_FN - a function that returns true if polyfill is required
+ *   POLY_TEST - the name of that function
+ *   POLY_URL - the url to get the polyfills from
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
@@ -12,27 +15,15 @@ import './sw.js';      // Forward msgs from sw
 
 (function () {
   /**
-   * Detect if the browser can use the modern app build.
-   * This covers partial support of safari 10.1 (not modernjs)
-   */
-  /*
-  function isModernJS () {
-    return 'noModule' in HTMLScriptElement.prototype;
-  }
-  */
-
-  /**
    * Main loader.
    * Conditionally polyfill the browser, call app entry when done.
    */
   function loader () {
-    const polyRequired = !(
-      'fetch' in window &&
-      'IntersectionObserver' in window &&
-      'Promise' in window &&
-      'from' in Array
+    POLY_TEST_FN // eslint-disable-line
+    const polyRequired = (
+      typeof POLY_TEST === 'function' && (POLY_TEST)() // eslint-disable-line
     );
-    const polyUrl = 'https://polyfill-fastly.io/v3/polyfill.min.js?features=IntersectionObserver,fetch,es6';
+    const polyUrl = POLY_URL; // eslint-disable-line
 
     const appjs = document.querySelector('[name="appjs"]').getAttribute('content');
     const swRegjs = document.querySelector('[name="swregjs"]').getAttribute('content');
