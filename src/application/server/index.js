@@ -16,6 +16,7 @@
 
 import express from 'express';
 import compression from 'compression';
+import { mountpath as apiPath, create as createApi } from './api/index.js';
 import {
   errorHandler,
   maintenanceHandler,
@@ -50,11 +51,7 @@ if (!noCompression) {
 }
 
 if (!maintenance) {
-  //server.use(express.json()); // for parsing application/json
-  //server.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
-  //
-  // >> use api here <<
-  //
+  server.use(apiPath, createApi(logger, { noCompression }));
   server.use(staticFiles.bind(null, logger, rootDir));
 } else {
   server.use(maintenanceHandler.bind(null, logger, maintenance));

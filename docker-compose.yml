@@ -1,5 +1,6 @@
 name: jam-build-container
 services:
+  # The application, previously built from ./docker-build.sh
   jam-build:
     build: .
     image: jam-build:latest
@@ -8,7 +9,69 @@ services:
         target: jam-env.json
     ports:
       - 127.0.0.1:8088:8088/tcp
+
+  # The database
+  mariadb:
+    image: mariadb:11.7.2
+    environment:
+      - MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      - MYSQL_USER: jbuser
+      - MYSQL_PASSWORD_FILE: /run/secrets/db_user_password
+      - MARIADB_AUTO_UPGRADE: 1
+      - MARIADB_DATABASE: jam_build
+    secrets:
+      - source: db_root_password
+        target: db_root_password
+      - source: db_user_password
+        target: db_user_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+      - "./data/database/mariadb-ddl.sql:/docker-entrypoint-initdb.d/mariadb-ddl.sql"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # The database backup command, runs on service shutdown
+  backup:
+    image: busybox:stable-uclibc
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "mariadb-dump --defaults-extra-file=/run/secrets/db_root_cnf --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
+    secrets:
+      - source: db_root_cnf
+        target: db_root_cnf
+    volumes:
+      - backup:/backup
+    command: ["tail", "-f", "/dev/null"]
+
+  # The database hydration command, runs on service startup
+  hydrate:
+    image: busybox:stable-uclibc
+    depends_on:
+      mariadb:
+        condition: service_started
+    entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb --defaults-extra-file=/run/secrets/db_root_cnf < /backup/db.sql && rm /backup/db.sql"]
+    secrets:
+      - source: db_root_cnf
+        target: db_root_cnf
+    volumes:
+      - backup:/backup
+    command: ["tail", "-f", "/dev/null"]
+
+volumes:
+  dbdata:
+  backup:
+
 secrets:
   jam:
     file: ./private/host-env.json
-    
+  db_root_password:
+    file: ./private/db-root-password.txt
+  db_user_password:
+    file: ./private/db-user-password.txt
+  db_root_cnf:
+    file: ./private/db-root.cnf
