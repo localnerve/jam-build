@@ -10,6 +10,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
+import './sw.data.js';
 
 setCacheNameDetails({
   prefix: CACHE_PREFIX // eslint-disable-line

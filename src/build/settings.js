@@ -17,6 +17,8 @@ const webScripts = '/';
 const jsManifestFilename = 'rollup-manifest.json';
 const swMainGenerated = `${dist}/sw.main.js`;
 const swCustomFilenameGlob = 'sw-*.custom.js';
+const apiVersion = '1.0.0';
+const schemaVersion = '1';
 
 /**
  * Create the build settings.
@@ -109,8 +111,8 @@ export function createSettings (prod = true) {
     },
     templates: {
       srcData: dataDir,
-      srcPage: `${dataDir}/page-partials`,
-      srcContent: `${dataDir}/content-partials`,
+      srcPage: `${dataDir}/partials/page`,
+      srcContent: `${dataDir}/partials/content`,
       destDir: dist,
       styleOptions: {
         dir: `${srcClient}/styles/inline`,
@@ -143,7 +145,9 @@ return !("fetch" in window && \
       jsManifestFilename,
       swCustomFileSrc: `${srcClient}/scripts/sw/sw.custom.js`,
       dist,
-      prod
+      prod,
+      apiVersion,
+      schemaVersion
     },
     html: {
       prod,

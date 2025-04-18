@@ -5,17 +5,14 @@ ARG GID=1000
 ARG TARGETARCH
 
 USER root
-RUN <<EOF
-apt-get update
-apt-get install -y autoconf automake libtool nasm zlib1g-dev
-mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
-ln -s -f /usr/lib/aarch64-linux-gnu/libpng16.a /usr/local/lib/libpng16.a
-EOF
-
-RUN <<EOF
-usermod -u $UID -g node -o node
+RUN usermod -u $UID -g node -o node; \
 groupmod -g $GID -o node
-EOF
+RUN apt-get update; \
+apt-get install -y autoconf automake libtool nasm zlib1g-dev
+RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+  ln -s -f /usr/lib/aarch64-linux-gnu/libpng16.a /usr/local/lib/libpng16.a; \
+fi
 
 USER node
 WORKDIR /home/node/app
@@ -26,10 +23,8 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 else \
   npm install; \
 fi
+RUN npm run build
 
-# Must be built with secret source id=jam-build
-RUN --mount=type=secret,id=jam-build,target=/home/node/app/private/host-env.json,uid=$UID,gid=$GID \
-  npm run build
-EXPOSE 8088
+EXPOSE 5000
 
-ENTRYPOINT ["npm", "start", "--", "--PORT=8088", "--ENV-PATH=/run/secrets/jam-env.json"]
+ENTRYPOINT ["npm", "start", "--", "--PORT=5000", "--ENV-PATH=/run/secrets/jam-env.json"]

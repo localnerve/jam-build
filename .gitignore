@@ -135,6 +135,9 @@ tmp
 # no private
 private
 
+# no test-results
+test-results
+
 # no code-workspace
 *.code-workspace
 

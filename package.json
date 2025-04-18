@@ -20,7 +20,10 @@
     "lint:css": "stylelint src/**/*.scss",
     "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
-    "test": "echo \"no tests yet\" && exit 1"
+    "test": "npm run test:server && sleep 1 && npm run test:manual && curl -X POST http://localhost:5000/shutdown",
+    "test:env": "cross-env BASE_URL=http://localhost:5000 DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
+    "test:manual": "npm run test:env -- playwright test",
+    "test:server": "npm run dev -- --TEST &"
   },
   "repository": {
     "type": "git",
@@ -40,10 +43,12 @@
   "homepage": "https://github.com/localnerve/jam-build#readme",
   "dependencies": {
     "compression": "^1.8.0",
+    "debug": "^4.4.0",
     "express": "^5.1.0",
     "express-version-request": "^1.7.0",
     "express-version-route": "^1.2.4",
-    "mariadb": "^3.4.1"
+    "mariadb": "^3.4.1",
+    "pino": "^9.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",
@@ -51,11 +56,14 @@
     "@localnerve/gulp-imagemin": "^11.5.4",
     "@localnerve/gulp-responsive": "^7.3.1",
     "@localnerve/sass-asset-functions": "^6.11.2",
+    "@playwright/test": "^1.51.1",
     "@rollup/plugin-dynamic-import-vars": "^2.1.5",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
     "@rollup/plugin-terser": "^0.4.4",
+    "@testcontainers/mariadb": "^10.24.2",
     "autoprefixer": "^10.4.21",
+    "cross-env": "^7.0.3",
     "eslint": "^9.24.0",
     "eslint-plugin-compat": "^6.0.2",
     "glob": "^11.0.1",
@@ -70,9 +78,10 @@
     "handlebars": "^4.7.8",
     "mkdirp": "^3.0.1",
     "modern-normalize": "^3.0.1",
+    "pino-pretty": "^13.0.0",
     "plugin-error": "^2.0.1",
     "rimraf": "^6.0.1",
-    "rollup": "^4.39.0",
+    "rollup": "^4.40.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "sass": "^1.86.3",
     "sitemap": "^8.0.0",
@@ -80,6 +89,7 @@
     "stylelint-config-standard": "^38.0.0",
     "stylelint-config-standard-scss": "^14.0.0",
     "stylelint-no-unsupported-browser-features": "^8.0.4",
+    "testcontainers": "^10.24.2",
     "workbox-build": "^7.3.0",
     "workbox-core": "^7.3.0",
     "workbox-window": "^7.3.0"

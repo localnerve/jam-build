@@ -6,6 +6,9 @@
  */
 import { default as fs, promises as afs } from 'node:fs';
 import path from 'node:path';
+import debugLib from 'debug';
+
+const debug = debugLib('server');
 
 /**
  * Get the server startup process arguments.
@@ -36,6 +39,7 @@ export function processArgs () {
   const noCompression = process.argv.some(item => item.match('NO-COMPRESS'));
   const noHeaders = process.argv.some(item => item.match('NO-HEADERS'));
   const debug = process.argv.some(item => item.match('DEBUG'));
+  const test = process.argv.some(item => item.match('TEST'));
 
   return {
     debug,
@@ -44,8 +48,40 @@ export function processArgs () {
     noCompression,
     noHeaders,
     port,
-    rootDir
+    rootDir,
+    test
   };
+}
+
+/**
+ * Initialize server logging.
+ * 
+ * @param {Function} loggerFactory - The factory that creates a logger object.
+ * @param {Boolean} debug - If debugging is desired.
+ * @returns {Object} The logger object.
+ */
+export function initLogger (loggerFactory, debug) {
+  const loggerOptions = {
+    name: 'jam-build'
+  };
+
+  if (process.env.NODE_ENV !== 'production') {
+    loggerOptions.transport = {
+      target: 'pino-pretty',
+      options: {
+        colorize: true
+      }
+    };
+  }
+
+  if (debug) {
+    loggerOptions.level = 'debug';
+  }
+  
+  const loggerObj = loggerFactory(loggerOptions);
+  loggerObj.debug = loggerObj.debug ?? (()=>{});
+
+  return loggerObj;
 }
 
 /**
@@ -64,14 +100,14 @@ function isPageRoute (path) {
  * Express middleware function to serve static files.
  * If no /path exists, try /path.html
  * 
- * @param {Function} logger - a function to handle logging.
+ * @param {Object} logger - The logger object.
  * @param {String} rootDir - root directory.
  * @param {Request} req - Express request object
  * @param {Response} res - Express response object
  * @param {Function} next - Express next stack function
  */
 export function staticFiles (logger, rootDir, req, res, next) {
-  const filePath = path.resolve(rootDir, '.'+req.path);
+  const filePath = path.resolve(rootDir, `.${req.path}`);
   fs.access(filePath, err => {
     if (err) {
       fs.access(`${filePath}.html`, err => {
@@ -82,11 +118,11 @@ export function staticFiles (logger, rootDir, req, res, next) {
           }
           req.url = `${path}.html`;
         }
-        logger(req.url);
+        [debug, logger.debug.bind(logger)].forEach(f => f(req.url));
         next();
       });
     } else {
-      logger(req.url);
+      [debug, logger.debug.bind(logger)].forEach(f => f(req.url));
       next();
     }
   });
@@ -95,9 +131,10 @@ export function staticFiles (logger, rootDir, req, res, next) {
 /**
  * Load a host env file into the current environment.
  *
+ * @param {Object} logger - The logger object.
  * @param {String} envFilePath - Path to the json host env file.
  */
-export async function setHostEnv (envFilePath) {
+export async function setHostEnv (logger, envFilePath) {
   const jsonFile = path.resolve(envFilePath);
   try {
     const configText = await afs.readFile(jsonFile, { encoding: 'utf8' });
@@ -106,14 +143,14 @@ export async function setHostEnv (envFilePath) {
       process.env[key] = val;
     }
   } catch (e) {
-    console.warn(`host env "${jsonFile}" not loaded, this might be ok`, e.code); // eslint-disable-line
+    logger.warn(`host env "${jsonFile}" not loaded, using predefined environment:`, e.code);
   }
 }
 
 /**
  * Set response headers.
  *
- * @param {Function} logger - The logging function.
+ * @param {Object} logger - The logging object.
  * @param {Response} res - Express Response object.
  * @param {String} path - The requested path.
  */
@@ -137,14 +174,14 @@ export function setHeaders (logger, res, path) {
   const fingerprinted = /[a-z0-9]{10}\.\w+/;
 
   if (fingerprinted.test(path)) {
-    logger('far future expires');
+    [debug, logger.debug.bind(logger)].forEach(f => f(`far future expires: ${path}`));
     res.set(farCache);
   } else {
     if (isPageRoute(path)) {
-      logger('route headers set');
+      [debug, logger.debug.bind(logger)].forEach(f => f(`route headers set: ${path}`));
       res.set(routeSet);
     }
-    logger('no-cache headers set', path);
+    [debug, logger.debug.bind(logger)].forEach(f => f(`no-cache headers set: ${path}`));
     res.set(noCache);
   }
 }
@@ -152,13 +189,13 @@ export function setHeaders (logger, res, path) {
 /**
  * 404 handler.
  * 
- * @param {Function} logger - logging function.
+ * @param {Object} logger - logging object.
  * @param {String} root - The root directory.
  * @param {Request} req - The express request object.
  * @param {Response} res - The express response object.
  */
 export function notFoundHandler (logger, root, req, res) {
-  logger('404', req.url);
+  logger.info('404', req.url);
   setHeaders(logger, res, req.path);
   res.status(404).sendFile('404.html', { root });
 }
@@ -166,7 +203,7 @@ export function notFoundHandler (logger, root, req, res) {
 /**
  * 500 handler.
  * 
- * @param {Function} logger - logging function.
+ * @param {Object} logger - logging object.
  * @param {String} root - The root directory.
  * @param {Object} err - The error object.
  * @param {Request} req - The express request object.
@@ -175,7 +212,7 @@ export function notFoundHandler (logger, root, req, res) {
  * @returns 
  */
 export function errorHandler (logger, root, err, req, res, next) {
-  logger('500', req.url, err);
+  logger.error('500', req.url, err);
   if (res.headersSent) {
     return next(err);
   }
@@ -187,7 +224,7 @@ export function errorHandler (logger, root, err, req, res, next) {
  * 503 handler.
  * Rewrite all requests to 503.
  * 
- * @param {function} logger - Logging function.
+ * @param {Object} logger - Logging object.
  * @param {String|Number} retryAfter - The retry after HTTP date.
  * @param {Request} req - The express request object.
  * @param {Response} res - The express response object.
@@ -195,7 +232,7 @@ export function errorHandler (logger, root, err, req, res, next) {
  */
 export function maintenanceHandler (logger, retryAfter, req, res, next) {
   if (isPageRoute(req.path)) {
-    logger('503', req.url);
+    logger.info('503', req.url);
     req.url = '503.html';
     if (Date.parse(retryAfter) || parseInt(retryAfter)) {
       res.set('Retry-After', retryAfter);

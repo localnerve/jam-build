@@ -122,7 +122,9 @@ export async function buildSwMain (settings) {
   const publicSwCustomPath = await generateSWCustom(settings, {
     SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable),
     CACHE_PREFIX: JSON.stringify(cachePrefix),
-    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp())
+    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp()),
+    API_VERSION: JSON.stringify(settings.apiVersion),
+    SCHEMA_VERSION: JSON.stringify(settings.schemaVersion)
   });
   
   return generateSW({

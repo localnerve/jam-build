@@ -30,12 +30,12 @@
 
       @each $width, $image in $images {
         @include m.min-width('#{$last-width + 1}px') {
-          background-color: rgba(0 0 0 / 50%);
+          background-color: rgb(0 0 0 / 50%);
           // stylelint-disable-next-line plugin/no-unsupported-browser-features
           background-image:
             linear-gradient(
-              rgba(0 0 0 / 50%),
-              rgba(0 0 0 / 50%)
+              rgb(0 0 0 / 50%),
+              rgb(0 0 0 / 50%)
             ),
             image-url($image);
         }

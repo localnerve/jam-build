@@ -9,6 +9,7 @@
  *   --NO-COMPRESS, boolean flag, true if exists, starts the app without wire compression
  *   --NO-HEADERS, boolean flag, true if exists, starts the app without asset file headers
  *   --DEBUG, boolean flag, true if exists, starts the app with verbose logging
+ *   --TEST, boolean flag, true if exists, start the app with test-only api
  *  
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
@@ -16,38 +17,46 @@
 
 import express from 'express';
 import compression from 'compression';
+import pino from 'pino';
 import { mountpath as apiPath, create as createApi } from './api/index.js';
 import {
   errorHandler,
+  initLogger,
   maintenanceHandler,
   notFoundHandler,
   processArgs,
   setHeaders,
   staticFiles,
   setHostEnv
-} from './jam-lib.js';
+} from './lib.js';
 
 const {
   debug,
+  envPath,
+  maintenance,
   noCompression,
   noHeaders,
-  maintenance,
   port,
   rootDir,
-  envPath
+  test
 } = processArgs();
-/* eslint-disable no-console */
-const logger = debug ? console.log : () => {};
-const errorLogger = console.error;
-/* eslint-enable no-console */
 
-await setHostEnv(envPath);
+const logger = initLogger(pino, debug);
+
+await setHostEnv(logger, envPath);
 
 const server = express();
 server.disable('x-powered-by');
 
 if (!noCompression) {
   server.use(compression());
+}
+
+if (test) {
+  server.post('/shutdown', (req, res) => {
+    res.sendStatus(200);
+    process.exit(0);
+  });
 }
 
 if (!maintenance) {
@@ -66,7 +75,7 @@ server.use(errorHandler.bind(null, logger, rootDir));
 
 server.listen(port, err => {
   if (err) {
-    return errorLogger(err);
+    return logger.error(err);
   }
-  return console.log(`app serving ${rootDir}, listening on port ${port}`); // eslint-disable-line
+  return logger.info(`app serving ${rootDir}, listening on port ${port}`);
 });

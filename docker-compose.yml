@@ -8,27 +8,24 @@ services:
       - source: jam
         target: jam-env.json
     ports:
-      - 127.0.0.1:8088:8088/tcp
+      - 5000:5000
 
   # The database
   mariadb:
     image: mariadb:11.7.2
     environment:
-      - MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
-      - MYSQL_USER: jbuser
-      - MYSQL_PASSWORD_FILE: /run/secrets/db_user_password
-      - MARIADB_AUTO_UPGRADE: 1
-      - MARIADB_DATABASE: jam_build
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_DATABASE: jam_build
     secrets:
       - source: db_root_password
         target: db_root_password
-      - source: db_user_password
-        target: db_user_password
     ports:
-      - "3306:3306"
+      - 3306:3306
     volumes:
       - dbdata:/var/lib/mysql
-      - "./data/database/mariadb-ddl.sql:/docker-entrypoint-initdb.d/mariadb-ddl.sql"
+      - ./private/mariadb-ddl-init.sql:/docker-entrypoint-initdb.d/1.sql
+      - ./data/database/mariadb-ddl.sql:/docker-entrypoint-initdb.d/2.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
@@ -71,7 +68,5 @@ secrets:
     file: ./private/host-env.json
   db_root_password:
     file: ./private/db-root-password.txt
-  db_user_password:
-    file: ./private/db-user-password.txt
   db_root_cnf:
     file: ./private/db-root.cnf

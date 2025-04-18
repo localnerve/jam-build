@@ -6,108 +6,123 @@
  */
 import express from 'express';
 import mariadb from 'mariadb';
+import debugLib from 'debug';
 
-let pool;
+const debug = debugLib('api');
 
-async function getValues (logger, req, res) {
+let appPool;
+
+async function getAppValues (logger, req, res) {
   const { document, collection } = req.params;
 
   try {
-    const arr = await pool.query(
-      'CALL GetValuesForDocumentAndCollection(?, ?)',
+    debug('Calling GetPropertiesForApplicationDocumentAndCollection...');
+
+    const arr = await appPool.query(
+      'CALL GetPropertiesForApplicationDocumentAndCollection(?, ?)',
       [document, collection]
     );
 
+    debug('reducing results...');
     const results = arr[0].reduce((acc, curr) => {
-      acc[curr.value_name] = curr.value_value;
+      acc[curr.property_name] = curr.property_value;
       return acc;
     }, {});
     
+    debug('Sending success response...');
     res.status(200).json(results);
   } catch(err) {
-    logger('Error in getValues: ', err);
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppValues: ${err}`));
     res.status(500).json({ error: 'Internal server error'});
   }
 }
 
-async function getCollectionsAndValues (logger, req, res) {
+async function getAppCollectionsAndValues (logger, req, res) {
   const { document } = req.params;
 
   try {
-    const arr = await pool.query(
-      'CALL GetCollectionsAndValues(?)',
+    debug('Calling GetPropertiesAndCollectionsForApplicationDocument...');
+
+    const arr = await appPool.query(
+      'CALL GetPropertiesAndCollectionsForApplicationDocument(?)',
       [document]
     );
 
+    debug('reducing results...');
     const results = arr[0].reduce((acc, curr) => {
       let collection = acc[curr.collection_name];
       if (!collection) {
         collection = acc[curr.collection_name] = {};
       }
-      collection[curr.value_name] = curr.value_value;
+      collection[curr.property_name] = curr.property_value;
       return acc;
     }, {});
-    logger(arr, results);
+
+    debug('Sending success reponse...');
     res.status(200).json(results);
   } catch(err) {
-    logger('Error in getValues: ', err);
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppCollectionsAndValues: ${err}`));
     res.status(500).json({ error: 'Internal server error'});
   }
 }
 
-async function setValues (logger, req, res) {
-  const { document, collection, values } = req.body;
+async function setAppValues (logger, req, res) {
+  const { document, collection, properties } = req.body;
 
   // TODO: Validate input
-  if (!document || !collection || !Array.isArray(values)) {
+  if (!document || !collection || !Array.isArray(properties)) {
     return res.status(400).json({ error: 'Invalid input' });
   }
 
   try {
-    // Call the stored procedure
-    const result = await pool.query(
-      'CALL InsertDocumentCollectionNameValues(?, ?, ?)',
-      [document, collection, JSON.stringify(values)]
+    debug('Calling InsertPropertiesForApplicationDocumentCollection...');
+
+    const result = await appPool.query(
+      'CALL InsertPropertiesForApplicationDocumentCollection(?, ?, ?)',
+      [document, collection, JSON.stringify(properties)]
     );
 
+    debug('Sending success response...');
     res.status(200).json({
       message: 'Success',
       affectedRows: result.affectedRows,
       warningStatus: result.warningStatus
     });
   } catch (err) {
-    logger('Error in setValues' , err);
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in setAppValues: ${err}`));
     res.status(500).json({ error: 'Internal server error' });
   }
 }
 
 export function create (logger) {
-  if (!pool) {
-    pool = mariadb.createPool({
+  if (!appPool) {
+    debug('Creating db connection pool...');
+
+    appPool = mariadb.createPool({
       host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
       database: process.env.DB_DATABASE,
-      logger,
+      user: process.env.DB_APP_USER,
+      password: process.env.DB_APP_PASSWORD,
+      logger: logger.info.bind(logger),
       connectionLimit: 5
     });
     process.on('SIGINT', () => {
-      logger('Shutting down...');
-      pool.end().then(() => {
-        logger('Pool has ended.');
+      logger.info('Shutting down...');
+      appPool.end().then(() => {
+        logger.info('appPool has ended.');
         process.exit(0);
       }).catch((err) => {
-        logger('Error ending the pool:', err);
+        logger.error('Error ending the appPool:', err);
         process.exit(err.code || 1);
       });
     });    
     process.on('SIGTERM', () => {
-      logger('Shutting down...');
-      pool.end().then(() => {
-        logger('Pool has ended.');
+      logger.info('Shutting down...');
+      appPool.end().then(() => {
+        logger.info('appPool has ended.');
         process.exit(0);
       }).catch((err) => {
-        logger('Error ending the pool:', err);
+        logger.error('Error ending the appPool:', err);
         process.exit(err.code || 1);
       });
     });
@@ -115,9 +130,20 @@ export function create (logger) {
 
   const dataRouter = express.Router();
 
-  dataRouter.get('/:document/:collection', getValues.bind(null, logger));
-  dataRouter.get('/:document', getCollectionsAndValues.bind(null, logger));
-  dataRouter.post('/values', setValues.bind(null, logger));
+  dataRouter.get('/:document/:collection', getAppValues.bind(null, logger));
+  dataRouter.get('/:document', getAppCollectionsAndValues.bind(null, logger));
+  dataRouter.post('/values', setAppValues.bind(null, logger));
+  // eslint-disable-next-line no-unused-vars
+  dataRouter.use((err, req, res, next) => {
+    const msg = {
+      type: err.type,
+      message: err.message,
+      status: err.status || err.statusCode || err.code || 500
+    };
+    debug(err);
+    logger.error(msg);
+    res.status(msg.status).json(msg);
+  });
 
   return dataRouter;
 }
