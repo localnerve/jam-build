@@ -20,10 +20,11 @@
     "lint:css": "stylelint src/**/*.scss",
     "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
-    "test": "npm run test:server && sleep 1 && npm run test:manual && curl -X POST http://localhost:5000/shutdown",
-    "test:env": "cross-env BASE_URL=http://localhost:5000 DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
-    "test:manual": "npm run test:env -- playwright test",
-    "test:server": "npm run dev -- --TEST &"
+    "test": "npm run test:env -- playwright test",
+    "test:env": "cross-env DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
+    "test:env:debug": "npm run test:env -- PWDEBUG=1 DEBUG=pw:api,testcontainers*,server*,api*,test*",
+    "test:chrome": "npm run test:env -- playwright test --project=Chrome",
+    "test:debug": "npm run test:env:debug -- playwright test --project=Chrome --workers=1"
   },
   "repository": {
     "type": "git",
@@ -51,12 +52,12 @@
     "pino": "^9.6.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
+    "@eslint/js": "^9.25.0",
     "@localnerve/csp-hashes": "^5.0.8",
     "@localnerve/gulp-imagemin": "^11.5.4",
     "@localnerve/gulp-responsive": "^7.3.1",
     "@localnerve/sass-asset-functions": "^6.11.2",
-    "@playwright/test": "^1.51.1",
+    "@playwright/test": "^1.52.0",
     "@rollup/plugin-dynamic-import-vars": "^2.1.5",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-replace": "^6.0.2",
@@ -64,7 +65,7 @@
     "@testcontainers/mariadb": "^10.24.2",
     "autoprefixer": "^10.4.21",
     "cross-env": "^7.0.3",
-    "eslint": "^9.24.0",
+    "eslint": "^9.25.0",
     "eslint-plugin-compat": "^6.0.2",
     "glob": "^11.0.1",
     "globals": "^16.0.0",
