@@ -47,13 +47,19 @@ BEGIN
     DECLARE v_property_id INT;
     DECLARE v_property_value JSON;
 
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
     -- Check if the input JSON is valid
     IF NOT JSON_VALID(p_properties) THEN
         -- Exit proc and signal the error for invalid JSON
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid JSON format!';
     END IF;
-
-    START TRANSACTION;
 
     -- Insert and get the document ID
     INSERT INTO application_documents (document_name) VALUES (p_document_name) ON DUPLICATE KEY UPDATE document_name = p_document_name;
@@ -139,13 +145,19 @@ BEGIN
     DECLARE v_property_id INT;
     DECLARE v_property_value JSON;
 
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
     -- Check if the input JSON is valid
     IF NOT JSON_VALID(p_properties) THEN
         -- Exit proc and signal the error for invalid JSON
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid JSON format!';
     END IF;
-
-    START TRANSACTION;
 
     -- Insert and get the document ID
     INSERT INTO user_documents (user_id, document_name) VALUES (p_user_id, p_document_name) ON DUPLICATE KEY UPDATE user_id = p_user_id, document_name = p_document_name;
