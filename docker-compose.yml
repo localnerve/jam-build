@@ -1,72 +1,135 @@
 name: jam-build-container
 services:
-  # The application, previously built from ./docker-build.sh
+  # The app
   jam-build:
-    build: .
+    build:
+      context: .
+      args:
+        UID: ${UID}
+        GID: ${GID}
     image: jam-build:latest
-    secrets:
-      - source: jam
-        target: jam-env.json
+    environment:
+      DB_HOST: 172.19.0.10
+      DB_DATABASE: jam_build
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+      AUTHZ_HOST: 172.19.0.11
+      AUTHZ_PORT: 9010
+    depends_on:
+      - mariadb
+      - authorizer
     ports:
       - 5000:5000
+    networks:
+      - frontend
+      - backend
+
+  # The cache
+  cache:
+    image: redis:7.4.2
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    restart: always
+    ports:
+      - 6379:6379
+    command: redis-server --save 20 1 --loglevel warning --requirepass $REDIS_PASSWORD
+    volumes:
+      - cache:/data
+  
+  # The authorizer
+  authorizer:
+    image: lakhansamani/authorizer:1.4.4
+    environment:
+      ENV: production
+      ADMIN_SECRET: ${AUTHZ_ADMIN_SECRET}
+      DATABASE_TYPE: mariadb
+      DATABASE_URL: root:${DB_ROOT_PASSWORD}@tcp(172.19.0.10:3306)/authorizer
+      DATABASE_NAME: authorizer
+      PORT: 9010
+      SMTP_HOST: ${AUTHZ_SMTP_HOST}
+      SMTP_PORT: ${AUTHZ_SMTP_PORT}
+      SMTP_USER: ${AUTHZ_SMTP_USER}
+      SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
+      SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    ports:
+      - 9010:9010
+    networks:
+      backend:
+        ipv4_address: 172.19.0.11
 
   # The database
   mariadb:
     image: mariadb:11.7.2
     environment:
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MARIADB_AUTO_UPGRADE: 1
       MARIADB_DATABASE: jam_build
-    secrets:
-      - source: db_root_password
-        target: db_root_password
+      DB_HOST: 172.19.0.10
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
     ports:
       - 3306:3306
     volumes:
       - dbdata:/var/lib/mysql
-      - ./private/mariadb-ddl-init.sql:/docker-entrypoint-initdb.d/1.sql
-      - ./data/database/mariadb-ddl.sql:/docker-entrypoint-initdb.d/2.sql
+      - ./data/database/mariadb-ddl-init.sh:/docker-entrypoint-initdb.d/1.sh
+      - ./data/database/mariadb-ddl-tables.sql:/docker-entrypoint-initdb.d/2.sql
+      - ./data/database/mariadb-ddl-procedures.sql:/docker-entrypoint-initdb.d/3.sql
+      - ./data/database/mariadb-ddl-privileges.sql:/docker-entrypoint-initdb.d/4.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 20s
       retries: 10
+    networks:
+      backend:
+        ipv4_address: 172.19.0.10
 
-  # The database backup command, runs on service shutdown
+  # The database backup command
   backup:
     image: busybox:stable-uclibc
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     depends_on:
       mariadb:
         condition: service_healthy
-    entrypoint: ["sh", "-c", "mariadb-dump --defaults-extra-file=/run/secrets/db_root_cnf --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
-    secrets:
-      - source: db_root_cnf
-        target: db_root_cnf
+    entrypoint: ["sh", "-c", "mariadb-dump -h 172.19.0.10 -u root --password=\"$DB_ROOT_PASSWORD\" --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
     volumes:
       - backup:/backup
     command: ["tail", "-f", "/dev/null"]
+    networks:
+      - backend
 
-  # The database hydration command, runs on service startup
+  # The database hydration command
   hydrate:
     image: busybox:stable-uclibc
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     depends_on:
       mariadb:
         condition: service_started
-    entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb --defaults-extra-file=/run/secrets/db_root_cnf < /backup/db.sql && rm /backup/db.sql"]
-    secrets:
-      - source: db_root_cnf
-        target: db_root_cnf
+    entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb -u root --password=\"$DB_ROOT_PASSWORD\" -h 172.19.0.10 < /backup/db.sql && rm /backup/db.sql"]
     volumes:
       - backup:/backup
     command: ["tail", "-f", "/dev/null"]
+    networks:
+      - backend
 
 volumes:
   dbdata:
   backup:
+  cache:
 
-secrets:
-  jam:
-    file: ./private/host-env.json
-  db_root_password:
-    file: ./private/db-root-password.txt
-  db_root_cnf:
-    file: ./private/db-root.cnf
+networks:
+  frontend:
+  backend:
+    ipam:
+      config:
+        - subnet: "172.19.0.0/16"
