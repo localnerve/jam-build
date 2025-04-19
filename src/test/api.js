@@ -37,8 +37,10 @@ async function checkImageExists (imageName) {
   }
 }
 
-export async function createAppContainer (containerNetwork, mariadbContainer, appImageName, forceAppBuild = false) {
-  debug(`Checking ${appImageName}...`);
+export async function createAppContainer (containerNetwork, mariadbContainer, appImageName) {
+  const forceAppBuild = !!(process.env.FORCE_BUILD);
+
+  debug(`Checking ${appImageName}... FORCE_BUILD=${forceAppBuild}`);
   
   let appContainerImage;
   if (await checkImageExists(appImageName) && !forceAppBuild) {
@@ -175,21 +177,33 @@ export async function createDatabaseAndAuthorizer () {
   };
 }
 
-export function getResponse (page, url, testResponse = ()=>{}) {
-  return new Promise ((resolve, reject) => {
-    page.on('response', async res => {
-      try {
-        const status = res.status();
-        const json = await res.json();
-        expect(status).toBeGreaterThanOrEqual(200);
-        expect(status).toBeLessThan(400);
-        expect(json).toEqual(expect.any(Object));
-        testResponse(json);
-        resolve();
-      } catch (e) {
-        reject(e);
-      }
-    });
-    page.goto(url).catch(reject);
+export async function getData (request, url, testResponse = ()=>true) {
+  debug(`GET request for ${url}...`);
+  const response = await request.get(url);
+  
+  debug(`GET response code: ${response.status()}`);
+  expect(response.ok()).toBeTruthy();
+
+  const json = await response.json();  
+  debug('GET response json: ', json);
+
+  testResponse(expect, json);
+}
+
+export async function postData (request, url, data) {
+  debug(`POST request for ${url}...`);
+  const response = await request.post(url, {
+    data
   });
+
+  debug(`POST response code: ${response.status()}`);
+  expect(response.ok()).toBeTruthy();
+
+  const json = await response.json();
+  debug('POST response json: ', json);
+
+  expect(json.ok).toBeTruthy();
+  expect(json).toEqual(expect.objectContaining({
+    message: 'Success'
+  }));
 }

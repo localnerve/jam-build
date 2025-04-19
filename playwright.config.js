@@ -16,7 +16,7 @@ export default {
       browserName: 'chromium',
       viewport: desktopViewport
     }
-  }/*, {
+  }, {
     name: 'Pixel3Emulate',
     use: {
       slowMo,
@@ -36,5 +36,5 @@ export default {
       browserName: 'firefox',
       viewport: desktopViewport
     }
-  }*/]
+  }]
 };
