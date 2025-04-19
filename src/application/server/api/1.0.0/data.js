@@ -85,6 +85,7 @@ async function setAppValues (logger, req, res) {
     debug('Sending success response...');
     res.status(200).json({
       message: 'Success',
+      ok: true,
       affectedRows: result.affectedRows,
       warningStatus: result.warningStatus
     });
