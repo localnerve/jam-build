@@ -39,19 +39,24 @@ test.describe('api/data', () => {
     }
   });
 
-  test('put application home state', async ({ request }) => {
-    return postData(request, `${baseUrl}/values`, {
-      document: 'home',
-      collection: 'state',
-      properties: [{
-        property_name: 'property1',
-        property_value: 'value1'
+  test('post application home state and friends', async ({ request }) => {
+    return postData(request, `${baseUrl}/home`, {
+      collections: [{
+        collection: 'state',
+        properties: {
+          property1: 'value1', 
+          property2: 'value2',
+          property3: 'value3',
+          property4: 'value4'
+        }
       }, {
-        property_name: 'property2',
-        property_value: 'value2'
+        collection: 'friends',
+        properties: { 
+          property1: 'value44'
+        }
       }]
     });
-  });
+  })
 
   test('get application home', async ({ request }) => {
     return getData(request, `${baseUrl}/home`, (expect, json) => {

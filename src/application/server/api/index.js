@@ -26,7 +26,8 @@ const debug = debugLib('api');
  */
 export function create (logger, options = {}, locals = {}) {
   const api = express();
-  
+  api.disable('x-powered-by');
+
   if (!options.noCompression) {
     api.use(compression());
   }
@@ -46,16 +47,32 @@ export function create (logger, options = {}, locals = {}) {
   // add other supported versions here
 
   api.use(versionRouter.route(routesMap, { useMaxVersion: true }));
+
+  api.use((req, res) => {
+    const status = 404;
+    const message = `[${status}] Resource Not Found`;
+    debug(`${message}: ${req.originalUrl}`);
+    logger.info(`${message}: ${req.originalUrl}`);
+    res.status(status).json({
+      status,
+      message,
+      timestamp: (new Date()).toISOString(),
+      url: req.originalUrl
+    });
+  });
+
   // eslint-disable-next-line no-unused-vars
   api.use((err, req, res, next) => {
     const msg = {
-      type: err.type,
-      message: err.message,
-      status: err.status || err.statusCode || err.code || 500
+      status: err.status || err.statusCode || 500,
+      message: err.sql ? err.code : err.message,
+      timestamp: (new Date()).toISOString(),
+      type: err.type || err.name || 'unknown'
     };
     debug(err);
     logger.error(msg);
     res.status(msg.status).json(msg);
   });
+
   return api;
 }

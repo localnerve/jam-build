@@ -1,0 +1,286 @@
+/**
+ * Application data interface.
+ * 
+ * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
+ */
+import express from 'express';
+import mariadb from 'mariadb';
+import debugLib from 'debug';
+
+const debug = debugLib('api');
+
+let appPool;
+
+function transformAndValidateInput (document, collections, mapCollection) {
+  // Conform array input to an array of non-falsy things.
+  // This allows input of a single object of single collection updates, in addition to an array of such.
+  if (!Array.isArray(collections)) {
+    collections = [collections];
+  }
+  collections = collections.filter(obj => obj);
+
+  let procedureCollections;
+
+  try {
+    if (!document || collections.length <= 0) {
+      const e = new Error();
+      e.type = 'data.validation.input';
+      throw e;
+    }
+
+    procedureCollections = collections.map(coll => {
+      const invalidInput = !coll.collection || typeof coll.collection !== 'string' ||
+      !coll.properties || Object.keys(coll.properties).length <= 0;
+      if (invalidInput) {
+        const e = new Error();
+        e.type = 'data.validation.input.collections';
+        throw e;
+      }
+      return mapCollection(coll);
+    });
+  } catch (err) {
+    const validationError = new Error('Invalid input');
+    validationError.status = 400;
+    validationError.type = err.type || 'data.validation.input.escape';
+    throw validationError;
+  }
+
+  return procedureCollections;
+}
+
+async function getAppProperties (logger, req, res) {
+  const { document, collection } = req.params;
+
+  debug(`getAppProperties '${document}', '${collection}'`);
+
+  try {
+    debug('Calling GetPropertiesForApplicationDocumentAndCollection...');
+
+    const arr = await appPool.query(
+      'CALL GetPropertiesForApplicationDocumentAndCollection(?, ?)',
+      [document, collection]
+    );
+
+    debug('reducing results...');
+    const results = arr[0].reduce((acc, curr) => {
+      acc[curr.property_name] = curr.property_value;
+      return acc;
+    }, {});
+    
+    debug('Sending success response...');
+    res.status(200).json(results);
+  } catch(err) {
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppProperties: ${err}`));
+    throw err;
+  }
+}
+
+async function getAppCollectionsAndProperties (logger, req, res) {
+  const { document } = req.params;
+
+  debug(`getAppCollectionsAndProperties '${document}'`);
+
+  try {
+    debug('Calling GetPropertiesAndCollectionsForApplicationDocument...');
+
+    const arr = await appPool.query(
+      'CALL GetPropertiesAndCollectionsForApplicationDocument(?)',
+      [document]
+    );
+
+    debug('reducing results...');
+    const results = arr[0].reduce((acc, curr) => {
+      let collection = acc[curr.collection_name];
+      if (!collection) {
+        collection = acc[curr.collection_name] = {};
+      }
+      collection[curr.property_name] = curr.property_value;
+      return acc;
+    }, {});
+
+    debug('Sending success reponse...');
+    res.status(200).json(results);
+  } catch(err) {
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppCollectionsAndProperties: ${err}`));
+    throw err;
+  }
+}
+
+async function setAppProperties (logger, req, res) {
+  const { document } = req.params;
+  const { collections } = req.body;
+
+  debug(`setAppProperties '${document}', collections: `, collections);
+
+  const procedureCollections = transformAndValidateInput(
+    document, collections, coll => ({
+      collection_name: coll.collection,
+      properties: Object.entries(coll.properties).map(([key, value]) => ({
+        property_name: key,
+        property_value: value
+      }))
+    })
+  );
+
+  try {
+    debug(`Calling UpsertApplicationDocumentWithCollectionsAndProperties for ${document}...`);
+    debug('procedureCollections', procedureCollections);
+
+    const result = await appPool.query(
+      'CALL UpsertApplicationDocumentWithCollectionsAndProperties(?, ?)',
+      [document, JSON.stringify(procedureCollections)]
+    );
+
+    debug('Sending success response...');
+    res.status(200).json({
+      message: 'Success',
+      ok: true,
+      timestamp: (new Date()).toISOString(),
+      affectedRows: result.affectedRows,
+      warningStatus: result.warningStatus
+    });
+  } catch (err) {
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in setAppProperties: ${err}`));
+    throw err;
+  }
+}
+
+async function deleteAppDocument (logger, req, res) {
+  const { document } = req.params;
+
+  debug(`deleteAppDocument '${document}'`);
+
+  try {
+    debug('Calling DeleteApplicationDocument...');
+
+    const result = await appPool.query(
+      'CALL DeleteApplicationDocument(?)',
+      [document]
+    );
+
+    debug('Sending success response...');
+    res.status(200).json({
+      message: 'Success',
+      ok: true,
+      timestamp: (new Date()).toISOString(),
+      affectedRows: result.affectedRows,
+      warningStatus: result.warningStatus
+    });
+  } catch (err) {
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in deleteAppDocument: ${err}`));
+    throw err;
+  }
+}
+
+async function deleteAppCollection (logger, req, res) {
+  const { document, collection } = req.params;
+
+  debug(`deleteAppCollection '${document}', '${collection}'`);
+
+  try {
+    debug('Calling DeleteApplicationCollection...');
+
+    const result = await appPool.query(
+      'CALL DeleteApplicationCollection(?, ?)',
+      [document, collection]
+    );
+
+    debug('Sending success response...');
+    res.status(200).json({
+      message: 'Success',
+      ok: true,
+      timestamp: (new Date()).toISOString(),
+      affectedRows: result.affectedRows,
+      warningStatus: result.warningStatus
+    });
+  } catch (err) {
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in deleteAppCollection: ${err}`));
+    throw err;
+  }
+}
+
+async function deleteAppProperties (logger, req, res) {
+  const { document } = req.params;
+  const { collections, deleteDocument } = req.body;
+
+  debug(`deleteAppProperties '${document}', deleteDocument: '${deleteDocument}'`, collections);
+
+  if (deleteDocument) {
+    debug('Calling deleteAppDocument on input flag');
+    return deleteAppDocument(logger, req, res);
+  }
+
+  const procedureCollections = transformAndValidateInput(
+    document, collections, coll => ({
+      collection_name: coll.collection,
+      property_names: coll.properties
+    })
+  );
+
+  try {
+    debug('Calling DeleteApplicationProperties...');
+
+    const result = await appPool.query(
+      'CALL DeleteApplicationProperties(?, ?)',
+      [document, JSON.stringify(procedureCollections)]
+    );
+
+    debug('Sending success response...');
+    res.status(200).json({
+      message: 'Success',
+      ok: true,
+      timestamp: (new Date()).toISOString(),
+      affectedRows: result.affectedRows,
+      warningStatus: result.warningStatus
+    });
+  } catch (err) {
+    [debug, logger.error.bind(logger)].forEach(f => f(`Error in deleteAppEntities: ${err}`));
+    throw err;
+  }
+}
+
+export function create (logger) {
+  if (!appPool) {
+    debug('Creating db connection pool...');
+
+    appPool = mariadb.createPool({
+      host: process.env.DB_HOST,
+      database: process.env.DB_DATABASE,
+      user: process.env.DB_APP_USER,
+      password: process.env.DB_APP_PASSWORD,
+      logger: logger.info.bind(logger),
+      connectionLimit: 5
+    });
+    process.on('SIGINT', () => {
+      logger.info('Shutting down...');
+      appPool.end().then(() => {
+        logger.info('appPool has ended.');
+        process.exit(0);
+      }).catch((err) => {
+        logger.error('Error ending the appPool:', err);
+        process.exit(err.code || 1);
+      });
+    });    
+    process.on('SIGTERM', () => {
+      logger.info('Shutting down...');
+      appPool.end().then(() => {
+        logger.info('appPool has ended.');
+        process.exit(0);
+      }).catch((err) => {
+        logger.error('Error ending the appPool:', err);
+        process.exit(err.code || 1);
+      });
+    });
+  }
+
+  const dataRouter = express.Router();
+
+  dataRouter.get('/:document/:collection', getAppProperties.bind(null, logger));
+  dataRouter.delete('/:document/:collection', deleteAppCollection.bind(null, logger));
+  dataRouter.get('/:document', getAppCollectionsAndProperties.bind(null, logger));
+  dataRouter.post('/:document', setAppProperties.bind(null, logger));
+  dataRouter.delete('/:document', deleteAppProperties.bind(null, logger));
+
+  return dataRouter;
+}

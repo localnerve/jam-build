@@ -4,7 +4,7 @@
 
 DELIMITER //
 
-CREATE PROCEDURE IF NOT EXISTS GetPropertiesForApplicationDocumentAndCollection(
+CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesForApplicationDocumentAndCollection(
     IN p_document_name VARCHAR(255),
     IN p_collection_name VARCHAR(255)
 )
@@ -19,7 +19,7 @@ BEGIN
 END;
 //
 
-CREATE PROCEDURE IF NOT EXISTS GetPropertiesAndCollectionsForApplicationDocument(
+CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsForApplicationDocument(
     IN p_document_name VARCHAR(255)
 )
 BEGIN
@@ -33,73 +33,339 @@ BEGIN
 END;
 //
 
-CREATE PROCEDURE IF NOT EXISTS InsertPropertiesForApplicationDocumentCollection(
-    IN p_document_name VARCHAR(255),
-    IN p_collection_name VARCHAR(255),
-    IN p_properties JSON
+CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertApplicationDocumentWithCollectionsAndProperties (
+    p_document_name VARCHAR(255),
+    p_data JSON
 )
 BEGIN
     DECLARE v_document_id INT;
     DECLARE v_collection_id INT;
-    DECLARE i INT DEFAULT 0;
-    DECLARE property_count INT;
-    DECLARE v_property_name VARCHAR(255);
+    DECLARE v_collection_name VARCHAR(255);
     DECLARE v_property_id INT;
+    DECLARE v_property_name VARCHAR(255);
     DECLARE v_property_value JSON;
+    DECLARE i INT DEFAULT 0;
+    DECLARE j INT DEFAULT 0;
 
+    -- Declare a handler for SQL exceptions
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        -- Rollback the transaction on any error
         ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
         RESIGNAL;
     END;
 
+    -- Start a new transaction
     START TRANSACTION;
 
-    -- Check if the input JSON is valid
-    IF NOT JSON_VALID(p_properties) THEN
-        -- Exit proc and signal the error for invalid JSON
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid JSON format!';
-    END IF;
+    SET v_document_id = NULL;
 
-    -- Insert and get the document ID
-    INSERT INTO application_documents (document_name) VALUES (p_document_name) ON DUPLICATE KEY UPDATE document_name = p_document_name;
+    -- Insert or update document
+    INSERT INTO application_documents (document_name)
+    VALUES (p_document_name)
+    ON DUPLICATE KEY UPDATE document_name = VALUES(document_name);
+
+    -- Get the document_id for the given document_name
     SELECT document_id INTO v_document_id FROM application_documents WHERE document_name = p_document_name;
 
-    -- Insert and get the collection ID
-    INSERT INTO application_collections (collection_name) VALUES (p_collection_name);
-    SELECT  LAST_INSERT_ID() INTO v_collection_id;
+    -- Process collections and their associated properties
+    WHILE i < JSON_LENGTH(p_data) DO
+        SET v_collection_id = NULL;
+        SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].collection_name')));
+    
+        -- Check if the collection already exists for this document
+        SELECT collection_id INTO v_collection_id 
+        FROM application_documents_collections 
+        WHERE document_id = v_document_id AND collection_id IN (
+            SELECT collection_id 
+            FROM application_collections 
+            WHERE collection_name = v_collection_name
+        );
 
-    -- Associate document with collection if not already associated
-    IF NOT EXISTS (SELECT 1 FROM application_documents_collections WHERE document_id = v_document_id AND collection_id = v_collection_id) THEN
-        INSERT INTO application_documents_collections (document_id, collection_id) VALUES (v_document_id, v_collection_id);
-    END IF;
+        IF v_collection_id IS NULL THEN
+            -- Insert collection if it doesn't exist
+            INSERT INTO application_collections (collection_name)
+            VALUES (v_collection_name);
 
-    -- Get the count of name_value pairs
-    SET property_count = JSON_LENGTH(p_properties);
+            -- Get the newly inserted collection_id
+            SET v_collection_id = LAST_INSERT_ID();
 
-    -- Loop through each name_value pair and insert or get the value_id
-    WHILE i < property_count DO
-        -- Extract property name and value from JSON array
-        SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(p_properties, CONCAT('$[', i, '].property_name')));
-        SET v_property_value = JSON_EXTRACT(p_properties, CONCAT('$[', i, '].property_value'));
-
-        -- Insert or get the property_id
-        INSERT INTO application_properties (property_name, property_value) VALUES (v_property_name, v_property_value) ON DUPLICATE KEY UPDATE property_name = v_property_name;
-        SELECT property_id INTO v_property_id FROM application_properties WHERE property_name = v_property_name;
-
-        -- Associate collection with namevalue if not already associated
-        IF NOT EXISTS (SELECT 1 FROM application_collections_properties WHERE collection_id = v_collection_id AND property_id = v_property_id) THEN
-            INSERT INTO application_collections_properties (collection_id, property_id) VALUES (v_collection_id, v_property_id);
+            -- Associate document with collection
+            INSERT INTO application_documents_collections (document_id, collection_id)
+            VALUES (v_document_id, v_collection_id);
         END IF;
+
+        -- Process properties for the current collection
+        SET j = 0;
+        WHILE j < JSON_LENGTH(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties'))) DO
+            SET v_property_id = NULL;
+            SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_name')));
+            SET v_property_value = JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_value'));
+
+            -- Check if the property already exists in this collection
+            SELECT property_id INTO v_property_id 
+            FROM application_collections_properties 
+            WHERE collection_id = v_collection_id AND property_id IN (
+                SELECT property_id 
+                FROM application_properties 
+                WHERE property_name = v_property_name
+            );
+
+            IF v_property_id IS NULL THEN
+                -- Insert property if it doesn't exist
+                INSERT INTO application_properties (property_name, property_value)
+                VALUES (v_property_name, v_property_value);
+
+                -- Get the newly inserted property_id
+                SET v_property_id = LAST_INSERT_ID();
+
+                -- Associate collection with property
+                INSERT INTO application_collections_properties (collection_id, property_id)
+                VALUES (v_collection_id, v_property_id);
+            ELSE
+                -- Check if the property_value is different to update
+                SELECT property_value INTO @current_property_value 
+                FROM application_properties 
+                WHERE property_id = v_property_id;
+
+                IF NOT JSON_EQUALS(@current_property_value, v_property_value) THEN
+                    -- Update property value if it already exists for this collection
+                    UPDATE application_properties
+                    SET property_value = v_property_value
+                    WHERE property_id = v_property_id;
+                END IF;
+            END IF;
+
+            SET j = j + 1;
+        END WHILE;
 
         SET i = i + 1;
     END WHILE;
 
+    -- Commit the transaction
     COMMIT;
 END;
 //
 
-CREATE PROCEDURE IF NOT EXISTS GetPropertiesForUserDocumentAndCollection(
+CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationDocument (
+    IN p_document_name VARCHAR(255)
+)
+BEGIN
+    DECLARE v_document_id INT;
+
+    -- Declare a handler for SQL exceptions
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Rollback the transaction on any error
+        ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
+        RESIGNAL;
+    END;
+
+    -- Start a new transaction
+    START TRANSACTION;
+
+    SET v_document_id = NULL;
+
+    -- Get the document_id for the given document_name
+    SELECT document_id INTO v_document_id FROM application_documents WHERE document_name = p_document_name;
+
+    IF v_document_id IS NOT NULL THEN
+        -- Delete the document itself (CASCADE will handle deletions in application_documents_collections)
+        DELETE FROM application_documents WHERE document_id = v_document_id;
+        
+        -- Clean up unused application_collections
+        DELETE FROM application_collections 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM application_documents_collections
+        );
+        
+        -- Clean up unused application_collections_properties
+        DELETE FROM application_collections_properties 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM application_documents_collections
+        );
+        
+        -- Clean up unused application_properties
+        DELETE FROM application_properties 
+        WHERE property_id NOT IN (
+            SELECT property_id FROM application_collections_properties
+        );
+    END IF;
+
+    -- Commit the transaction
+    COMMIT;
+END;
+//
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationCollection (
+    IN p_document_name VARCHAR(255),
+    IN p_collection_name VARCHAR(255)
+)
+BEGIN
+    DECLARE v_document_id INT;
+    DECLARE v_collection_id INT;
+
+    -- Declare a handler for SQL exceptions
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Rollback the transaction on any error
+        ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
+        RESIGNAL;
+    END;
+
+    -- Start a new transaction
+    START TRANSACTION;
+
+    SET v_document_id = NULL;
+
+    -- Get the document_id for the given document_name
+    SELECT document_id INTO v_document_id FROM application_documents WHERE document_name = p_document_name;
+
+    IF v_document_id IS NOT NULL THEN
+        SET v_collection_id = NULL;
+
+        -- Get the collection_id for the given collection_name within the document
+        SELECT collection_id INTO v_collection_id FROM application_collections 
+        WHERE collection_id IN (
+            SELECT collection_id FROM application_documents_collections 
+            WHERE document_id = v_document_id AND collection_id IN (
+                SELECT collection_id FROM application_collections WHERE collection_name = p_collection_name
+            )
+        );
+
+        IF v_collection_id IS NOT NULL THEN
+            -- Delete the collection from application_documents_collections (CASCADE will handle deletions in application_collections_properties)
+            DELETE FROM application_documents_collections 
+            WHERE document_id = v_document_id AND collection_id = v_collection_id;
+            
+            -- Clean up unused application_collections
+            DELETE FROM application_collections 
+            WHERE collection_id NOT IN (
+                SELECT collection_id FROM application_documents_collections
+            );
+            
+            -- Clean up unused application_collections_properties
+            DELETE FROM application_collections_properties 
+            WHERE collection_id NOT IN (
+                SELECT collection_id FROM application_documents_collections
+            );
+            
+            -- Clean up unused application_properties
+            DELETE FROM application_properties 
+            WHERE property_id NOT IN (
+                SELECT property_id FROM application_collections_properties
+            );
+        END IF;
+    END IF;
+
+    -- Commit the transaction
+    COMMIT;
+END;
+//
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationProperties (
+    IN p_document_name VARCHAR(255),
+    IN p_collection_data JSON
+)
+BEGIN
+    DECLARE v_document_id INT;
+    DECLARE v_collection_name VARCHAR(255);
+    DECLARE v_collection_id INT;
+    DECLARE v_property_names JSON;
+    DECLARE v_property_name VARCHAR(255);
+    DECLARE v_property_id INT;
+    DECLARE i INT DEFAULT 0;
+    DECLARE j INT DEFAULT 0;
+
+    -- Declare a handler for SQL exceptions
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Rollback the transaction on any error
+        ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
+        RESIGNAL;
+    END;
+
+    -- Start a new transaction
+    START TRANSACTION;
+
+    SET v_document_id = NULL;
+
+    -- Get the document_id for the given document_name
+    SELECT document_id INTO v_document_id FROM application_documents WHERE document_name = p_document_name;
+
+    IF v_document_id IS NOT NULL THEN
+        WHILE i < JSON_LENGTH(p_collection_data) DO
+            SET v_collection_id = NULL;
+
+            -- Get the collection name and property names for this iteration
+            SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].collection_name')));
+            SET v_property_names = JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].property_names'));
+
+            -- Get the collection_id for the given collection_name within the document
+            SELECT collection_id INTO v_collection_id FROM application_collections 
+            WHERE collection_id IN (
+                SELECT collection_id FROM application_documents_collections 
+                WHERE document_id = v_document_id AND collection_id IN (
+                    SELECT collection_id FROM application_collections WHERE collection_name = v_collection_name
+                )
+            );
+
+            IF v_collection_id IS NOT NULL THEN
+                -- Delete specified properties for this collection
+                WHILE j < JSON_LENGTH(v_property_names) DO
+                    SET v_property_id = NULL;
+
+                    -- Get the property name for this iteration
+                    SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(v_property_names, CONCAT('$[', j, ']')));
+
+                    -- Get the property_id for the given property_name
+                    SELECT property_id INTO v_property_id FROM application_properties
+                        WHERE property_name = v_property_name AND property_id IN (
+                            SELECT property_id from application_collections_properties WHERE collection_id = v_collection_id
+                        );
+
+                    IF v_property_id IS NOT NULL THEN
+                        -- Delete the property from the collection (CASCADE will handle deletions in application_collections_properties)
+                        DELETE FROM application_collections_properties 
+                        WHERE collection_id = v_collection_id AND property_id = v_property_id;
+                    END IF;
+
+                    SET j = j + 1;
+                END WHILE;
+            END IF;
+
+            SET i = i + 1;
+        END WHILE;
+
+        -- Clean up unused application_collections
+        DELETE FROM application_collections 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM application_documents_collections
+        );
+
+        -- Clean up unused application_collections_properties
+        DELETE FROM application_collections_properties 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM application_documents_collections
+        );
+        
+        -- Clean up unused application_properties
+        DELETE FROM application_properties 
+        WHERE property_id NOT IN (
+            SELECT property_id FROM application_collections_properties
+        );
+    END IF;
+
+    -- Commit the transaction
+    COMMIT;
+END;
+//
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesForUserDocumentAndCollection(
     IN p_user_id CHAR(36),
     IN p_document_name VARCHAR(255),
     IN p_collection_name VARCHAR(255)
@@ -115,7 +381,7 @@ BEGIN
 END;
 //
 
-CREATE PROCEDURE IF NOT EXISTS GetPropertiesAndCollectionsForUserDocument(
+CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsForUserDocument(
     IN p_user_id CHAR(36),
     IN p_document_name VARCHAR(255)
 )
@@ -130,69 +396,339 @@ BEGIN
 END;
 //
 
-CREATE PROCEDURE IF NOT EXISTS InsertPropertiesForUserDocumentCollection(
-    IN p_user_id CHAR(36),
-    IN p_document_name VARCHAR(255),
-    IN p_collection_name VARCHAR(255),
-    IN p_properties JSON
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertUserDocumentWithCollectionsAndProperties (
+    p_user_id CHAR(36),
+    p_document_name VARCHAR(255),
+    p_data JSON
 )
 BEGIN
     DECLARE v_document_id INT;
     DECLARE v_collection_id INT;
-    DECLARE i INT DEFAULT 0;
-    DECLARE property_count INT;
-    DECLARE v_property_name VARCHAR(255);
+    DECLARE v_collection_name VARCHAR(255);
     DECLARE v_property_id INT;
+    DECLARE v_property_name VARCHAR(255);
     DECLARE v_property_value JSON;
+    DECLARE i INT DEFAULT 0;
+    DECLARE j INT DEFAULT 0;
 
+    -- Declare a handler for SQL exceptions
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        -- Rollback the transaction on any error
         ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
         RESIGNAL;
     END;
 
+    -- Start a new transaction
     START TRANSACTION;
 
-    -- Check if the input JSON is valid
-    IF NOT JSON_VALID(p_properties) THEN
-        -- Exit proc and signal the error for invalid JSON
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid JSON format!';
-    END IF;
+    SET v_document_id = NULL;
 
-    -- Insert and get the document ID
-    INSERT INTO user_documents (user_id, document_name) VALUES (p_user_id, p_document_name) ON DUPLICATE KEY UPDATE user_id = p_user_id, document_name = p_document_name;
-    SELECT document_id INTO v_document_id FROM user_documents WHERE document_name = p_document_name and user_id = p_user_id;
+    -- Insert or update document
+    INSERT INTO user_documents (user_id, document_name)
+    VALUES (p_user_id, p_document_name)
+    ON DUPLICATE KEY UPDATE document_name = VALUES(document_name);
 
-    -- Insert and get the collection ID
-    INSERT INTO user_collections (collection_name) VALUES (p_collection_name);
-    SELECT LAST_INSERT_ID() INTO v_collection_id;
+    -- Get the document_id for the given user_id and document_name
+    SELECT document_id INTO v_document_id FROM user_documents WHERE user_id = p_user_id AND document_name = p_document_name;
 
-    -- Associate document with collection if not already associated
-    IF NOT EXISTS (SELECT 1 FROM user_documents_collections WHERE document_id = v_document_id AND collection_id = v_collection_id) THEN
-        INSERT INTO user_documents_collections (document_id, collection_id) VALUES (v_document_id, v_collection_id);
-    END IF;
+    -- Process collections and their associated properties
+    WHILE i < JSON_LENGTH(p_data) DO
+        SET v_collection_id = NULL;
+        SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].collection_name')));
 
-    -- Get the count of name_value pairs
-    SET property_count = JSON_LENGTH(p_properties);
+        -- Check if the collection already exists for this user's document
+        SELECT collection_id INTO v_collection_id
+        FROM user_documents_collections
+        WHERE document_id = v_document_id AND collection_id IN (
+            SELECT collection_id
+            FROM user_collections
+            WHERE collection_name = v_collection_name
+        );
 
-    -- Loop through each name_value pair and insert or get the value_id
-    WHILE i < property_count DO
-        -- Extract property name and value from JSON array
-        SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(p_properties, CONCAT('$[', i, '].property_name')));
-        SET v_property_value = JSON_EXTRACT(p_properties, CONCAT('$[', i, '].property_value'));
+        IF v_collection_id IS NULL THEN
+            -- Insert collection if it doesn't exist
+            INSERT INTO user_collections (collection_name)
+            VALUES (v_collection_name);
 
-        -- Insert or get the property_id
-        INSERT INTO user_properties (property_name, property_value) VALUES (v_property_name, v_property_value) ON DUPLICATE KEY UPDATE property_name = v_property_name;
-        SELECT property_id INTO v_property_id FROM user_properties WHERE property_name = v_property_name;
+            -- Get the newly inserted collection_id
+            SET v_collection_id = LAST_INSERT_ID();
 
-        -- Associate collection with namevalue if not already associated
-        IF NOT EXISTS (SELECT 1 FROM user_collections_properties WHERE collection_id = v_collection_id AND property_id = v_property_id) THEN
-            INSERT INTO user_collections_properties (collection_id, property_id) VALUES (v_collection_id, v_property_id);
+            -- Associate document with collection
+            INSERT INTO user_documents_collections (document_id, collection_id)
+            VALUES (v_document_id, v_collection_id);
         END IF;
+
+        -- Process properties for the current collection
+        SET j = 0;
+        WHILE j < JSON_LENGTH(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties'))) DO
+            SET v_property_id = NULL;
+            SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_name')));
+            SET v_property_value = JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_value'));
+
+            -- Check if the property already exists in this collection
+            SELECT property_id INTO v_property_id 
+            FROM user_collections_properties 
+            WHERE collection_id = v_collection_id AND property_id IN (
+                SELECT property_id 
+                FROM user_properties 
+                WHERE property_name = v_property_name
+            );
+
+            IF v_property_id IS NULL THEN
+                -- Insert property if it doesn't exist
+                INSERT INTO user_properties (property_name, property_value)
+                VALUES (v_property_name, v_property_value);
+
+                -- Get the newly inserted property_id
+                SET v_property_id = LAST_INSERT_ID();
+
+                -- Associate collection with property if not already associated
+                INSERT INTO user_collections_properties (collection_id, property_id)
+                VALUES (v_collection_id, v_property_id);
+            ELSE
+                -- Check if the property_value is different to update
+                SELECT property_value INTO @current_property_value 
+                FROM user_properties 
+                WHERE property_id = v_property_id;
+
+                IF NOT JSON_EQUALS(@current_property_value, v_property_value) THEN
+                    -- Update property value if it already exists for this collection
+                    UPDATE user_properties
+                    SET property_value = v_property_value
+                    WHERE property_id = v_property_id;
+                END IF;
+            END IF;
+
+            SET j = j + 1;
+        END WHILE;
 
         SET i = i + 1;
     END WHILE;
 
+    -- Commit the transaction if all operations are successful
+    COMMIT;
+END;
+//
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserDocument (
+    IN p_user_id CHAR(36),
+    IN p_document_name VARCHAR(255)
+)
+BEGIN
+    DECLARE v_document_id INT;
+
+    -- Declare a handler for SQL exceptions
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Rollback the transaction on any error
+        ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
+        RESIGNAL;
+    END;
+
+    -- Start a new transaction
+    START TRANSACTION;
+
+    SET v_document_id = NULL;
+
+    -- Get the document_id for the given user_id and document_name
+    SELECT document_id INTO v_document_id FROM user_documents WHERE user_id = p_user_id AND document_name = p_document_name;
+
+    IF v_document_id IS NOT NULL THEN
+        -- Delete the document itself (CASCADE will handle deletions in user_documents_collections)
+        DELETE FROM user_documents WHERE document_id = v_document_id;
+        
+        -- Clean up unused user_collections
+        DELETE FROM user_collections 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM user_documents_collections
+        );
+        
+        -- Clean up unused user_collections_properties
+        DELETE FROM user_collections_properties 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM user_documents_collections
+        );
+        
+        -- Clean up unused user_properties
+        DELETE FROM user_properties 
+        WHERE property_id NOT IN (
+            SELECT property_id FROM user_collections_properties
+        );
+    END IF;
+
+    -- Commit the transaction
+    COMMIT;
+END;
+//
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserCollection (
+    IN p_user_id CHAR(36),
+    IN p_document_name VARCHAR(255),
+    IN p_collection_name VARCHAR(255)
+)
+BEGIN
+    DECLARE v_document_id INT;
+    DECLARE v_collection_id INT;
+
+    -- Declare a handler for SQL exceptions
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Rollback the transaction on any error
+        ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
+        RESIGNAL;
+    END;
+
+    -- Start a new transaction
+    START TRANSACTION;
+
+    SET v_document_id = NULL;
+
+    -- Get the document_id for the given user_id and document_name
+    SELECT document_id INTO v_document_id FROM user_documents WHERE user_id = p_user_id AND document_name = p_document_name;
+
+    IF v_document_id IS NOT NULL THEN
+        SET v_collection_id = NULL;
+
+        -- Get the collection_id for the given collection_name within the document
+        SELECT collection_id INTO v_collection_id FROM user_collections 
+        WHERE collection_id IN (
+            SELECT collection_id FROM user_documents_collections 
+            WHERE document_id = v_document_id AND collection_id IN (
+                SELECT collection_id FROM user_collections WHERE collection_name = p_collection_name
+            )
+        );
+
+        IF v_collection_id IS NOT NULL THEN
+            -- Delete the collection from user_documents_collections (CASCADE will handle deletions in user_collections_properties)
+            DELETE FROM user_documents_collections 
+            WHERE document_id = v_document_id AND collection_id = v_collection_id;
+            
+            -- Clean up unused user_collections
+            DELETE FROM user_collections 
+            WHERE collection_id NOT IN (
+                SELECT collection_id FROM user_documents_collections
+            );
+            
+            -- Clean up unused user_collections_properties
+            DELETE FROM user_collections_properties 
+            WHERE collection_id NOT IN (
+                SELECT collection_id FROM user_documents_collections
+            );
+            
+            -- Clean up unused user_properties
+            DELETE FROM user_properties 
+            WHERE property_id NOT IN (
+                SELECT property_id FROM user_collections_properties
+            );
+        END IF;
+    END IF;
+
+    -- Commit the transaction
+    COMMIT;
+END;
+//
+
+CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserProperties (
+    IN p_user_id CHAR(36),
+    IN p_document_name VARCHAR(255),
+    IN p_collection_data JSON
+)
+BEGIN
+    DECLARE v_document_id INT;
+    DECLARE v_collection_id INT;
+    DECLARE v_collection_name VARCHAR(255);
+    DECLARE v_property_name VARCHAR(255);
+    DECLARE v_property_id INT;
+    DECLARE v_property_names JSON;
+    DECLARE i INT DEFAULT 0;
+    DECLARE j INT DEFAULT 0;
+
+    -- Declare a handler for SQL exceptions
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        -- Rollback the transaction on any error
+        ROLLBACK;
+        -- Optionally, you can raise an error to notify the caller
+        RESIGNAL;
+    END;
+
+    -- Start a new transaction
+    START TRANSACTION;
+
+    SET v_document_id = NULL;
+
+    -- Get the document_id for the given user_id and document_name
+    SELECT document_id INTO v_document_id FROM user_documents WHERE user_id = p_user_id AND document_name = p_document_name;
+
+    IF v_document_id IS NOT NULL THEN
+        WHILE i < JSON_LENGTH(p_collection_data) DO
+            SET v_collection_id = NULL;
+
+            -- Get the collection name and property names for this iteration
+            SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].collection_name')));
+            SET v_property_names = JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].property_names'));
+
+            -- Get the collection_id for the given collection_name within the document
+            SELECT collection_id INTO v_collection_id FROM user_collections 
+            WHERE collection_id IN (
+                SELECT collection_id FROM user_documents_collections 
+                WHERE document_id = v_document_id AND collection_id IN (
+                    SELECT collection_id FROM user_collections WHERE collection_name = v_collection_name
+                )
+            );
+
+            IF v_collection_id IS NOT NULL THEN
+                -- Delete specified properties for this collection
+                WHILE j < JSON_LENGTH(v_property_names) DO
+                    SET v_property_id = NULL;
+        
+                    -- Get the property name for this iteration
+                    SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(v_property_names, CONCAT('$[', j, ']')));
+
+                    -- Get the property_id for the given property_name
+                    SELECT property_id INTO v_property_id FROM user_properties
+                        WHERE property_name = v_property_name AND property_id IN (
+                            SELECT property_id from user_collections_properties WHERE collection_id = v_collection_id
+                        );
+
+                    IF v_property_id IS NOT NULL THEN
+                        -- Delete the property from the collection (CASCADE will handle deletions in user_collections_properties)
+                        DELETE FROM user_collections_properties 
+                        WHERE collection_id = v_collection_id AND property_id = v_property_id;
+                    END IF;
+
+                    SET j = j + 1;
+                END WHILE;
+            END IF;
+
+            SET i = i + 1;
+        END WHILE;
+
+        -- Clean up unused user_collections
+        DELETE FROM user_collections 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM user_documents_collections
+        );
+
+        -- Clean up unused user_collections_properties
+        DELETE FROM user_collections_properties 
+        WHERE collection_id NOT IN (
+            SELECT collection_id FROM user_documents_collections
+        );
+        
+        -- Clean up unused user_properties
+        DELETE FROM user_properties 
+        WHERE property_id NOT IN (
+            SELECT property_id FROM user_collections_properties
+        );
+    END IF;
+
+    -- Commit the transaction
     COMMIT;
 END;
 //
