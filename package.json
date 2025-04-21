@@ -21,9 +21,11 @@
     "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
     "test": "npm run test:env -- playwright test",
-    "test:env": "cross-env DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
+    "test:env": "cross-env DB_HOST=127.0.0.1 DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
+    "test:env:build": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1",
     "test:env:debug": "npm run test:env -- PWDEBUG=1 DEBUG=pw:api,testcontainers*,server*,api*,test*",
     "test:chrome": "npm run test:env -- playwright test --project=Chrome",
+    "test:build": "npm run test:env:build -- playwright test --project=Chrome",
     "test:debug": "npm run test:env:debug -- playwright test --project=Chrome --workers=1"
   },
   "repository": {
