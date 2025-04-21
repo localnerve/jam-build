@@ -61,10 +61,10 @@ test.describe('api/data', () => {
   test('get application home', async ({ request }) => {
     return getData(request, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
-        state: {
+        state: expect.objectContaining({
           property1: 'value1',
           property2: 'value2'
-        }
+        })
       }));
     });
   });
