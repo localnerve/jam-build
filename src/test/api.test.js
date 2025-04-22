@@ -116,4 +116,25 @@ test.describe('api/data', () => {
       }));
     });
   });
+
+  test('delete a collection', async ({ request }) => {
+    await deleteData(request, `${baseUrl}/home/friends`);
+    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toStrictEqual({});
+    });
+  });
+
+  test('delete the home document entirely', async ({ request }) => {
+    await getData(request, `${baseUrl}/home`, (expect, json) => {
+      expect(json).toEqual(expect.objectContaining({
+        state: expect.any(Object)
+      }));
+    });
+    await deleteData(request, `${baseUrl}/home`, {
+      deleteDocument: true
+    });
+    return getData(request, `${baseUrl}/home`, (expect, json) => {
+      expect(json).toStrictEqual({});
+    });
+  });
 });
