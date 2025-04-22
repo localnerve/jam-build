@@ -1,4 +1,5 @@
-import { devices } from '@playwright/test';
+import path from 'node:path';
+import { devices, defineConfig } from '@playwright/test';
 const desktopViewport = {
   width: 1440,
   height: 900
@@ -6,10 +7,16 @@ const desktopViewport = {
 
 const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
-export default {
+export default defineConfig({
   testDir: 'src/test',
   timeout: 20000,
+  globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
+    name: 'api',
+    use: {
+      browserName: 'chromium'
+    }
+  }, {
     name: 'Chrome',
     use: {
       slowMo,
@@ -37,4 +44,4 @@ export default {
       viewport: desktopViewport
     }
   }]
-};
+});

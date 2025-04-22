@@ -1,7 +1,7 @@
 name: jam-build-container
 services:
   # The app
-  jam-build:
+  app:
     build:
       context: .
       args:
@@ -37,6 +37,9 @@ services:
     command: redis-server --save 20 1 --loglevel warning --requirepass $REDIS_PASSWORD
     volumes:
       - cache:/data
+    networks:
+      backend:
+        ipv4_address: 172.19.0.12
   
   # The authorizer
   authorizer:
@@ -53,6 +56,7 @@ services:
       SMTP_USER: ${AUTHZ_SMTP_USER}
       SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
       SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
+      REDIS_URL: redis://${REDIS_PASSWORD}@172.19.0.12:6379/0
     depends_on:
       mariadb:
         condition: service_healthy

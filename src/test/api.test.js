@@ -5,38 +5,19 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { test } from '@playwright/test';
+import debugLib from 'debug';
 import {
-  createAppContainer,
-  createDatabaseAndAuthorizer,
   getData,
-  postData
+  postData,
+  deleteData
 } from './api.js';
 
+const debug = debugLib('test-api');
+
 test.describe('api/data', () => {
-  const appImageName = 'jam-build-test-1';
   let baseUrl;
-  let appContainer, authorizerContainer, containerNetwork, mariadbContainer;
-
-  test.beforeAll(async () => {
-    test.setTimeout(180_000);
-    ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
-    appContainer = await createAppContainer(containerNetwork, mariadbContainer, appImageName);
-    baseUrl = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}/api/data`;
-  });
-
-  test.afterAll(async () => {
-    if (appContainer) {
-      await appContainer.stop();
-    }
-    if (authorizerContainer) {
-      await authorizerContainer.stop();
-    }
-    if (mariadbContainer) {
-      await mariadbContainer.stop();
-    }
-    if (containerNetwork) {
-      await containerNetwork.stop();
-    }
+  test.beforeAll(() => {
+    baseUrl = `${process.env.BASE_URL}/api/data`;
   });
 
   test('post application home state and friends', async ({ request }) => {
@@ -52,7 +33,9 @@ test.describe('api/data', () => {
       }, {
         collection: 'friends',
         properties: { 
-          property1: 'value44'
+          property1: 'value44',
+          property2: 'value55',
+          property3: 'value46'
         }
       }]
     });
@@ -87,6 +70,50 @@ test.describe('api/data', () => {
   test('get non-existing collection', async ({ request }) => {
     return getData(request, `${baseUrl}/home/nonexistant`, (expect, json) => {
       expect(json).toStrictEqual({});
+    });
+  });
+
+  test('mutate a single property', async ({ request }) => {
+    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toEqual(expect.objectContaining({
+        property2: 'value55'
+      }));
+    });
+    await postData(request, `${baseUrl}/home`, {
+      collections: {
+        collection: 'friends',
+        properties: {
+          property2: 'value45'
+        }
+      }
+    });
+    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toEqual(expect.objectContaining({
+        property2: 'value45'
+      }));
+    });
+  });
+
+  test('delete a single property', async ({ request }) => {
+    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toEqual(expect.objectContaining({
+        property3: 'value46'
+      }));
+    });
+    await deleteData(request, `${baseUrl}/home`, {
+      collections: {
+        collection: 'friends',
+        properties: ['property3']
+      }
+    });
+    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toEqual(expect.objectContaining({
+        property1: 'value44',
+        property2: 'value45'
+      }));
+      expect(json).not.toEqual(expect.objectContaining({
+        property3: 'value46'
+      }));
     });
   });
 });

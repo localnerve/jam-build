@@ -141,5 +141,8 @@ test-results
 # no code-workspace
 *.code-workspace
 
-#no debug files
+# no debug files
 dump*
+
+# no coverage reports
+coverage
