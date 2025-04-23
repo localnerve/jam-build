@@ -6,30 +6,54 @@ DELIMITER //
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesForApplicationDocumentAndCollection(
     IN p_document_name VARCHAR(255),
-    IN p_collection_name VARCHAR(255)
+    IN p_collection_name VARCHAR(255),
+    OUT p_notfound INT
 )
 BEGIN
-    SELECT p.property_id, p.property_name, p.property_value
+    SET p_notfound = 0;
+
+    SELECT COUNT(*) INTO @temp_count
     FROM application_documents d
     JOIN application_documents_collections dc ON d.document_id = dc.document_id
     JOIN application_collections c ON dc.collection_id = c.collection_id
-    JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
-    JOIN application_properties p ON cp.property_id = p.property_id
     WHERE d.document_name = p_document_name AND c.collection_name = p_collection_name;
+
+    IF @temp_count <= 0 THEN
+        SET p_notfound = 1;
+    ELSE
+        SELECT p.property_id, p.property_name, p.property_value
+        FROM application_documents d
+        JOIN application_documents_collections dc ON d.document_id = dc.document_id
+        JOIN application_collections c ON dc.collection_id = c.collection_id
+        JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
+        JOIN application_properties p ON cp.property_id = p.property_id
+        WHERE d.document_name = p_document_name AND c.collection_name = p_collection_name;
+    END IF;
 END;
 //
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsForApplicationDocument(
-    IN p_document_name VARCHAR(255)
+    IN p_document_name VARCHAR(255),
+    OUT p_notfound INT
 )
 BEGIN
-    SELECT c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+    SET p_notfound = 0;
+
+    SELECT COUNT(*) INTO @temp_count
     FROM application_documents d
-    JOIN application_documents_collections dc ON d.document_id = dc.document_id
-    JOIN application_collections c ON dc.collection_id = c.collection_id
-    JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
-    JOIN application_properties p ON cp.property_id = p.property_id
     WHERE d.document_name = p_document_name;
+
+    IF @temp_count <= 0 THEN
+        SET p_notfound = 1;
+    ELSE
+        SELECT c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        FROM application_documents d
+        JOIN application_documents_collections dc ON d.document_id = dc.document_id
+        JOIN application_collections c ON dc.collection_id = c.collection_id
+        JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
+        JOIN application_properties p ON cp.property_id = p.property_id
+        WHERE d.document_name = p_document_name;
+    END IF;
 END;
 //
 
@@ -368,31 +392,55 @@ END;
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesForUserDocumentAndCollection(
     IN p_user_id CHAR(36),
     IN p_document_name VARCHAR(255),
-    IN p_collection_name VARCHAR(255)
+    IN p_collection_name VARCHAR(255),
+    OUT p_notfound INT
 )
 BEGIN
-    SELECT p.property_id, p.property_name, p.property_value
+    SET p_notfound = 0;
+
+    SELECT COUNT(*) INTO @temp_count
     FROM user_documents d
     JOIN user_documents_collections dc ON d.document_id = dc.document_id
     JOIN user_collections c ON dc.collection_id = c.collection_id
-    JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
-    JOIN user_properties p ON cp.property_id = p.property_id
     WHERE d.user_id = p_user_id AND d.document_name = p_document_name AND c.collection_name = p_collection_name;
+
+    IF @temp_count <= 0 THEN
+        SET p_notfound = 1;
+    ELSE
+        SELECT p.property_id, p.property_name, p.property_value
+        FROM user_documents d
+        JOIN user_documents_collections dc ON d.document_id = dc.document_id
+        JOIN user_collections c ON dc.collection_id = c.collection_id
+        JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
+        JOIN user_properties p ON cp.property_id = p.property_id
+        WHERE d.user_id = p_user_id AND d.document_name = p_document_name AND c.collection_name = p_collection_name;
+    END IF;
 END;
 //
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsForUserDocument(
     IN p_user_id CHAR(36),
-    IN p_document_name VARCHAR(255)
+    IN p_document_name VARCHAR(255),
+    OUT p_notfound INT
 )
 BEGIN
-    SELECT c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+    SET p_notfound = 0;
+
+    SELECT COUNT(*) INTO @temp_count
     FROM user_documents d
-    JOIN user_documents_collections dc ON d.document_id = dc.document_id
-    JOIN user_collections c ON dc.collection_id = c.collection_id
-    JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
-    JOIN user_properties p ON cp.property_id = p.property_id
-    WHERE d.user_id = p_user_id AND d.document_name = p_document_name;
+    WHERE d.document_name = p_document_name AND d.user_id = p_user_id;
+
+    IF @temp_count <= 0 THEN
+        SET p_notfound = 1;
+    ELSE    
+        SELECT c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        FROM user_documents d
+        JOIN user_documents_collections dc ON d.document_id = dc.document_id
+        JOIN user_collections c ON dc.collection_id = c.collection_id
+        JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
+        JOIN user_properties p ON cp.property_id = p.property_id
+        WHERE d.user_id = p_user_id AND d.document_name = p_document_name;
+    END IF;
 END;
 //
 

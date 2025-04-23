@@ -9,17 +9,20 @@ import debugLib from 'debug';
 
 const debug = debugLib('test-api');
 
-export async function getData (request, url, testResponse = ()=>true) {
+export async function getData (request, url, status = 200, testResponse = ()=>true) {
   debug(`GET request for ${url}...`);
   const response = await request.get(url);
   
   debug(`GET response code: ${response.status()}`);
-  expect(response.ok()).toBeTruthy();
+  expect(response.status()).toEqual(status);
 
-  const json = await response.json();  
-  debug('GET response json: ', json);
+  if (status !== 204) {
+    debug('GET parsing response as json...');
+    const json = await response.json();
+    debug('GET response json: ', json);
 
-  testResponse(expect, json);
+    testResponse(expect, json);
+  }
 }
 
 export async function postData (request, url, data) {
@@ -31,6 +34,7 @@ export async function postData (request, url, data) {
   debug(`POST response code: ${response.status()}`);
   expect(response.ok()).toBeTruthy();
 
+  debug('POST parsing response as json...');
   const json = await response.json();
   debug('POST response json: ', json);
 
@@ -49,6 +53,7 @@ export async function deleteData (request, url, data) {
   debug(`DELETE response code: ${response.status()}`);
   expect(response.ok()).toBeTruthy();
 
+  debug('DELETE parsing response as json...');
   const json = await response.json();
   debug('DELETE response json: ', json);
 

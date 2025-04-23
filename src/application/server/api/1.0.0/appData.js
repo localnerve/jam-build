@@ -54,25 +54,43 @@ async function getAppProperties (logger, req, res) {
 
   debug(`getAppProperties '${document}', '${collection}'`);
 
+  let conn = null;
   try {
     debug('Calling GetPropertiesForApplicationDocumentAndCollection...');
 
-    const arr = await appPool.query(
-      'CALL GetPropertiesForApplicationDocumentAndCollection(?, ?)',
+    conn = await appPool.getConnection();
+
+    let status, results;
+    const arr = await conn.query(
+      'CALL GetPropertiesForApplicationDocumentAndCollection(?, ?, @out_param)',
       [document, collection]
     );
+    const [outParam] = await conn.query('SELECT @out_param AS result');
+    const notFound = !!outParam.result; // 0n, 1n
 
-    debug('reducing results...');
-    const results = arr[0].reduce((acc, curr) => {
-      acc[curr.property_name] = curr.property_value;
-      return acc;
-    }, {});
+    if (!notFound) {
+      debug('reducing results...');
+      
+      results = arr[0].reduce((acc, curr) => {
+        acc[curr.property_name] = curr.property_value;
+        return acc;
+      }, {});
+
+      status = Object.keys(results).length > 0 ? 200 : 204;
+    } else {
+      status = 404;
+      results = {};
+    }
     
-    debug('Sending success response...');
-    res.status(200).json(results);
+    debug(`Sending ${status} response...`);
+    res.status(status).json(results);
   } catch(err) {
     [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppProperties: ${err}`));
     throw err;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 }
 
@@ -81,29 +99,46 @@ async function getAppCollectionsAndProperties (logger, req, res) {
 
   debug(`getAppCollectionsAndProperties '${document}'`);
 
+  let conn = null;
   try {
     debug('Calling GetPropertiesAndCollectionsForApplicationDocument...');
 
-    const arr = await appPool.query(
-      'CALL GetPropertiesAndCollectionsForApplicationDocument(?)',
+    conn = await appPool.getConnection();
+
+    let status, results;
+    const arr = await conn.query(
+      'CALL GetPropertiesAndCollectionsForApplicationDocument(?, @out_param)',
       [document]
     );
+    const [outParam] = await conn.query('SELECT @out_param AS result');
+    const notFound = !!outParam.result; // 0n, 1n
 
-    debug('reducing results...');
-    const results = arr[0].reduce((acc, curr) => {
-      let collection = acc[curr.collection_name];
-      if (!collection) {
-        collection = acc[curr.collection_name] = {};
-      }
-      collection[curr.property_name] = curr.property_value;
-      return acc;
-    }, {});
+    if (!notFound) {
+      debug('reducing results...');
+      results = arr[0].reduce((acc, curr) => {
+        let collection = acc[curr.collection_name];
+        if (!collection) {
+          collection = acc[curr.collection_name] = {};
+        }
+        collection[curr.property_name] = curr.property_value;
+        return acc;
+      }, {});
 
-    debug('Sending success reponse...');
-    res.status(200).json(results);
+      status = Object.keys(results).length > 0 ? 200 : 204;
+    } else {
+      status = 404;
+      results = {};
+    }
+
+    debug(`Sending ${status} response...`);
+    res.status(status).json(results);
   } catch(err) {
     [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppCollectionsAndProperties: ${err}`));
     throw err;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 }
 
