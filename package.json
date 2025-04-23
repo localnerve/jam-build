@@ -28,7 +28,7 @@
     "test:manual": "npm run test:env -- DEBUG=server*,api* LOCALHOST_PORT=5000 playwright test --project=api",
     "test:chrome": "npm run test:env -- playwright test --project=Chrome",
     "test:build": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 playwright test --project=api",
-    "test:debug": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* PWDEBUG=1 playwright test --project=api --workers=1"
+    "test:debug": "npm run test:env -- DEBUG=server*,api*,test* PWDEBUG=1 playwright test --project=api --workers=1"
   },
   "repository": {
     "type": "git",

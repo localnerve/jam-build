@@ -5,14 +5,12 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { test } from '@playwright/test';
-import debugLib from 'debug';
 import {
   getData,
   postData,
-  deleteData
+  deleteData,
+  genericRequest
 } from './api.js';
-
-const debug = debugLib('test-api');
 
 test.describe('api/data', () => {
   let baseUrl;
@@ -43,10 +41,10 @@ test.describe('api/data', () => {
         }
       }]
     });
-  })
+  });
 
   test('get application home', async ({ request }) => {
-    return getData(request, `${baseUrl}/home`, 200, (expect, json) => {
+    return getData(request, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         state: expect.objectContaining({
           property1: 'value1',
@@ -57,13 +55,13 @@ test.describe('api/data', () => {
   });
 
   test('get non-existing document', async ({ request }) => {
-    return getData(request, `${baseUrl}/nonexistant`, 404, (expect, json) => {
-      expect(json).toStrictEqual({});
-    });
+    return getData(request, `${baseUrl}/nonexistant`, (expect, json) => {
+      expect(json.ok).not.toBeTruthy();
+    }, 404);
   });
 
   test('get application home/state', async ({ request }) => {
-    return getData(request, `${baseUrl}/home/state`, 200, (expect, json) => {
+    return getData(request, `${baseUrl}/home/state`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property1: 'value1',
         property2: 'value2'
@@ -72,13 +70,13 @@ test.describe('api/data', () => {
   });
 
   test('get non-existing collection', async ({ request }) => {
-    return getData(request, `${baseUrl}/home/nonexistant`, 404, (expect, json) => {
-      expect(json).toStrictEqual({});
-    });
+    return getData(request, `${baseUrl}/home/nonexistant`, (expect, json) => {
+      expect(json.ok).not.toBeTruthy();
+    }, 404);
   });
 
   test('mutate a single property', async ({ request }) => {
-    await getData(request, `${baseUrl}/home/friends`, 200, (expect, json) => {
+    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property2: 'value55'
       }));
@@ -91,7 +89,7 @@ test.describe('api/data', () => {
         }
       }
     });
-    return getData(request, `${baseUrl}/home/friends`, 200, (expect, json) => {
+    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         property1: 'value44',
         property2: 'value45',
@@ -100,8 +98,35 @@ test.describe('api/data', () => {
     });
   });
 
+  test('bad post with malformed data', async () => {
+    await genericRequest(`${baseUrl}/home`, 'POST', '{ bad: data: is: bad }', (expect, fetchResponse) => {
+      expect(fetchResponse.ok).not.toBeTruthy();
+      expect(fetchResponse.status).toEqual(500);
+    });
+  });
+
+  test('bad post with no data', async ({ request }) => {
+    await postData (request, `${baseUrl}/home`, {}, {
+      expectSuccess: false,
+      expectResponse: true,
+      expectResponseSuccess: false
+    });
+  });
+
+  test('bad post with bad data', async ({ request }) => {
+    await postData(request, `${baseUrl}/home`, {
+      collections: {
+        collection: 5
+      }
+    }, {
+      expectSuccess: false,
+      expectResponse: true,
+      expectResponseSuccess: false
+    });
+  });
+
   test('delete a single property', async ({ request }) => {
-    await getData(request, `${baseUrl}/home/friends`, 200, (expect, json) => {
+    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property3: 'value46'
       }));
@@ -112,7 +137,7 @@ test.describe('api/data', () => {
         properties: ['property3']
       }
     });
-    return getData(request, `${baseUrl}/home/friends`, 200, (expect, json) => {
+    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property1: 'value44',
         property2: 'value45'
@@ -133,7 +158,7 @@ test.describe('api/data', () => {
         }
       }]
     });
-    await getData(request, `${baseUrl}/home/girls`, 200, (expect, json) => {
+    await getData(request, `${baseUrl}/home/girls`, (expect, json) => {
       expect(json).toStrictEqual({
         property1: 'value1',
         property2: 'value2'
@@ -149,24 +174,24 @@ test.describe('api/data', () => {
   });
 
   test('delete a collection', async ({ request }) => {
-    await getData(request, `${baseUrl}/home/friends`, 200, (expect, json) => {
+    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property1: 'value44'
       }));
     });
     await deleteData(request, `${baseUrl}/home/friends`);
-    await getData(request, `${baseUrl}/home`, 200, (expect, json) => {
+    await getData(request, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         state: expect.any(Object)
       }));
     });
-    return getData(request, `${baseUrl}/home/friends`, 404, (expect, json) => {
-      expect(json).toStrictEqual({});
-    });
+    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json.ok).not.toBeTruthy();
+    }, 404);
   });
 
   test('delete the home document entirely', async ({ request }) => {
-    await getData(request, `${baseUrl}/home`, 200, (expect, json) => {
+    await getData(request, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         state: expect.any(Object)
       }));
@@ -174,8 +199,8 @@ test.describe('api/data', () => {
     await deleteData(request, `${baseUrl}/home`, {
       deleteDocument: true
     });
-    return getData(request, `${baseUrl}/home`, 404, (expect, json) => {
-      expect(json).toStrictEqual({});
-    });
+    return getData(request, `${baseUrl}/home`, (expect, json) => {
+      expect(json.ok).not.toBeTruthy();
+    }, 404);
   });
 });

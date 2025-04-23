@@ -56,6 +56,7 @@ export function create (logger, options = {}, locals = {}) {
     res.status(status).json({
       status,
       message,
+      ok: false,
       timestamp: (new Date()).toISOString(),
       url: req.originalUrl
     });
@@ -65,12 +66,13 @@ export function create (logger, options = {}, locals = {}) {
   api.use((err, req, res, next) => {
     const msg = {
       status: err.status || err.statusCode || 500,
+      ok: false,
       message: err.sql ? err.code : err.message,
       timestamp: (new Date()).toISOString(),
       type: err.type || err.name || 'unknown'
     };
     debug(err);
-    logger.error(msg);
+    logger.error({...msg, ...{ err }});
     res.status(msg.status).json(msg);
   });
 

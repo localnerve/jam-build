@@ -9,8 +9,13 @@ import debugLib from 'debug';
 
 const debug = debugLib('test-api');
 
-export async function getData (request, url, status = 200, testResponse = ()=>true) {
+export async function getData (request, url, testResponse = ()=>true, status = 200) {
   debug(`GET request for ${url}...`);
+
+  if (typeof testResponse === 'number') {
+    status = testResponse; // eslint-disable-line no-param-reassign
+  }
+
   const response = await request.get(url);
   
   debug(`GET response code: ${response.status()}`);
@@ -21,27 +26,56 @@ export async function getData (request, url, status = 200, testResponse = ()=>tr
     const json = await response.json();
     debug('GET response json: ', json);
 
-    testResponse(expect, json);
+    if (typeof testResponse === 'function') {
+      testResponse(expect, json);
+    }
   }
 }
 
-export async function postData (request, url, data) {
+export async function postData (request, url, data, {
+  expectSuccess = true,
+  expectResponse = true,
+  expectResponseSuccess = true
+} = {}) {
   debug(`POST request for ${url}...`);
   const response = await request.post(url, {
     data
   });
 
   debug(`POST response code: ${response.status()}`);
-  expect(response.ok()).toBeTruthy();
+  if (expectSuccess) {
+    expect(response.ok()).toBeTruthy();
+  } else {
+    expect(response.ok()).not.toBeTruthy();
+  }
 
-  debug('POST parsing response as json...');
-  const json = await response.json();
-  debug('POST response json: ', json);
+  if (expectResponse) {
+    debug('POST parsing response as json...');
+    const json = await response.json();
+    debug('POST response json: ', json);
 
-  expect(json.ok).toBeTruthy();
-  expect(json).toEqual(expect.objectContaining({
-    message: 'Success'
-  }));
+    if (expectResponseSuccess) {
+      expect(json.ok).toBeTruthy();
+      expect(json).toEqual(expect.objectContaining({
+        message: 'Success'
+      }));
+    } else {
+      expect(json.ok).not.toBeTruthy();
+    }
+  }
+}
+
+export async function genericRequest (url, method, body = null, testResponse = ()=>true) {
+  debug(`Fetch ${method} for ${url}...`);
+
+  const fetchResponse = await fetch(url, {
+    method,
+    body
+  });
+
+  debug(`${method} response code : ${fetchResponse.status}`);
+
+  testResponse(expect, fetchResponse);
 }
 
 export async function deleteData (request, url, data) {

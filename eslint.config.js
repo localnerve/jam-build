@@ -32,7 +32,8 @@ export default [{
     'node_modules/**',
     'dist/**',
     'overrides/**',
-    'docs/**'
+    'docs/**',
+    'coverage/**'
   ]
 }, {
   name: 'app-client',

@@ -12,7 +12,20 @@ const debug = debugLib('api');
 
 let appPool;
 
-function transformAndValidateInput (document, collections, mapCollection) {
+function shutdownHandler () {
+  logger.info('Shutting down...');
+  appPool.end().then(() => {
+    logger.info('appPool has ended.');
+    process.exit(0);
+  }).catch((err) => {
+    logger.error('Error ending the appPool:', err);
+    process.exit(err.code || 1);
+  });
+}
+
+function transformAndValidateInput (inputDocument, inputCollections, mapCollection) {
+  let collections = inputCollections;
+
   // Conform array input to an array of non-falsy things.
   // This allows input of a single object of single collection updates, in addition to an array of such.
   if (!Array.isArray(collections)) {
@@ -23,7 +36,7 @@ function transformAndValidateInput (document, collections, mapCollection) {
   let procedureCollections;
 
   try {
-    if (!document || collections.length <= 0) {
+    if (!inputDocument || collections.length <= 0) {
       const e = new Error();
       e.type = 'data.validation.input';
       throw e;
@@ -79,14 +92,13 @@ async function getAppProperties (logger, req, res) {
       status = Object.keys(results).length > 0 ? 200 : 204;
     } else {
       status = 404;
-      results = {};
+      const message = `[404] getAppProperties, entity not found. Document: ${document}, Collection: ${collection}`;
+      results = { ok: false, message };
+      logger.info(message);
     }
     
     debug(`Sending ${status} response...`);
     res.status(status).json(results);
-  } catch(err) {
-    [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppProperties: ${err}`));
-    throw err;
   } finally {
     if (conn) {
       conn.release();
@@ -127,14 +139,13 @@ async function getAppCollectionsAndProperties (logger, req, res) {
       status = Object.keys(results).length > 0 ? 200 : 204;
     } else {
       status = 404;
-      results = {};
+      const message = `[404] getAppCollectionsAndProperties, entity not found. Document: ${document}`;
+      results = { ok: false, message };
+      logger.info(message);
     }
 
     debug(`Sending ${status} response...`);
     res.status(status).json(results);
-  } catch(err) {
-    [debug, logger.error.bind(logger)].forEach(f => f(`Error in getAppCollectionsAndProperties: ${err}`));
-    throw err;
   } finally {
     if (conn) {
       conn.release();
@@ -158,27 +169,22 @@ async function setAppProperties (logger, req, res) {
     })
   );
 
-  try {
-    debug(`Calling UpsertApplicationDocumentWithCollectionsAndProperties for ${document}...`);
-    debug('procedureCollections', procedureCollections);
+  debug(`Calling UpsertApplicationDocumentWithCollectionsAndProperties for ${document}...`);
+  debug('procedureCollections', procedureCollections);
 
-    const result = await appPool.query(
-      'CALL UpsertApplicationDocumentWithCollectionsAndProperties(?, ?)',
-      [document, JSON.stringify(procedureCollections)]
-    );
+  const result = await appPool.query(
+    'CALL UpsertApplicationDocumentWithCollectionsAndProperties(?, ?)',
+    [document, JSON.stringify(procedureCollections)]
+  );
 
-    debug('Sending success response...');
-    res.status(200).json({
-      message: 'Success',
-      ok: true,
-      timestamp: (new Date()).toISOString(),
-      affectedRows: result.affectedRows,
-      warningStatus: result.warningStatus
-    });
-  } catch (err) {
-    [debug, logger.error.bind(logger)].forEach(f => f(`Error in setAppProperties: ${err}`));
-    throw err;
-  }
+  debug('Sending success response...');
+  res.status(200).json({
+    message: 'Success',
+    ok: true,
+    timestamp: (new Date()).toISOString(),
+    affectedRows: result.affectedRows,
+    warningStatus: result.warningStatus
+  });
 }
 
 async function deleteAppDocument (logger, req, res) {
@@ -186,26 +192,21 @@ async function deleteAppDocument (logger, req, res) {
 
   debug(`deleteAppDocument '${document}'`);
 
-  try {
-    debug('Calling DeleteApplicationDocument...');
+  debug('Calling DeleteApplicationDocument...');
 
-    const result = await appPool.query(
-      'CALL DeleteApplicationDocument(?)',
-      [document]
-    );
+  const result = await appPool.query(
+    'CALL DeleteApplicationDocument(?)',
+    [document]
+  );
 
-    debug('Sending success response...');
-    res.status(200).json({
-      message: 'Success',
-      ok: true,
-      timestamp: (new Date()).toISOString(),
-      affectedRows: result.affectedRows,
-      warningStatus: result.warningStatus
-    });
-  } catch (err) {
-    [debug, logger.error.bind(logger)].forEach(f => f(`Error in deleteAppDocument: ${err}`));
-    throw err;
-  }
+  debug('Sending success response...');
+  res.status(200).json({
+    message: 'Success',
+    ok: true,
+    timestamp: (new Date()).toISOString(),
+    affectedRows: result.affectedRows,
+    warningStatus: result.warningStatus
+  });
 }
 
 async function deleteAppCollection (logger, req, res) {
@@ -213,26 +214,21 @@ async function deleteAppCollection (logger, req, res) {
 
   debug(`deleteAppCollection '${document}', '${collection}'`);
 
-  try {
-    debug('Calling DeleteApplicationCollection...');
+  debug('Calling DeleteApplicationCollection...');
 
-    const result = await appPool.query(
-      'CALL DeleteApplicationCollection(?, ?)',
-      [document, collection]
-    );
+  const result = await appPool.query(
+    'CALL DeleteApplicationCollection(?, ?)',
+    [document, collection]
+  );
 
-    debug('Sending success response...');
-    res.status(200).json({
-      message: 'Success',
-      ok: true,
-      timestamp: (new Date()).toISOString(),
-      affectedRows: result.affectedRows,
-      warningStatus: result.warningStatus
-    });
-  } catch (err) {
-    [debug, logger.error.bind(logger)].forEach(f => f(`Error in deleteAppCollection: ${err}`));
-    throw err;
-  }
+  debug('Sending success response...');
+  res.status(200).json({
+    message: 'Success',
+    ok: true,
+    timestamp: (new Date()).toISOString(),
+    affectedRows: result.affectedRows,
+    warningStatus: result.warningStatus
+  });
 }
 
 async function deleteAppProperties (logger, req, res) {
@@ -253,26 +249,21 @@ async function deleteAppProperties (logger, req, res) {
     })
   );
 
-  try {
-    debug('Calling DeleteApplicationProperties...');
+  debug('Calling DeleteApplicationProperties...');
 
-    const result = await appPool.query(
-      'CALL DeleteApplicationProperties(?, ?)',
-      [document, JSON.stringify(procedureCollections)]
-    );
+  const result = await appPool.query(
+    'CALL DeleteApplicationProperties(?, ?)',
+    [document, JSON.stringify(procedureCollections)]
+  );
 
-    debug('Sending success response...');
-    res.status(200).json({
-      message: 'Success',
-      ok: true,
-      timestamp: (new Date()).toISOString(),
-      affectedRows: result.affectedRows,
-      warningStatus: result.warningStatus
-    });
-  } catch (err) {
-    [debug, logger.error.bind(logger)].forEach(f => f(`Error in deleteAppEntities: ${err}`));
-    throw err;
-  }
+  debug('Sending success response...');
+  res.status(200).json({
+    message: 'Success',
+    ok: true,
+    timestamp: (new Date()).toISOString(),
+    affectedRows: result.affectedRows,
+    warningStatus: result.warningStatus
+  });
 }
 
 export function create (logger) {
@@ -287,26 +278,9 @@ export function create (logger) {
       logger: logger.info.bind(logger),
       connectionLimit: 5
     });
-    process.on('SIGINT', () => {
-      logger.info('Shutting down...');
-      appPool.end().then(() => {
-        logger.info('appPool has ended.');
-        process.exit(0);
-      }).catch((err) => {
-        logger.error('Error ending the appPool:', err);
-        process.exit(err.code || 1);
-      });
-    });    
-    process.on('SIGTERM', () => {
-      logger.info('Shutting down...');
-      appPool.end().then(() => {
-        logger.info('appPool has ended.');
-        process.exit(0);
-      }).catch((err) => {
-        logger.error('Error ending the appPool:', err);
-        process.exit(err.code || 1);
-      });
-    });
+
+    process.on('SIGINT', shutdownHandler);
+    process.on('SIGTERM', shutdownHandler);
   }
 
   const dataRouter = express.Router();
