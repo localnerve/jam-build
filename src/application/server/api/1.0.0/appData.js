@@ -12,7 +12,7 @@ const debug = debugLib('api');
 
 let appPool;
 
-function shutdownHandler () {
+function shutdownHandler (logger) {
   logger.info('Shutting down...');
   appPool.end().then(() => {
     logger.info('appPool has ended.');
@@ -279,8 +279,8 @@ export function create (logger) {
       connectionLimit: 5
     });
 
-    process.on('SIGINT', shutdownHandler);
-    process.on('SIGTERM', shutdownHandler);
+    process.on('SIGINT', shutdownHandler.bind(null, logger));
+    process.on('SIGTERM', shutdownHandler.bind(null, logger));
   }
 
   const dataRouter = express.Router();
