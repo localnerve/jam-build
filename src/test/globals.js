@@ -51,7 +51,7 @@ function shutdownAppContainer (appContainer) {
       const now = (new Date()).toISOString().replace(/-|:|(?:\.\d\d\dZ)/g, '');
       const today = now.replace(/T.+/, '');
 
-      const oldDirs = await glob(`!${coverageDir}/${today}*`); // just keep today's coverage reports
+      const oldDirs = await glob(`${coverageDir}/!(${today}*)`); // just keep today's coverage reports
       for (const dir of oldDirs) {
         debug(`Removing directory ${dir}...`);
         await fs.rm(dir, { recursive: true });
