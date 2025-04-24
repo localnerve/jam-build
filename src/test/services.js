@@ -125,12 +125,16 @@ export async function createDatabaseAndAuthorizer () {
     authorizerContainer = await new GenericContainer('lakhansamani/authorizer:1.4.4')
       .withEnvironment({
         ENV: 'development',
+        ADMIN_SECRET: process.env.AUTHZ_ADMIN_SECRET,
         DATABASE_TYPE: 'mariadb',
         DATABASE_URL: `root:${process.env.DB_ROOT_PASSWORD}@tcp(${dbHost}:3306)/authorizer`,
         DATABASE_NAME: 'authorizer',
         DATABASE_USER: 'root',
         DATABASE_PASSWORD: process.env.DB_ROOT_PASSWORD,
-        ROLES: 'user,admin'
+        ROLES: 'user,admin',
+        DISABLE_SIGNUP: true,
+        DISABLE_EMAIL_NOTIFICATION: true,
+        PORT: 9010
       })
       .withName('authorizer')
       .withNetwork(containerNetwork)
