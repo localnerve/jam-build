@@ -19,7 +19,6 @@ const debug = debugLib('test-globals');
 const appImageName = 'jam-build-test-1';
 let appContainer = null;
 let authorizerContainer = null;
-let baseUrl = '';
 let containerNetwork = null;
 let mariadbContainer = null;
 
@@ -124,8 +123,9 @@ export default async function setup () {
 
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
   appContainer = await createAppContainer(containerNetwork, mariadbContainer, appImageName);
-  baseUrl = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
-  process.env.BASE_URL = baseUrl;
+
+  process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9010)}`;
+  process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
 
   debug('Setup globals success');
 
