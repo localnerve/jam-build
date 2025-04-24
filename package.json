@@ -22,10 +22,11 @@
     "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
     "test": "npm run test:env -- playwright test --project=api",
-    "test:env": "cross-env DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
-    "test:local": "npm run test:local:server && sleep 2 && npm run test:env -- DEBUG=testcontainers*,server*,api*,test* PWDEBUG=1 LOCALHOST_PORT=5000 playwright test --project=api --workers=1 && curl -X POST http://localhost:5000/shutdown",
-    "test:local:server": "DEBUG=api*,server* npm run dev:cover &",
-    "test:manual": "npm run test:env -- DEBUG=server*,api* LOCALHOST_PORT=5000 playwright test --project=api",
+    "test:env": "cross-env AUTHZ_ADMIN_SECRET=deadbeefca02aa541d7e DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbeef5dccb117ef94 DB_ROOT_PASSWORD=deadbeef0b62360e21bc DB_APP_PASSWORD=deadbeef47148f2cae27",
+    "test:local:full": "npm run test:local:server && sleep 2 && npm run test:env -- DEBUG=testcontainers*,server*,api*,test* PWDEBUG=1 LOCALHOST_PORT=5000 playwright test --project=api --workers=1 && curl -X POST http://localhost:5000/shutdown",
+    "test:local:server": "cross-env DEBUG=api*,server* npm run dev:cover &",
+    "test:local": "npm run test:env -- DEBUG=server*,api* LOCALHOST_PORT=5000 playwright test --project=api",
+    "test:api": "npm run test:env -- DEBUG=server*,api* playwright test --project=api",
     "test:chrome": "npm run test:env -- playwright test --project=Chrome",
     "test:build": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 playwright test --project=api",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* PWDEBUG=1 playwright test --project=api --workers=1"
@@ -47,6 +48,7 @@
   },
   "homepage": "https://github.com/localnerve/jam-build#readme",
   "dependencies": {
+    "@authorizerdev/authorizer-js": "^2.0.3",
     "compression": "^1.8.0",
     "debug": "^4.4.0",
     "express": "^5.1.0",
