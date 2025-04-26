@@ -39,7 +39,7 @@ async function shutdownAppContainer (appContainer) {
 
   const nowTb = (new Date()).toISOString().replace(/-|:|(?:\.\d\d\dZ)/g, '');
   const timeBegin = nowTb.replace(/.+T/, '');
-  debug(`Wait for on app shutdown for coverage completion ${timeBegin}...`);
+  debug(`Wait for app shutdown for coverage completion ${timeBegin}...`);
   await new Promise(resolve => setTimeout(resolve, 1000));
   const nowTe = (new Date()).toISOString().replace(/-|:|(?:\.\d\d\dZ)/g, '');
   const timeEnd = nowTe.replace(/.+T/, '');
@@ -92,23 +92,23 @@ async function teardown () {
   if (appContainer) {
     debug('Shutting down appContainer...');
     await shutdownAppContainer(appContainer);
-    debug('Shutdown appContainer complete.');
+    debug('Shutdown appContainer complete');
   }
   
   if (authorizerContainer) {
     debug('Shutting down authorizer...');
     await authorizerContainer.stop();
-    debug('Shutdown authorizer complete.');
+    debug('Shutdown authorizer complete');
   }
   if (mariadbContainer) {
     debug('Shutting down mariadb...');
     await mariadbContainer.stop();
-    debug('Shutdown mariadb complete.');
+    debug('Shutdown mariadb complete');
   }
   if (containerNetwork) {
     debug('Shutting down containerNetwork...');
     await containerNetwork.stop();
-    debug('Shutdown containerNetwork complete.');
+    debug('Shutdown containerNetwork complete');
   }
 
   debug('Teardown globals success');
