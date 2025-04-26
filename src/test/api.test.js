@@ -5,7 +5,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import debugLib from 'debug';
-import { test } from './fixtures.js';
+import { expect, test } from './fixtures.js';
 import {
   getData,
   postData,
@@ -21,8 +21,18 @@ test.describe('api/data', () => {
     baseUrl = `${process.env.BASE_URL}/api/data`;
   });
 
+  test('audit request storage states', async ({ adminRequest, userRequest }) => {
+    const adminState = await adminRequest.storageState();
+    const userState = await userRequest.storageState();
+
+    expect(adminState).toBeTruthy();
+    expect(userState).toBeTruthy();
+
+    debug('Admin request state', adminState);
+    debug('User request state', userState);
+  });
+
   test('get non-existant route', async ({ adminRequest }) => {
-    debug('admin request state', await adminRequest.storageState());
     return getData(adminRequest, baseUrl, 404);
   });
 
