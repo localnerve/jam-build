@@ -26,7 +26,7 @@ export async function getAuthzClientID (page) {
     });
     debug(`Navigation complete ${resp.status()}`);
 
-    debug('Logging in as admin...');
+    debug('Logging in as authorizer admin...');
     await page.locator('#admin-secret').fill(process.env.AUTHZ_ADMIN_SECRET);
     await page.locator('button[type="submit"]').click();
     debug('Pulling Client ID from dashboard...');
@@ -35,7 +35,7 @@ export async function getAuthzClientID (page) {
     debug(`Got Client ID ${clientId}`);
     process.env.AUTHZ_CLIENT_ID = clientId;
 
-    debug('Logging out as admin...');
+    debug('Logging out as authorizer admin...');
     await page.locator('.css-vn8yib').click();
     await page.locator('.css-13c7rae').click();
     debug('logged out admin');
