@@ -37,9 +37,13 @@ async function shutdownAppContainer (appContainer) {
   });
   debug(`Shutdown request complete (to write coverage report). Response status: ${response.status}`);
 
-  debug('Arbitrary wait for app to complete on app shutdown for coverage completion...');
-  await new Promise(resolve => setTimeout(resolve, 500));
-  debug('Arbitrary wait for coverage complete');
+  const nowTb = (new Date()).toISOString().replace(/-|:|(?:\.\d\d\dZ)/g, '');
+  const timeBegin = nowTb.replace(/.+T/, '');
+  debug(`Wait for on app shutdown for coverage completion ${timeBegin}...`);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  const nowTe = (new Date()).toISOString().replace(/-|:|(?:\.\d\d\dZ)/g, '');
+  const timeEnd = nowTe.replace(/.+T/, '');
+  debug(`Wait for app shutdown complete ${timeEnd}`);
 
   debug('Get coverage from appContainer...');
   const tarStream = await appContainer.copyArchiveFromContainer('/home/node/app/coverage');
@@ -115,6 +119,7 @@ export default async function setup () {
   
   if (localhostPort) {
     debug(`LOCALHOST_PORT detected, targeting localhost:${localhostPort}...`);
+    process.env.AUTHZ_URL = 'http://localhost:9010';
     process.env.BASE_URL = `http://localhost:${localhostPort}`;
     return () => {};
   }
@@ -124,7 +129,7 @@ export default async function setup () {
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
   appContainer = await createAppContainer(containerNetwork, mariadbContainer, appImageName);
 
-  process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9010)}`;
+  process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9011)}`;
   process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
 
   debug('Setup globals success');

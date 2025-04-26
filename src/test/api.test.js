@@ -4,7 +4,8 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { test } from '@playwright/test';
+import debugLib from 'debug';
+import { test } from './fixtures.js';
 import {
   getData,
   postData,
@@ -12,18 +13,21 @@ import {
   genericRequest
 } from './api.js';
 
+const debug = debugLib('test-api');
+
 test.describe('api/data', () => {
   let baseUrl;
   test.beforeAll(() => {
     baseUrl = `${process.env.BASE_URL}/api/data`;
   });
 
-  test('get non-existant route', async ({ request }) => {
-    return getData(request, baseUrl, 404);
+  test('get non-existant route', async ({ adminRequest }) => {
+    debug('admin request state', await adminRequest.storageState());
+    return getData(adminRequest, baseUrl, 404);
   });
 
-  test('post application home state and friends', async ({ request }) => {
-    return postData(request, `${baseUrl}/home`, {
+  test('post application home state and friends', async ({ adminRequest }) => {
+    return postData(adminRequest, `${baseUrl}/home`, {
       collections: [{
         collection: 'state',
         properties: {
@@ -43,8 +47,8 @@ test.describe('api/data', () => {
     });
   });
 
-  test('get application home', async ({ request }) => {
-    return getData(request, `${baseUrl}/home`, (expect, json) => {
+  test('get application home', async ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         state: expect.objectContaining({
           property1: 'value1',
@@ -54,14 +58,14 @@ test.describe('api/data', () => {
     });
   });
 
-  test('get non-existing document', async ({ request }) => {
-    return getData(request, `${baseUrl}/nonexistant`, (expect, json) => {
+  test('get non-existing document', async ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/nonexistant`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
     }, 404);
   });
 
-  test('get application home/state', async ({ request }) => {
-    return getData(request, `${baseUrl}/home/state`, (expect, json) => {
+  test('get application home/state', async ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home/state`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property1: 'value1',
         property2: 'value2'
@@ -69,19 +73,19 @@ test.describe('api/data', () => {
     });
   });
 
-  test('get non-existing collection', async ({ request }) => {
-    return getData(request, `${baseUrl}/home/nonexistant`, (expect, json) => {
+  test('get non-existing collection', async ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home/nonexistant`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
     }, 404);
   });
 
-  test('mutate a single property', async ({ request }) => {
-    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+  test('mutate a single property', async ({ adminRequest }) => {
+    await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property2: 'value55'
       }));
     });
-    await postData(request, `${baseUrl}/home`, {
+    await postData(adminRequest, `${baseUrl}/home`, {
       collections: {
         collection: 'friends',
         properties: {
@@ -89,7 +93,7 @@ test.describe('api/data', () => {
         }
       }
     });
-    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+    return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         property1: 'value44',
         property2: 'value45',
@@ -105,16 +109,16 @@ test.describe('api/data', () => {
     });
   });
 
-  test('bad post with no data', async ({ request }) => {
-    await postData (request, `${baseUrl}/home`, {}, {
+  test('bad post with no data', async ({ adminRequest }) => {
+    await postData (adminRequest, `${baseUrl}/home`, {}, {
       expectSuccess: false,
       expectResponse: true,
       expectResponseSuccess: false
     });
   });
 
-  test('bad post with bad data', async ({ request }) => {
-    await postData(request, `${baseUrl}/home`, {
+  test('bad post with bad data', async ({ adminRequest }) => {
+    await postData(adminRequest, `${baseUrl}/home`, {
       collections: {
         collection: 5
       }
@@ -125,19 +129,19 @@ test.describe('api/data', () => {
     });
   });
 
-  test('delete a single property', async ({ request }) => {
-    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+  test('delete a single property', async ({ adminRequest }) => {
+    await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property3: 'value46'
       }));
     });
-    await deleteData(request, `${baseUrl}/home`, {
+    await deleteData(adminRequest, `${baseUrl}/home`, {
       collections: {
         collection: 'friends',
         properties: ['property3']
       }
     });
-    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+    return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property1: 'value44',
         property2: 'value45'
@@ -148,8 +152,8 @@ test.describe('api/data', () => {
     });
   });
 
-  test('empty collections that exist should return 204', async ({ request }) => {
-    await postData(request, `${baseUrl}/home`, {
+  test('empty collections that exist should return 204', async ({ adminRequest }) => {
+    await postData(adminRequest, `${baseUrl}/home`, {
       collections: [{
         collection: 'girls',
         properties: {
@@ -158,48 +162,48 @@ test.describe('api/data', () => {
         }
       }]
     });
-    await getData(request, `${baseUrl}/home/girls`, (expect, json) => {
+    await getData(adminRequest, `${baseUrl}/home/girls`, (expect, json) => {
       expect(json).toStrictEqual({
         property1: 'value1',
         property2: 'value2'
       });
     });
-    await deleteData(request, `${baseUrl}/home`, {
+    await deleteData(adminRequest, `${baseUrl}/home`, {
       collections: {
         collection: 'girls',
         properties: ['property1', 'property2']
       }
     });
-    await getData(request, `${baseUrl}/home/girls`, 204);
+    await getData(adminRequest, `${baseUrl}/home/girls`, 204);
   });
 
-  test('delete a collection', async ({ request }) => {
-    await getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+  test('delete a collection', async ({ adminRequest }) => {
+    await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         property1: 'value44'
       }));
     });
-    await deleteData(request, `${baseUrl}/home/friends`);
-    await getData(request, `${baseUrl}/home`, (expect, json) => {
+    await deleteData(adminRequest, `${baseUrl}/home/friends`);
+    await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         state: expect.any(Object)
       }));
     });
-    return getData(request, `${baseUrl}/home/friends`, (expect, json) => {
+    return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
     }, 404);
   });
 
-  test('delete the home document entirely', async ({ request }) => {
-    await getData(request, `${baseUrl}/home`, (expect, json) => {
+  test('delete the home document entirely', async ({ adminRequest }) => {
+    await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         state: expect.any(Object)
       }));
     });
-    await deleteData(request, `${baseUrl}/home`, {
+    await deleteData(adminRequest, `${baseUrl}/home`, {
       deleteDocument: true
     });
-    return getData(request, `${baseUrl}/home`, (expect, json) => {
+    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
     }, 404);
   });

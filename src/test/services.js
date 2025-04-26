@@ -109,7 +109,7 @@ export async function createDatabaseAndAuthorizer () {
       database: mariadbContainer.getDatabase(),
       user: 'root',
       password: mariadbContainer.getRootPassword(),
-      logger: console.log // eslint-disable-line
+      logger: () => {} // console.log // eslint-disable-line
     });
     
     debug('Creating prerequisite databases and users...');
@@ -124,19 +124,18 @@ export async function createDatabaseAndAuthorizer () {
     debug('Starting authorizer container...');
     authorizerContainer = await new GenericContainer('lakhansamani/authorizer:1.4.4')
       .withEnvironment({
-        ENV: 'development',
+        ENV: 'production',
         ADMIN_SECRET: process.env.AUTHZ_ADMIN_SECRET,
         DATABASE_TYPE: 'mariadb',
         DATABASE_URL: `root:${process.env.DB_ROOT_PASSWORD}@tcp(${dbHost}:3306)/authorizer`,
         DATABASE_NAME: 'authorizer',
-        DATABASE_USER: 'root',
-        DATABASE_PASSWORD: process.env.DB_ROOT_PASSWORD,
-        ROLES: 'user,admin',
-        DISABLE_SIGNUP: true,
-        DISABLE_EMAIL_NOTIFICATION: true,
-        PORT: 9010
+        ROLES: 'admin,user',
+        DEFAULT_ROLES: 'user',
+        //PROTECTED_ROLES: 'admin', // testing needs to use signup
+        PORT: 9011
       })
       .withName('authorizer')
+      .withExposedPorts(9011)
       .withNetwork(containerNetwork)
       .withWaitStrategy(Wait.forLogMessage(/Authorizer running at PORT: \d+/))
       .start();

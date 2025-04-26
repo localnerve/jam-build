@@ -9,13 +9,17 @@ const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
 export default defineConfig({
   testDir: 'src/test',
-  timeout: 20000,
+  timeout: 5000,
   globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
+    name: 'setup',
+    testMatch: /global\.setup\.js/
+  }, {
     name: 'api',
     use: {
       browserName: 'chromium'
-    }
+    },
+    dependencies: ['setup']
   }, {
     name: 'Chrome',
     use: {
