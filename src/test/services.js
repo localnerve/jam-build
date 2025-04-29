@@ -15,7 +15,7 @@ import debugLib from 'debug';
 
 const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
 const toRoot = '../..';
-const debug = debugLib('test-services');
+const debug = debugLib('test:services');
 
 /*
 async function deleteImageByName (imageName) {

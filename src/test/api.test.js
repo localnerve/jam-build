@@ -13,7 +13,7 @@ import {
   genericRequest
 } from './api.js';
 
-const debug = debugLib('test-api');
+const debug = debugLib('test:api:data/app');
 
 test.describe('api/data/app', () => {
   let baseUrl;
@@ -57,8 +57,8 @@ test.describe('api/data/app', () => {
     });
   });
 
-  test('post application access denied to user role', ({ userRequest }) => {
-    return postData(userRequest, `${baseUrl}/home`, {
+  test('mutation access to app denied to user role', async ({ userRequest }) => {
+    await postData(userRequest, `${baseUrl}/home`, {
       collections: [{
         collection: 'badnews',
         properties: {
@@ -70,7 +70,17 @@ test.describe('api/data/app', () => {
       }]
     }, {
       expectSuccess: false,
-      expectResponse: true,
+      expectResponseSuccess: false,
+      assertStatus: 403
+    });
+
+    await deleteData(userRequest, `${baseUrl}/home/friends`, {
+      collections: [{
+        collection: 'wontmatter',
+        properties: ['property1', 'property2']
+      }]
+    }, {
+      expectSuccess: false,
       expectResponseSuccess: false,
       assertStatus: 403
     });
@@ -165,7 +175,7 @@ test.describe('api/data/app', () => {
       }));
     });
     await deleteData(adminRequest, `${baseUrl}/home`, {
-      collections: {
+      collections: { // can be an array or one object
         collection: 'friends',
         properties: ['property3']
       }

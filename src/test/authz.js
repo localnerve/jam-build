@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto';
 import puppeteer from 'puppeteer';
 import debugLib from 'debug';
 
-const debug = debugLib('test-authz');
+const debug = debugLib('test:authz');
 const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
 
 /**

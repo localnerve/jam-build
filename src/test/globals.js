@@ -15,7 +15,7 @@ import {
   createDatabaseAndAuthorizer
 } from './services.js';
 
-const debug = debugLib('test-globals');
+const debug = debugLib('test:globals');
 
 const appImageName = 'jam-build-test-1';
 let appContainer = null;

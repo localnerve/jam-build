@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import debugLib from 'debug';
 
-const debug = debugLib('test-api');
+const debug = debugLib('test:api');
 
 export async function getData (request, url, testResponse = ()=>true, status = 200) {
   debug(`GET request for ${url}...`);
@@ -86,21 +86,40 @@ export async function genericRequest (url, method, body = null, testResponse = (
   testResponse(expect, fetchResponse);
 }
 
-export async function deleteData (request, url, data) {
+export async function deleteData (request, url, data, {
+  expectSuccess = true,
+  expectResponse = true,
+  assertStatus = 0,
+  expectResponseSuccess = true
+} = {}) {
   debug(`DELETE request for ${url}...`);
   const response = await request.delete(url, {
     data
   });
 
   debug(`DELETE response code: ${response.status()}`);
-  expect(response.ok()).toBeTruthy();
+  if (expectSuccess) {
+    expect(response.ok()).toBeTruthy();
+  } else {
+    expect(response.ok()).not.toBeTruthy();
+  }
 
-  debug('DELETE parsing response as json...');
-  const json = await response.json();
-  debug('DELETE response json: ', json);
+  if (assertStatus) {
+    expect(response.status()).toEqual(assertStatus);
+  }
 
-  expect(json.ok).toBeTruthy();
-  expect(json).toEqual(expect.objectContaining({
-    message: 'Success'
-  }));
+  if (expectResponse) {
+    debug('DELETE parsing response as json...');
+    const json = await response.json();
+    debug('DELETE response json: ', json);
+
+    if (expectResponseSuccess) {
+      expect(json.ok).toBeTruthy();
+      expect(json).toEqual(expect.objectContaining({
+        message: 'Success'
+      }));
+    } else {
+      expect(json.ok).not.toBeTruthy();
+    }
+  }
 }
