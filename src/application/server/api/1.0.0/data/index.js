@@ -24,7 +24,7 @@ import {
   deleteCollection,
   deleteProperties
 } from './methods.js';
-import { authAdminOnly } from '../auth.js';
+import { authAdmin, authUser } from '../auth.js';
 
 const debug = debugLib('api:data');
 
@@ -71,6 +71,7 @@ export function createService (logger) {
 
     appRouter = express.Router();
 
+    // Public routes
     appRouter.get(
       '/app/:document/:collection',
       getProperties.bind(
@@ -90,8 +91,8 @@ export function createService (logger) {
       )
     );
   
-    appRouter.use(authAdminOnly);
-  
+    // Require 'admin' role
+    appRouter.use('/app', authAdmin);
     appRouter.delete(
       '/app/:document/:collection',
       deleteCollection.bind(
@@ -140,8 +141,8 @@ export function createService (logger) {
 
     userRouter = express.Router();
 
-    // appRouter.use(authUserOnly);
-
+    // All routes require 'user' role
+    userRouter.use('/user', authUser);
     userRouter.get(
       '/user/:document/:collection',
       getProperties.bind(

@@ -43,8 +43,8 @@ function checkHeaderAndGetSession (req) {
   }
 }
 
-async function validateSessionAndSetUser (req, session, roles, scope) {
-  debug('Validate Session...');
+async function validateSessionAndSetUser (req, session, roles, type) {
+  debug('Validate Session for roles:', roles);
 
   try {
     const { data, errors } = await authRef.validateSession({
@@ -68,7 +68,7 @@ async function validateSessionAndSetUser (req, session, roles, scope) {
       cause: e
     });
     error.status = 403;
-    error.type = scope;
+    error.type = type;
     throw error;
   }
 }
@@ -91,14 +91,26 @@ async function initializeAuthorizer (req) {
   }
 }
 
-export async function authAdminOnly (req, res, next) {
+async function auth (roles, req) {
   await initializeAuthorizer(req);
 
-  debug('Authorize admin only');
+  let type = '';
+  if (roles.length === 1) {
+    debug(`Authorize ${roles[0]}`);
+    type = `data.authorization.${roles[0]}`;
+  }
 
   const session = checkHeaderAndGetSession(req);
 
-  await validateSessionAndSetUser(req, session, ['admin'], 'data.authorization.admin.only');
+  await validateSessionAndSetUser(req, session, roles, type);
+}
 
+export async function authAdmin (req, res, next) {
+  await auth(['admin'], req);
+  next();
+}
+
+export async function authUser (req, res, next) {
+  await auth(['user'], req);
   next();
 }
