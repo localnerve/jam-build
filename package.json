@@ -91,7 +91,7 @@
     "plugin-error": "^2.0.1",
     "puppeteer": "^24.7.2",
     "rimraf": "^6.0.1",
-    "rollup": "^4.40.0",
+    "rollup": "^4.40.1",
     "rollup-plugin-output-manifest": "^2.0.0",
     "sass": "^1.87.0",
     "sitemap": "^8.0.0",
