@@ -16,6 +16,12 @@ const debug = debugLib('api:auth');
 
 let authRef;
 
+/**
+ * Check the request header for valid format and extract the session from cookies.
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @returns {String} The cookie_session cookie session
+ */
 function checkHeaderAndGetSession (req) {
   debug('Header check...', req.headers);
 
@@ -43,6 +49,15 @@ function checkHeaderAndGetSession (req) {
   }
 }
 
+/**
+ * Validate the session for the given roles.
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @param {String} session - The session from the cookie
+ * @param {Array<String>} roles - The roles to check for
+ * @param {String} type - A helpful string to help track errors and debug
+ * @returns {Promise<undefined>} Nothing, but sets Request.user from the session data
+ */
 async function validateSessionAndSetUser (req, session, roles, type) {
   debug('Validate Session for roles:', roles);
 
@@ -73,6 +88,12 @@ async function validateSessionAndSetUser (req, session, roles, type) {
   }
 }
 
+/**
+ * Check the Authorizer service reachability, setup the interface if not already done.
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @returns {Promise<undefined>} On completion
+ */
 async function initializeAuthorizer (req) {
   if (!authRef) {
     const authzUrl = new URL(process.env.AUTHZ_URL);
@@ -91,7 +112,18 @@ async function initializeAuthorizer (req) {
   }
 }
 
-async function auth (roles, req) {
+/**
+ * Perform the authorization.
+ * Conditionally initialize the Authorizer interface.
+ * Check the request header structure.
+ * Validate the session against the desired roles.
+ * Populate the Request.user object with the session user data.
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @param {Array<String>} roles - Array of role strings to check for
+ * @returns {Promise<undefined>} On completion
+ */
+async function auth (req, roles) {
   await initializeAuthorizer(req);
 
   let type = '';
@@ -105,12 +137,28 @@ async function auth (roles, req) {
   await validateSessionAndSetUser(req, session, roles, type);
 }
 
+/**
+ * Authorization middleware for the 'admin' role.
+ * Populates the Request.user object on success.
+ *  
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object, not used
+ * @param {Function} next - The expressjs next function
+ */
 export async function authAdmin (req, res, next) {
-  await auth(['admin'], req);
+  await auth(req, ['admin']);
   next();
 }
 
+/**
+ * Authorization middleware for the 'user' role.
+ * Populates the Request.user object on success.
+ *  
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object, not used
+ * @param {Function} next - The expressjs next function
+ */
 export async function authUser (req, res, next) {
-  await auth(['user'], req);
+  await auth(req, ['user']);
   next();
 }
