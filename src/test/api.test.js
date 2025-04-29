@@ -15,10 +15,10 @@ import {
 
 const debug = debugLib('test-api');
 
-test.describe('api/data', () => {
+test.describe('api/data/app', () => {
   let baseUrl;
   test.beforeAll(() => {
-    baseUrl = `${process.env.BASE_URL}/api/data`;
+    baseUrl = `${process.env.BASE_URL}/api/data/app`;
   });
 
   test('audit request storage states', async ({ adminRequest, userRequest }) => {
@@ -54,6 +54,25 @@ test.describe('api/data', () => {
           property3: 'value46'
         }
       }]
+    });
+  });
+
+  test('post application access denied to user role', ({ userRequest }) => {
+    return postData(userRequest, `${baseUrl}/home`, {
+      collections: [{
+        collection: 'badnews',
+        properties: {
+          property1: 'value1', 
+          property2: 'value2',
+          property3: 'value3',
+          property4: 'value4'
+        }
+      }]
+    }, {
+      expectSuccess: false,
+      expectResponse: true,
+      expectResponseSuccess: false,
+      assertStatus: 403
     });
   });
 
@@ -115,7 +134,7 @@ test.describe('api/data', () => {
   test('bad post with malformed data', async () => {
     await genericRequest(`${baseUrl}/home`, 'POST', '{ bad: data: is: bad }', (expect, fetchResponse) => {
       expect(fetchResponse.ok).not.toBeTruthy();
-      expect(fetchResponse.status).toEqual(500);
+      expect(fetchResponse.status).toEqual(400);
     });
   });
 

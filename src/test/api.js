@@ -35,6 +35,7 @@ export async function getData (request, url, testResponse = ()=>true, status = 2
 export async function postData (request, url, data, {
   expectSuccess = true,
   expectResponse = true,
+  assertStatus = 0,
   expectResponseSuccess = true
 } = {}) {
   debug(`POST request for ${url}...`);
@@ -49,6 +50,10 @@ export async function postData (request, url, data, {
     expect(response.ok()).not.toBeTruthy();
   }
 
+  if (assertStatus) {
+    expect(response.status()).toEqual(assertStatus);
+  }
+  
   if (expectResponse) {
     debug('POST parsing response as json...');
     const json = await response.json();
@@ -70,6 +75,9 @@ export async function genericRequest (url, method, body = null, testResponse = (
 
   const fetchResponse = await fetch(url, {
     method,
+    headers: {
+      'Content-Type': 'application/json'
+    },
     body
   });
 

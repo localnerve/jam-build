@@ -7,43 +7,80 @@
 import fs from 'node:fs';
 import afs from 'node:fs/promises';
 import path from 'node:path';
+import url from 'node:url';
 import { randomBytes } from 'node:crypto';
+import puppeteer from 'puppeteer';
 import debugLib from 'debug';
 
 const debug = debugLib('test-authz');
+const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
 
 /**
  * Get the CLIENT_ID of the current testcontainer instance of the authorizer.
- * 
- * @param {Page} page - The playwright.dev Page fixture
+ * Depends on process.env.AUTHZ_URL being set.
+ *
+ * @returns {String} The AUTHZ_CLIENT_ID
  */
-export async function getAuthzClientID (page) {
-  if (!process.env.AUTHZ_CLIENT_ID) {
-    debug(`Navigating to ${process.env.AUTHZ_URL} ...`);
+export async function getAuthzClientID () {
+  debug(`Navigating to ${process.env.AUTHZ_URL} ...`);
 
+  let clientId;
+  let browser;
+
+  try {
+    browser = await puppeteer.launch({
+      headless: false
+    });
+    const page = await browser.newPage();
     const resp = await page.goto(`${process.env.AUTHZ_URL}`, {
       timeout: 5000
     });
     debug(`Navigation complete ${resp.status()}`);
 
-    debug('Logging in as authorizer admin...');
+    debug('Logging in as authorizer super admin...');
     await page.locator('#admin-secret').fill(process.env.AUTHZ_ADMIN_SECRET);
     await page.locator('button[type="submit"]').click();
     debug('Pulling Client ID from dashboard...');
-    const clientId = await page.locator('input[placeholder="Client ID"]').inputValue();
+    const clientIdInputBox = 'input[placeholder="Client ID"]';
+    await page.waitForSelector(clientIdInputBox, {
+      timeout: 1000,
+      visible: true
+    });
+    // @@@ TODO remove:
+    await new Promise(resolve => setTimeout(resolve, 250));
+    // @@@
+    clientId = await page.$eval(clientIdInputBox, el => el.value);
 
     debug(`Got Client ID ${clientId}`);
-    process.env.AUTHZ_CLIENT_ID = clientId;
+
+    if (!clientId) {
+      throw new Error('No AUTHZ_CLIENT_ID');
+    }
 
     debug('Logging out as authorizer admin...');
     await page.locator('.css-vn8yib').click();
     await page.locator('.css-13c7rae').click();
+    await page.close();
     debug('logged out admin');
+  } catch (e) {
+    if (!clientId) {
+      debug('[FATAL]: Failed to get AUTHZ_CLIENT_ID: ', e);
+      throw e;
+    } else {
+      debug('Failed to complete logout but received AUTHZ_CLIENT_ID');
+    }
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
+
+  return clientId;
 }
 
 /**
  * Make the authorization user and save the .auth user role file for this worker.
+ * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
  * 
  * @param {Function} expect - The playwright.dev expect function
  * @param {Object} test - The playwright.dev test object
@@ -52,7 +89,7 @@ export async function getAuthzClientID (page) {
  */
 export async function createAuthzUser (expect, test, authRef, roles = ['user']) {
   const id = test.info().parallelIndex;
-  const authDir = path.resolve(test.info().project.outputDir, '.auth');
+  const authDir = path.resolve(process.env.LOCALHOST_PORT ? thisDir : test.info().project.outputDir, '.auth');
   const mainRole = roles.length === 1 ? roles[0] : roles.includes('admin') ? 'admin' : roles[0]; // sketchy
   const fileName = path.join(`${authDir}`, `account-${mainRole}-${id}.json`);
 
@@ -79,22 +116,25 @@ export async function createAuthzUser (expect, test, authRef, roles = ['user']) 
     debug('signup errors', errors);
 
     if (errors.length > 0 && errors[0].message.includes('already')) {
-      debug(`Test user ${username} already exists in authorizer`);
+      const msg = `Test user ${username} already exists in authorizer`;
+      debug(msg);
+      throw new Error(msg);
     } else {
       expect(errors.length).toEqual(0);
+      
       debug('Logging out...');
       await authRef.logout({
         Authorization: `Bearer ${data.access_token}`,
-      });  
+      });
+
+      debug(`Saving user to ${fileName}...`);
+      await afs.mkdir(authDir, { recursive: true });
+      await afs.writeFile(fileName, JSON.stringify({
+        username, password, roles
+      }));
+
+      debug(`Successfully created user ${username}`);
     }
-
-    debug(`Saving user to ${fileName}...`);
-    await afs.mkdir(authDir, { recursive: true });
-    await afs.writeFile(fileName, JSON.stringify({
-      username, password
-    }));
-
-    debug(`Successfully created user ${username}`);
   }
 }
 
@@ -112,28 +152,37 @@ export async function authenticateAndSaveState (expect, browser, account, fileNa
   // Important: make sure we authenticate in a clean environment by unsetting storage state.
   const page = await browser.newPage({ storageState: undefined });
 
-  debug(`Login to ${process.env.AUTHZ_URL}/app with account: `, account);
-  await page.goto(`${process.env.AUTHZ_URL}/app`);
-  await page.locator('#authorizer-login-email-or-phone-number').fill(account.username);
-  await page.locator('#authorizer-login-password').fill(account.password);
-  await page.locator('button[type="submit"]').click();
+  debug(`Login to ${process.env.AUTHZ_URL}:${process.env.AUTHZ_CLIENT_ID} with account: `, account);
+  await page.addScriptTag({
+    path: 'node_modules/@authorizerdev/authorizer-js/lib/authorizer.min.js'
+    // url: 'https://unpkg.com/@authorizerdev/authorizer-js/lib/authorizer.min.js'
+  });
+  const loginData = await page.evaluate(async ([authzUrl, authzClientId, account]) => {
+    const authorizerRef = new authorizerdev.Authorizer({
+      authorizerURL: authzUrl,
+      redirectURL: window.location.origin,
+      clientID: authzClientId
+    });
+    const { data, errors } = await authorizerRef.login({
+      email: account.username,
+      password: account.password,
+      roles: account.roles
+    });
+    if (errors.length > 0) {
+      throw new Error(errors[0]);
+    }
+    return data;
+  }, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID, account]);
+  debug(`Successful login data: `, loginData);
 
-  debug('Login complete waiting for Logout...');
-  // Wait until the page receives the cookies. If 'Logout', presumed logged in.
-  const logout = await page.getByText('Logout', { exact: true });
-  
-  debug('Asserting authenticated state...');
-  expect(logout).toBeTruthy();
-  await logout.waitFor({ timeout: 1500 });
-  expect(logout).toBeVisible();
-
-  const context = page.context();
+  const context = page.context(); // no wait
   await context.storageState({ path: fileName });
   return context;
 }
 
 /**
  * Get the username and password for the user associated with this test worker.
+ * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright test fixture
  * @param {Number} id - The playwright parallel index that identifies the unique user
@@ -141,7 +190,8 @@ export async function authenticateAndSaveState (expect, browser, account, fileNa
  * @returns {Object} username, password of the stored user
  */
 export async function acquireAccount (test, id, mainRole = 'user') {
-  const fileName = path.resolve(test.info().project.outputDir, `.auth/account-${mainRole}-${id}.json`);
+  const authDir = path.resolve(process.env.LOCALHOST_PORT ? thisDir : test.info().project.outputDir, '.auth');
+  const fileName = path.join(authDir, `account-${mainRole}-${id}.json`);
 
   debug(`Reading user info from ${fileName}...`);
   const text = await afs.readFile(fileName, { encoding: 'utf8' });

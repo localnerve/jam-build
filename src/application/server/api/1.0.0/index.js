@@ -7,12 +7,12 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import express from 'express';
-import { create as createAppData } from './appData.js';
+import { createService } from './data/index.js';
 
 export function create (logger) {
   const api = express.Router();
  
-  api.use('/data', createAppData(logger));
+  api.use('/data', createService(logger));
 
   return api;
 }

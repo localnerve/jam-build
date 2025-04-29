@@ -36,7 +36,7 @@ async function checkImageExists (imageName) {
   }
 }
 
-export async function createAppContainer (containerNetwork, mariadbContainer, appImageName) {
+export async function createAppContainer (authorizerContainer, containerNetwork, mariadbContainer, appImageName) {
   const forceAppBuild = !!(process.env.FORCE_BUILD);
 
   debug(`Checking ${appImageName}... FORCE_BUILD=${forceAppBuild}`);
@@ -75,7 +75,9 @@ export async function createAppContainer (containerNetwork, mariadbContainer, ap
       DB_PASSWORD: process.env.DB_PASSWORD,
       DB_APP_USER: process.env.DB_APP_USER,
       DB_APP_PASSWORD: process.env.DB_APP_PASSWORD,
-      DEBUG: 'server*,api*'
+      AUTHZ_URL: `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
+      AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID,
+      DEBUG: process.env.DEBUG
     })
     .withWaitStrategy(Wait.forLogMessage(/listening on port \d+/))
     .start();

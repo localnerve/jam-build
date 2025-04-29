@@ -8,6 +8,7 @@ import fs from 'node:fs/promises';
 import * as tar from 'tar';
 import { glob } from 'glob';
 import debugLib from 'debug';
+import { getAuthzClientID } from './authz.js';
 
 import {
   createAppContainer,
@@ -120,6 +121,7 @@ export default async function setup () {
   if (localhostPort) {
     debug(`LOCALHOST_PORT detected, targeting localhost:${localhostPort}...`);
     process.env.AUTHZ_URL = 'http://localhost:9010';
+    process.env.AUTHZ_CLIENT_ID = 'E37D308D-9068-4FCC-BFFB-2AA535014B64';
     process.env.BASE_URL = `http://localhost:${localhostPort}`;
     return () => {};
   }
@@ -127,9 +129,13 @@ export default async function setup () {
   debug('Setup globals...');
 
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
-  appContainer = await createAppContainer(containerNetwork, mariadbContainer, appImageName);
 
   process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9011)}`;
+
+  process.env.AUTHZ_CLIENT_ID = await getAuthzClientID();
+
+  appContainer = await createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName);
+
   process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
 
   debug('Setup globals success');

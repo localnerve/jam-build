@@ -7,6 +7,7 @@
 
 import express from 'express';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import versionRouter from 'express-version-route';
 import versionRequest from 'express-version-request';
 import debugLib from 'debug';
@@ -34,6 +35,7 @@ export function create (logger, options = {}, locals = {}) {
 
   api.use(express.json()); // for parsing application/json
   api.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+  api.use(cookieParser()); // for parsing cookies
   api.use(versionRequest.setVersionByHeader()); // X-Api-Version: 1.0.0
 
   api.locals = { ...api.locals, ...locals };
