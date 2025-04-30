@@ -193,7 +193,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
 }
 
 /**
- * Get the username and password for the user associated with this test worker.
+ * Get (create if required) the user account for a role for this test worker.
  * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright test fixture
