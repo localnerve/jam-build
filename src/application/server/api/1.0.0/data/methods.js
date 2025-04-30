@@ -195,11 +195,12 @@ export async function setProperties (pool, methodName, procName, req, res) {
   debug('procedureCollections', procedureCollections);
 
   const inputParams = [document, JSON.stringify(procedureCollections)];
-  const procParams = '(?, ?)';
+  const procParamArray = Array(inputParams.length).fill('?');
   if (/user/i.test(methodName)) {
     inputParams.unshift(req.user.id);
-    procParams.splice(1, 0, '?, ');
+    procParamArray.unshift('?');
   }
+  const procParams = `(${procParamArray.join(', ')})`;
 
   debug(`Calling ${procName}${procParams} for ${document} with ${inputParams.length} params...`);
 
