@@ -1,11 +1,11 @@
 /**
- * api tests
+ * api/data/app tests
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import debugLib from 'debug';
-import { expect, test } from './fixtures.js';
+import { expect, test } from '../fixtures.js';
 import {
   getData,
   postData,
@@ -13,9 +13,9 @@ import {
   genericRequest
 } from './api.js';
 
-const debug = debugLib('test:api:data/app');
+const debug = debugLib('test:api:/api/data/app');
 
-test.describe('api/data/app', () => {
+test.describe('/api/data/app', () => {
   let baseUrl;
   test.beforeAll(() => {
     baseUrl = `${process.env.BASE_URL}/api/data/app`;
@@ -76,7 +76,7 @@ test.describe('api/data/app', () => {
 
     await deleteData(userRequest, `${baseUrl}/home/friends`, {
       collections: [{
-        collection: 'wontmatter',
+        collection: 'wrongButWontMatter',
         properties: ['property1', 'property2']
       }]
     }, {
