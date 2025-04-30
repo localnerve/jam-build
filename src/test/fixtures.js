@@ -7,7 +7,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { test as baseTest, expect } from '@playwright/test';
+import { test as baseTest } from '@playwright/test';
 import { authenticateAndSaveState, acquireAccount } from './authz.js';
 
 export * from '@playwright/test';

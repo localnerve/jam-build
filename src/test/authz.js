@@ -170,8 +170,10 @@ export async function authenticateAndSaveState (browser, account, fileName) {
     // url: 'https://unpkg.com/@authorizerdev/authorizer-js/lib/authorizer.min.js'
   });
   const loginData = await page.evaluate(async ([authzUrl, authzClientId, account]) => {
+    // eslint-disable-next-line no-undef -- authorizerdev browser global is set by scriptTag above
     const authorizerRef = new authorizerdev.Authorizer({
       authorizerURL: authzUrl,
+      // eslint-disable-next-line no-undef -- window browser global ok, this is a browser context
       redirectURL: window.location.origin,
       clientID: authzClientId
     });
@@ -185,7 +187,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
     }
     return data;
   }, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID, account]);
-  debug(`Successful login data: `, loginData);
+  debug('Successful login data: ', loginData);
 
   const context = page.context(); // no wait
   await context.storageState({ path: fileName });

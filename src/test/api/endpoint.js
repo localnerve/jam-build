@@ -4,13 +4,10 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import debugLib from 'debug';
 import { test } from '../fixtures.js';
 import { getData, postData } from './api.js';
 
 export function basicEndpointTests (endpointPath, statusCode = 404) {
-  const debug = debugLib(`api:${endpointPath}`);
-
   return () => {
     let baseUrl;
     test.beforeAll(() => {

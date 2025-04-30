@@ -5,6 +5,6 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { test } from '../fixtures.js';
-import { basicEndpointTests } from "./endpoint.js";
+import { basicEndpointTests } from './endpoint.js';
 
 test.describe('/api/data basic tests', basicEndpointTests('/api/data'));
