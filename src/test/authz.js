@@ -11,6 +11,7 @@ import url from 'node:url';
 import { randomBytes } from 'node:crypto';
 import puppeteer from 'puppeteer';
 import debugLib from 'debug';
+import { Authorizer } from '@authorizerdev/authorizer-js';
 
 const debug = debugLib('test:authz');
 const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
@@ -18,6 +19,7 @@ const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
 /**
  * Get the CLIENT_ID of the current testcontainer instance of the authorizer.
  * Depends on process.env.AUTHZ_URL being set.
+ * Used globally outside of test projects so playwright fixtures cannot be used.
  *
  * @returns {String} The AUTHZ_CLIENT_ID
  */
@@ -46,7 +48,7 @@ export async function getAuthzClientID () {
       timeout: 1000,
       visible: true
     });
-    // @@@ TODO remove:
+    // @@@ WTF? WHY? WHY didn't it actually wait for clientIdBox? TODO remove:
     await new Promise(resolve => setTimeout(resolve, 250));
     // @@@
     clientId = await page.$eval(clientIdInputBox, el => el.value);
@@ -82,23 +84,29 @@ export async function getAuthzClientID () {
  * Make the authorization user and save the .auth user role file for this worker.
  * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
  * 
- * @param {Function} expect - The playwright.dev expect function
  * @param {Object} test - The playwright.dev test object
- * @param {Object} authRef - The authorizer.dev reference
- * @param {Array} [roles] - The array of strings of the roles for the user, defaults to ['user']
+ * @param {String} [mainRole] - The main usage role for the desired user, defaults to 'user'
+ * @param {Array} [signupRoles] - The account creation roles at signup, if the account doesn't exist, defaults to ['user']
+ * @returns {Promise<String>} full file path to the auth file for the new or existing user for this worker
  */
-export async function createAuthzUser (expect, test, authRef, roles = ['user']) {
+async function createAuthzUser (test, mainRole = 'user', signupRoles = ['user']) {
   const id = test.info().parallelIndex;
   const authDir = path.resolve(process.env.LOCALHOST_PORT ? thisDir : test.info().project.outputDir, '.auth');
-  const mainRole = roles.length === 1 ? roles[0] : roles.includes('admin') ? 'admin' : roles[0]; // sketchy
-  const fileName = path.join(`${authDir}`, `account-${mainRole}-${id}.json`);
+  const fileName = path.join(authDir, `account-${mainRole}-${id}.json`);
 
   debug(`Checking for existence of auth file ${fileName}...`);
   if (!fs.existsSync(fileName)) {
+    debug('Creating Authorizer ref: ', process.env.AUTHZ_URL, process.env.BASE_URL, process.env.AUTHZ_CLIENT_ID);
+    const authRef = new Authorizer({
+      authorizerURL: process.env.AUTHZ_URL,
+      redirectURL: process.env.BASE_URL,
+      clientID: process.env.AUTHZ_CLIENT_ID
+    });
+  
     const username = `${mainRole}-${id}@test.local`;
     const password = `${randomBytes(4).toString('hex')}a-A#`; // password policy requirements
 
-    debug(`authorizer signup for user ${username}...`);
+    debug(`Authorizer signup for user ${username}...`);
 
     let data, errors;
     try {
@@ -106,22 +114,23 @@ export async function createAuthzUser (expect, test, authRef, roles = ['user']) 
         email: username,
         password,
         confirm_password: password,
-        roles
+        roles: signupRoles
       }));
     } catch (err) {
       debug('Error thrown during signup');
       errors = [err];
     }
 
-    debug('signup errors', errors);
+    debug('Signup errors', errors);
 
-    if (errors.length > 0 && errors[0].message.includes('already')) {
-      const msg = `Test user ${username} already exists in authorizer`;
+    if (errors.length > 0) {
+      let msg = errors[0].message;
+      if (errors[0].message.includes('already')) {
+        msg = `Test user ${username} already exists in Authorizer`;
+      }
       debug(msg);
       throw new Error(msg);
     } else {
-      expect(errors.length).toEqual(0);
-      
       debug('Logging out...');
       await authRef.logout({
         Authorization: `Bearer ${data.access_token}`,
@@ -130,23 +139,26 @@ export async function createAuthzUser (expect, test, authRef, roles = ['user']) 
       debug(`Saving user to ${fileName}...`);
       await afs.mkdir(authDir, { recursive: true });
       await afs.writeFile(fileName, JSON.stringify({
-        username, password, roles
+        username, password, roles: signupRoles
       }));
 
       debug(`Successfully created user ${username}`);
     }
+  } else {
+    debug(`${fileName} exists`);
   }
+
+  return fileName;
 }
 
 /**
  * Login to the Authorizer service and save the browser state to a file.
  *
- * @param {Function} expect - The playwright.dev expect function
  * @param {Browser} browser - The playwright.dev Browser fixture
  * @param {Object} account - An account object
  * @param {String} fileName - The full path to the file of the state file store
  */
-export async function authenticateAndSaveState (expect, browser, account, fileName) {
+export async function authenticateAndSaveState (browser, account, fileName) {
   debug('Begin authentication, clearing storageState...');
 
   // Important: make sure we authenticate in a clean environment by unsetting storage state.
@@ -185,13 +197,12 @@ export async function authenticateAndSaveState (expect, browser, account, fileNa
  * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright test fixture
- * @param {Number} id - The playwright parallel index that identifies the unique user
- * @param {String} [mainRole] - The unique, main role for the desired user, defaults to 'user'
+ * @param {String} [mainRole] - The main usage role for the desired user, defaults to 'user'
+ * @param {Array} [signupRoles] - The account creation roles at signup, if the account doesn't exist, defaults to ['user']
  * @returns {Object} username, password of the stored user
  */
-export async function acquireAccount (test, id, mainRole = 'user') {
-  const authDir = path.resolve(process.env.LOCALHOST_PORT ? thisDir : test.info().project.outputDir, '.auth');
-  const fileName = path.join(authDir, `account-${mainRole}-${id}.json`);
+export async function acquireAccount (test, mainRole = 'user', signupRoles = ['user']) {
+  const fileName = await createAuthzUser(test, mainRole, signupRoles);
 
   debug(`Reading user info from ${fileName}...`);
   const text = await afs.readFile(fileName, { encoding: 'utf8' });
