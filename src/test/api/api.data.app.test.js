@@ -4,16 +4,13 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import debugLib from 'debug';
-import { expect, test } from '../fixtures.js';
+import { test } from '../fixtures.js';
 import {
   getData,
   postData,
   deleteData,
   genericRequest
 } from './api.js';
-
-const debug = debugLib('test:api:/api/data/app');
 
 test.describe('/api/data/app', () => {
   let baseUrl;
