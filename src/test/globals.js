@@ -120,8 +120,8 @@ export default async function setup () {
   
   if (localhostPort) {
     debug(`LOCALHOST_PORT detected, targeting localhost:${localhostPort}...`);
-    process.env.AUTHZ_URL = 'http://localhost:9010';
-    process.env.AUTHZ_CLIENT_ID = 'E37D308D-9068-4FCC-BFFB-2AA535014B64';
+    // process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID are already set
+    // Authorizer and local app are already running...
     process.env.BASE_URL = `http://localhost:${localhostPort}`;
     return () => {};
   }
