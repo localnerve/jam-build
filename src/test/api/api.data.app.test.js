@@ -21,17 +21,6 @@ test.describe('/api/data/app', () => {
     baseUrl = `${process.env.BASE_URL}/api/data/app`;
   });
 
-  test('audit request storage states', async ({ adminRequest, userRequest }) => {
-    const adminState = await adminRequest.storageState();
-    const userState = await userRequest.storageState();
-
-    expect(adminState).toBeTruthy();
-    expect(userState).toBeTruthy();
-
-    debug('Admin request state', adminState);
-    debug('User request state', userState);
-  });
-
   test('get non-existant route', async ({ adminRequest }) => {
     return getData(adminRequest, baseUrl, 404);
   });

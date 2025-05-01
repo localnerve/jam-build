@@ -7,10 +7,13 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import debugLib from 'debug';
 import { test as baseTest } from '@playwright/test';
 import { authenticateAndSaveState, acquireAccount } from './authz.js';
 
 export * from '@playwright/test';
+
+const debug = debugLib('test:fixtures');
 
 /**
  * Create state (and user if required), create a BrowserContext from it, use as a Page or APIRequestContext.
@@ -28,14 +31,16 @@ async function createStateAndUseContext (mainRole, signupRoles, test, browser, u
 
   let context;
   if (!fs.existsSync(fileName)) {
+    debug(`Sign in needed for ${fileName} to create session...`);
     const account = await acquireAccount(test, mainRole, signupRoles);
     context = await authenticateAndSaveState(browser, account, fileName);
   } else {
+    debug(`Using existing ${fileName} session...`);
     context = await browser.newContext({ storageState: fileName });
   }
 
   if (createPage) {
-    await (use(context.newPage()));
+    await use(await context.newPage());
   } else {
     await use(context.request);
   }
@@ -61,5 +66,5 @@ export const test = baseTest.extend({
 
   userPage: [async ({ browser }, use) => {
     return createStateAndUseContext('user', ['user'], test, browser, use, true);
-  }]
+  }, { scope: 'worker' }]
 });

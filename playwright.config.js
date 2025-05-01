@@ -21,7 +21,9 @@ export default defineConfig({
     name: 'api',
     use: {
       browserName: 'chromium'
-    }
+    },
+    testMatch: 'api/**/*.test.js',
+    dependencies: ['fixtures']
   }, {
     name: 'Chrome',
     use: {
