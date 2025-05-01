@@ -31,7 +31,7 @@ export async function getAuthzClientID () {
 
   try {
     browser = await puppeteer.launch({
-      headless: false
+      headless: !process.argv.includes('--headed')
     });
     const page = await browser.newPage();
     const resp = await page.goto(`${process.env.AUTHZ_URL}`, {
