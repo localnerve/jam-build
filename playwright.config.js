@@ -12,17 +12,18 @@ export default defineConfig({
   timeout: 5000,
   globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
+    name: "dummy",
+    testMatch: /dummy\.test\.js/
+  }, {
     name: 'fixtures',
-    use: {
-      browserName: 'chromium'
-    },
     testMatch: /fixture\.test\.js/
   }, {
     name: 'api',
-    use: {
-      browserName: 'chromium'
-    },
     testMatch: 'api/**/*.test.js',
+    dependencies: ['fixtures']
+  }, {
+    name: 'pages',
+    testMatch: 'pages/**/*.test.js',
     dependencies: ['fixtures']
   }, {
     name: 'Chrome',
