@@ -57,6 +57,28 @@ BEGIN
 END;
 //
 
+CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsAndDocumentsForApplication(
+    OUT p_notfound INT
+)
+BEGIN
+    SET p_notfound = 0;
+
+    SELECT COUNT(*) INTO @temp_count
+    FROM application_documents d;
+
+    IF @temp_count <= 0 THEN
+        SET p_notfound = 1;
+    ELSE
+        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        FROM application_documents d
+        JOIN application_documents_collections dc ON d.document_id = dc.document_id
+        JOIN application_collections c ON dc.collection_id = c.collection_id
+        JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
+        JOIN application_properties p ON cp.property_id = p.property_id;
+    END IF;
+END;
+//
+
 CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertApplicationDocumentWithCollectionsAndProperties (
     p_document_name VARCHAR(255),
     p_data JSON
@@ -444,6 +466,30 @@ BEGIN
 END;
 //
 
+CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsAndDocumentsForUser(
+    IN p_user_id CHAR(36),
+    OUT p_notfound INT
+)
+BEGIN
+    SET p_notfound = 0;
+
+    SELECT COUNT(*) INTO @temp_count
+    FROM user_documents d
+    WHERE d.user_id = p_user_id;
+
+    IF @temp_count <= 0 THEN
+        SET p_notfound = 1;
+    ELSE    
+        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        FROM user_documents d
+        JOIN user_documents_collections dc ON d.document_id = dc.document_id
+        JOIN user_collections c ON dc.collection_id = c.collection_id
+        JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
+        JOIN user_properties p ON cp.property_id = p.property_id
+        WHERE d.user_id = p_user_id;
+    END IF;
+END;
+//
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertUserDocumentWithCollectionsAndProperties (
     p_user_id CHAR(36),

@@ -163,6 +163,36 @@ export async function getCollectionsAndProperties (pool, methodName, procName, r
 }
 
 /**
+ * Get all the documents, collections, and properties.
+ * 
+ * @param {ConnectionPool} pool - The database connection pool
+ * @param {String} methodName - The canonical name of this method
+ * @param {String} procName - The name of the stored procedure to call
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object
+ * @returns {Promise} resolves to null on successful completion
+ */
+export async function getDocumentsCollectionsAndProperties (pool, methodName, procName, req, res) {
+  debug (methodName);
+
+  const isUser = /user/i.test(methodName);
+  const inputParams = isUser ? [req.user.id] : [];
+
+  return getWithParams(pool, methodName, procName, res, inputParams, (acc, curr) => {
+    let document = acc[curr.document_name];
+    if (!document) {
+      document = acc[curr.document_name] = {};
+    }
+    let collection = document[curr.collection_name];
+    if (!collection) {
+      collection = document[curr.collection_name] = {};
+    }
+    collection[curr.property_name] = curr.property_value;
+    return acc;
+  });
+}
+
+/**
  * Upsert App or User multiple properties and collections by document name.
  * Returns the http response.
  * Implementation for the following stored procedures:

@@ -20,6 +20,7 @@ import mariadb from 'mariadb';
 import {
   getProperties,
   getCollectionsAndProperties,
+  getDocumentsCollectionsAndProperties,
   setProperties,
   deleteCollection,
   deleteProperties
@@ -90,6 +91,15 @@ export function createService (logger) {
         'GetPropertiesAndCollectionsForApplicationDocument'
       )
     );
+    appRouter.get(
+      '/app',
+      getDocumentsCollectionsAndProperties.bind(
+        null,
+        appPool,
+        'getAppDocumentsCollectionsAndProperties',
+        'GetPropertiesAndCollectionsAndDocumentsForApplication'
+      )
+    )
   
     // Require 'admin' role
     appRouter.use('/app', authAdmin);
@@ -159,6 +169,15 @@ export function createService (logger) {
         userPool,
         'getUserCollectionsAndProperties',
         'GetPropertiesAndCollectionsForUserDocument'
+      )
+    );
+    userRouter.get(
+      '/user',
+      getDocumentsCollectionsAndProperties.bind(
+        null,
+        userPool,
+        'getUserDocumentsCollectionsAndProperties',
+        'GetPropertiesAndCollectionsAndDocumentsForUser'
       )
     );
     userRouter.delete(

@@ -7,4 +7,4 @@
 import { test } from '../fixtures.js';
 import { basicEndpointTests } from './endpoint.js';
 
-test.describe('/api/data/app basic tests', basicEndpointTests('/api/data/app', 403));
+test.describe('/api/data/app basic tests', basicEndpointTests('/api/data/app', 403, false));

@@ -14,6 +14,24 @@ import {
 
 test.describe('/api/data/user', () => {
   let baseUrl;
+
+  async function deleteHomeDocument (userRequest, adminRequest) {
+    const requestors = [userRequest, adminRequest];
+    for (const requestor of requestors) {
+      await getData(requestor, `${baseUrl}/home`, (expect, json) => {
+        expect(json).toEqual(expect.objectContaining({
+          state: expect.any(Object)
+        }));
+      });
+      await deleteData(requestor, `${baseUrl}/home`, {
+        deleteDocument: true
+      });
+      await getData(requestor, `${baseUrl}/home`, (expect, json) => {
+        expect(json.ok).not.toBeTruthy();
+      }, 404);
+    }
+  }
+
   test.beforeAll(() => {
     baseUrl = `${process.env.BASE_URL}/api/data/user`;
   });
@@ -48,7 +66,7 @@ test.describe('/api/data/user', () => {
       collections: [{
         collection: 'state',
         properties: {
-          property1: 'value5', 
+          property1: 'value5',
           property2: 'value6',
           property3: 'value7',
           property4: 'value8'
@@ -87,6 +105,53 @@ test.describe('/api/data/user', () => {
       assertStatus: 403,
       expectResponseSuccess: false
     });
+  });
+
+  test('get user docs, colls, and props', async ({ adminRequest, userRequest }) => {
+    const requestors = [{
+      request: adminRequest,
+      result: {
+        home: {
+          state: {
+            property1: 'value5',
+            property2: 'value6',
+            property3: 'value7',
+            property4: 'value8'
+          },
+          friends: {
+            property1: 'value64',
+            property2: 'value75',
+            property3: 'value66'
+          }
+        }
+      }
+    }, {
+      request: userRequest,
+      result: {
+        home: {
+          state: {
+            property1: 'value1',
+            property2: 'value2',
+            property3: 'value3',
+            property4: 'value4'
+          },
+          friends: {
+            property1: 'value44',
+            property2: 'value55',
+            property3: 'value46'
+          }
+        }
+      }
+    }];
+    for (const requestor of requestors) {
+      await getData(requestor.request, baseUrl, (expect, json) => {
+        expect(json).toStrictEqual(requestor.result);
+      });
+    }
+  });
+
+  test('get user docs, colls, and props - public fail', async ({ request }) => {
+    return getData(request, baseUrl, 403);
   });
 
   test('get user/user application home', async ({ userRequest }) => {
@@ -351,27 +416,6 @@ test.describe('/api/data/user', () => {
   });
 
   test('delete the home document entirely', async ({ userRequest, adminRequest }) => {
-    await getData(userRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json).toEqual(expect.objectContaining({
-        state: expect.any(Object)
-      }));
-    });
-    await deleteData(userRequest, `${baseUrl}/home`, {
-      deleteDocument: true
-    });
-    await getData(userRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json.ok).not.toBeTruthy();
-    }, 404);
-    await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json).toEqual(expect.objectContaining({
-        state: expect.any(Object)
-      }));
-    });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
-      deleteDocument: true
-    });
-    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json.ok).not.toBeTruthy();
-    }, 404);
+    return deleteHomeDocument(userRequest, adminRequest);
   });
 });

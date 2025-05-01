@@ -19,7 +19,7 @@ test.describe('/api/data/app', () => {
   });
 
   test('get non-existant route', async ({ adminRequest }) => {
-    return getData(adminRequest, baseUrl, 404);
+    return getData(adminRequest, `${baseUrl}/nothingbetterbehere`, 404);
   });
 
   test('post application home state and friends', async ({ adminRequest }) => {
@@ -27,7 +27,7 @@ test.describe('/api/data/app', () => {
       collections: [{
         collection: 'state',
         properties: {
-          property1: 'value1', 
+          property1: 'value1',
           property2: 'value2',
           property3: 'value3',
           property4: 'value4'
@@ -72,15 +72,59 @@ test.describe('/api/data/app', () => {
     });
   });
 
-  test('get application home', async ({ adminRequest }) => {
-    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json).toEqual(expect.objectContaining({
-        state: expect.objectContaining({
-          property1: 'value1',
-          property2: 'value2'
-        })
-      }));
-    });
+  test('get application docs, colls, and props', async ({ adminRequest, userRequest, request }) => {
+    const requestors = [adminRequest, userRequest, request];
+    for (const requestor of requestors) {
+      await getData(requestor, baseUrl, (expect, json) => {
+        expect(json).toStrictEqual({
+          home: {
+            state: {
+              property1: 'value1',
+              property2: 'value2',
+              property3: 'value3',
+              property4: 'value4'
+            },
+            friends: {
+              property1: 'value44',
+              property2: 'value55',
+              property3: 'value46'
+            }
+          }
+        });
+      });
+    }
+  });
+
+  test('get application home', async ({ adminRequest, userRequest, request }) => {
+    const result = {
+      state: {
+        property1: 'value1',
+        property2: 'value2',
+        property3: 'value3',
+        property4: 'value4'
+      },
+      friends: {
+        property1: 'value44',
+        property2: 'value55',
+        property3: 'value46'
+      }
+    };
+    const requestors = [{
+      request: adminRequest,
+      result,
+    }, {
+      request: userRequest,
+      result
+    }, {
+      request,
+      result
+    }];
+
+    for (const requestor of requestors) {
+      await getData(requestor.request, `${baseUrl}/home`, (expect, json) => {
+        expect(json).toStrictEqual(requestor.result);
+      });
+    }
   });
 
   test('get non-existing document', async ({ adminRequest }) => {

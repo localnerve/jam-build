@@ -34,6 +34,12 @@ GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsForApplicationDo
 GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsForUserDocument TO 'jbadmin'@'%';
 GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsForUserDocument TO 'jbuser'@'%';
 
+-- Grant execute permission on GetPropertiesAndCollectionsAndDocumentsForApplication/ForUser to jbadmin, jbuser
+GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsAndDocumentsForApplication TO 'jbadmin'@'%';
+GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsAndDocumentsForApplication TO 'jbuser'@'%';
+GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsAndDocumentsForUser TO 'jbadmin'@'%';
+GRANT EXECUTE ON PROCEDURE jam_build.GetPropertiesAndCollectionsAndDocumentsForUser TO 'jbuser'@'%';
+
 -- Grant execute permission on InsertPropertiesForApplicationDocumentCollection to jbadmin
 GRANT EXECUTE ON PROCEDURE jam_build.UpsertApplicationDocumentWithCollectionsAndProperties TO 'jbadmin'@'%';
 
