@@ -48,9 +48,13 @@ export async function getAuthzClientID () {
       timeout: 1000,
       visible: true
     });
-    // @@@ WTF? WHY? WHY didn't it actually wait for clientIdBox? TODO remove:
+  
+    // On the admin page, there is a time period where the box is visible, but before it is populated.
+    // This is a React "feature". I could hook or poll, but this setup runs once, so I don't care too much,
+    // and I'd rather not be coupled to the implementation details of the Authorization service admin page.
+    // So here, we just wait for a period for the page "to run".
     await new Promise(resolve => setTimeout(resolve, 250));
-    // @@@
+  
     clientId = await page.$eval(clientIdInputBox, el => el.value);
 
     debug(`Got Client ID ${clientId}`);

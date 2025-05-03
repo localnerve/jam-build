@@ -1,5 +1,5 @@
 /**
- * Basic, repeatable endpoint tests.
+ * Basic get and post tests that exercise a path segement on and endpoint.
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
