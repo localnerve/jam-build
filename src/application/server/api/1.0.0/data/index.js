@@ -99,7 +99,7 @@ export function createService (logger) {
         'getAppDocumentsCollectionsAndProperties',
         'GetPropertiesAndCollectionsAndDocumentsForApplication'
       )
-    )
+    );
   
     // Require 'admin' role
     appRouter.use('/app', authAdmin);
