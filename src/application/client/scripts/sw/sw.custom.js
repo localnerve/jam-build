@@ -10,7 +10,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
-import './sw.data.js';
+import { installDatabase, activateDatabase } from './sw.data.js';
 
 setCacheNameDetails({
   prefix: CACHE_PREFIX // eslint-disable-line
@@ -43,12 +43,15 @@ function sendResponse (event, response) {
 }
 
 self.addEventListener('install', event => {
-  event.waitUntil(updateRuntimeCache());
+  event.waitUntil(Promise.all([
+    updateRuntimeCache(),
+    installDatabase()
+  ]));
 });
 
 self.addEventListener('activate', event => {
   const versionedCachePrefix = CACHE_PREFIX; // eslint-disable-line
-  event.waitUntil(
+  event.waitUntil(Promise.all([
     caches.keys().then(keys => Promise.all(
       keys.map(key => {
         if (!key.startsWith(versionedCachePrefix)) {
@@ -56,8 +59,9 @@ self.addEventListener('activate', event => {
         }
         return Promise.resolve();
       })
-    ))
-  );
+    )),
+    activateDatabase()
+  ]));
 });
 
 self.addEventListener('message', event => {

@@ -27,6 +27,14 @@
       case 'workbox-broadcast-update':
         window.App.exec('pageUpdatePrompt');
         break;
+      case 'database-update-required':
+        window.App.exec('pageSwMessage', {
+          args: {
+            isUpdate: true,
+            duration: 1000
+          }
+        });
+        break;
       default:
         break;
     }

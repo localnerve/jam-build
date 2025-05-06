@@ -56,6 +56,28 @@ function transformAndValidateInput (inputDocument, inputCollections, mapCollecti
 }
 
 /**
+ * Reduce SELECT row results to an object structure.
+ * This method is run repeatedly in a reduce function over an array of row output.
+ * This method produces the output format of the API.
+ *
+ * @param {Object} acc - Accumulator, initialized to {}
+ * @param {Object} curr - The current row result
+ * @returns {Object} structured object { document: { collection: { propName: propVal }}}
+ */
+function reduceDocumentResults (acc, curr) {
+  let document = acc[curr.document_name];
+  if (!document) {
+    document = acc[curr.document_name] = {};
+  }
+  let collection = document[curr.collection_name];
+  if (!collection) {
+    collection = document[curr.collection_name] = {};
+  }
+  collection[curr.property_name] = curr.property_value;
+  return acc;
+}
+
+/**
  * Call a 'Get' stored procedure, process and marshall the input/output.
  * Returns the http response.
  * Implementation for the following stored procedure calls:
@@ -128,10 +150,7 @@ export async function getProperties (pool, methodName, procName, req, res) {
   const isUser = /user/i.test(methodName);
   const inputParams = isUser ? [req.user.id, document, collection] : [document, collection];
 
-  return getWithParams(pool, methodName, procName, res, inputParams, (acc, curr) => {
-    acc[curr.property_name] = curr.property_value;
-    return acc;
-  });
+  return getWithParams(pool, methodName, procName, res, inputParams, reduceDocumentResults);
 }
 
 /**
@@ -152,14 +171,7 @@ export async function getCollectionsAndProperties (pool, methodName, procName, r
   const isUser = /user/i.test(methodName);
   const inputParams = isUser ? [req.user.id, document] : [document];
 
-  return getWithParams(pool, methodName, procName, res, inputParams, (acc, curr) => {
-    let collection = acc[curr.collection_name];
-    if (!collection) {
-      collection = acc[curr.collection_name] = {};
-    }
-    collection[curr.property_name] = curr.property_value;
-    return acc;
-  });
+  return getWithParams(pool, methodName, procName, res, inputParams, reduceDocumentResults);
 }
 
 /**
@@ -178,18 +190,7 @@ export async function getDocumentsCollectionsAndProperties (pool, methodName, pr
   const isUser = /user/i.test(methodName);
   const inputParams = isUser ? [req.user.id] : [];
 
-  return getWithParams(pool, methodName, procName, res, inputParams, (acc, curr) => {
-    let document = acc[curr.document_name];
-    if (!document) {
-      document = acc[curr.document_name] = {};
-    }
-    let collection = document[curr.collection_name];
-    if (!collection) {
-      collection = document[curr.collection_name] = {};
-    }
-    collection[curr.property_name] = curr.property_value;
-    return acc;
-  });
+  return getWithParams(pool, methodName, procName, res, inputParams, reduceDocumentResults);
 }
 
 /**

@@ -21,7 +21,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE
-        SELECT p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM application_documents d
         JOIN application_documents_collections dc ON d.document_id = dc.document_id
         JOIN application_collections c ON dc.collection_id = c.collection_id
@@ -46,7 +46,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE
-        SELECT c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM application_documents d
         JOIN application_documents_collections dc ON d.document_id = dc.document_id
         JOIN application_collections c ON dc.collection_id = c.collection_id
@@ -429,7 +429,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE
-        SELECT p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM user_documents d
         JOIN user_documents_collections dc ON d.document_id = dc.document_id
         JOIN user_collections c ON dc.collection_id = c.collection_id
@@ -455,7 +455,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE    
-        SELECT c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM user_documents d
         JOIN user_documents_collections dc ON d.document_id = dc.document_id
         JOIN user_collections c ON dc.collection_id = c.collection_id

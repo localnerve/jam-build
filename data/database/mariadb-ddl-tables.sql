@@ -13,7 +13,7 @@ USE jam_build;
 
 -- Create the application_documents table
 CREATE TABLE IF NOT EXISTS application_documents (
-    document_id INT AUTO_INCREMENT PRIMARY KEY,
+    document_id SERIAL PRIMARY KEY,
     document_name VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS application_documents (
 
 -- Create the application_collections table
 CREATE TABLE IF NOT EXISTS application_collections (
-    collection_id INT AUTO_INCREMENT PRIMARY KEY,
+    collection_id SERIAL PRIMARY KEY,
     collection_name VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS application_collections (
 
 -- Create the application_properties table
 CREATE TABLE IF NOT EXISTS application_properties (
-    property_id INT AUTO_INCREMENT PRIMARY KEY,
+    property_id SERIAL PRIMARY KEY,
     property_name VARCHAR(255) NOT NULL,
     property_value JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS application_properties (
 
 -- Create the application_documents_collections junction table
 CREATE TABLE IF NOT EXISTS application_documents_collections (
-    document_id INT NOT NULL,
-    collection_id INT NOT NULL,
+    document_id BIGINT UNSIGNED NOT NULL,
+    collection_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (document_id, collection_id),
     FOREIGN KEY (document_id) REFERENCES application_documents(document_id) ON DELETE CASCADE,
     FOREIGN KEY (collection_id) REFERENCES application_collections(collection_id) ON DELETE CASCADE
@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS application_documents_collections (
 
 -- Create the application_collections_properties junction table
 CREATE TABLE IF NOT EXISTS application_collections_properties (
-    collection_id INT NOT NULL,
-    property_id INT NOT NULL,
+    collection_id BIGINT UNSIGNED NOT NULL,
+    property_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (collection_id, property_id),
     FOREIGN KEY (collection_id) REFERENCES application_collections(collection_id) ON DELETE CASCADE,
     FOREIGN KEY (property_id) REFERENCES application_properties(property_id) ON DELETE CASCADE
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS application_collections_properties (
 
 -- Create the user_documents table
 CREATE TABLE IF NOT EXISTS user_documents (
-    document_id INT AUTO_INCREMENT,
+    document_id SERIAL,
     user_id CHAR(36) NOT NULL,
     document_name VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS user_documents (
 
 -- Create the user_collections table
 CREATE TABLE IF NOT EXISTS user_collections (
-    collection_id INT AUTO_INCREMENT PRIMARY KEY,
+    collection_id SERIAL PRIMARY KEY,
     collection_name VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS user_collections (
 
 -- Create the user_properties table
 CREATE TABLE IF NOT EXISTS user_properties (
-    property_id INT AUTO_INCREMENT PRIMARY KEY,
+    property_id SERIAL PRIMARY KEY,
     property_name VARCHAR(255) NOT NULL,
     property_value JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -87,8 +87,8 @@ CREATE TABLE IF NOT EXISTS user_properties (
 
 -- Create the user_documents_collections junction table
 CREATE TABLE IF NOT EXISTS user_documents_collections (
-    document_id INT NOT NULL,
-    collection_id INT NOT NULL,
+    document_id BIGINT UNSIGNED NOT NULL,
+    collection_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (document_id, collection_id),
     FOREIGN KEY (document_id) REFERENCES user_documents(document_id) ON DELETE CASCADE,
     FOREIGN KEY (collection_id) REFERENCES user_collections(collection_id) ON DELETE CASCADE
@@ -96,8 +96,8 @@ CREATE TABLE IF NOT EXISTS user_documents_collections (
 
 -- Create the user_collections_properties junction table
 CREATE TABLE IF NOT EXISTS user_collections_properties (
-    collection_id INT NOT NULL,
-    property_id INT NOT NULL,
+    collection_id BIGINT UNSIGNED NOT NULL,
+    property_id BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (collection_id, property_id),
     FOREIGN KEY (collection_id) REFERENCES user_collections(collection_id) ON DELETE CASCADE,
     FOREIGN KEY (property_id) REFERENCES user_properties(property_id) ON DELETE CASCADE

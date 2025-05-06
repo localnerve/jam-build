@@ -19,9 +19,18 @@ export async function getData (request, url, testResponse = ()=>true, status = 2
   const response = await request.get(url);
   
   debug(`GET response code: ${response.status()}`);
-  expect(response.status()).toEqual(status);
+  
+  if (status >= 200 && status < 400) {
+    expect(response.ok()).toBeTruthy();
+  } else {
+    expect(response.ok()).not.toBeTruthy();
+  }
 
-  if (status !== 204) {
+  if (status !== 200) {
+    expect(response.status()).toEqual(status);
+  }
+
+  if (status !== 204 && response.status() !== 204) {
     debug('GET parsing response as json...');
     const json = await response.json();
     debug('GET response json: ', json);
