@@ -12,64 +12,21 @@ import { openDB } from 'idb';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
-const schemaVersion = SCHEMA_VERSION; // eslint-disable-line
-const apiVersion = API_VERSION; // eslint-disable-line
+const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
+const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 
-let blocked = null;
-let versionChange = null;
+let blocked = false;
 let db;
 
 /**
  * Make the storeName from the storeType.
  * 
  * @param {String} storeType - 'app' or 'user'
+ * @param {Number|String} [version] - The schema version, defaults to this version as compiled
  * @returns {String} The objectStore name
  */
-function makeStoreName (storeType) {
-  return `${storeType}_documents`;
-}
-
-/**
- * Do the database upgrade work.
- * SCHEMA_VERSION - no migration or structure updates, just create if not exist.
- *
- * @param {IDBDatabase} db - A reference to the idb IDBDatabase interface 
- * @param {IDBVersionChangeEvent} event - An IDBVersionChangeEvent from versionchange, blocked or upgradeneeded
- * @param {IDBTransaction} [transaction] - A transaction object reference to facilitate data migrations
- */
-/* eslint-disable-next-line no-unused-vars -- not using transaction for migration this release */
-function upgradeDatabase (db, event, transaction = null) {
-  versionChange = event;
-  storeTypes.forEach(storeType => {
-    const storeName = makeStoreName(storeType);
-    if (!db.objectStoreNames.contains(storeName)) {
-      const store = db.createObjectStore(storeName, { keyPath: ['document_name'] });
-      store.createIndex('document_collection', ['document_name', 'collection_name'], {
-        unique: true
-      });
-      store.createIndex('collection', 'collection_name');
-    }
-  });
-}
-
-/**
- * Format the remote data to the format for the local object stores.
- *
- * @param {Object} data - Remote data from the data service
- * @returns {Array} The document_collection records to store with in-line key names
- */
-function flattenData (data) {
-  const result = [];
-  for (const [doc_name, col] of Object.entries(data)) {
-    for (const [col_name, props] of Object.entries(col)) {
-      const value = {};
-      value.document_name = doc_name;
-      value.collection_name = col_name;
-      value.properties = JSON.parse(JSON.stringify(props)); // !! it feels weird to NOT do this
-      result.push(value);
-    }
-  }
-  return result;
+function makeStoreName (storeType, version = schemaVersion) {
+  return `${storeType}_documents_${version}`;
 }
 
 /**
@@ -90,9 +47,18 @@ export async function refreshData (storeType, path = '') {
     }
   });
   if (response.ok) {
-    const data = flattenData(await response.json());
-    for (const document_collection of data) {
-      await db.put(makeStoreName(storeType), document_collection);
+    const data = await response.json();
+    const storeName = makeStoreName(storeType);
+
+    // format and store the data
+    for (const [doc_name, col] of Object.entries(data)) {
+      for (const [col_name, props] of Object.entries(col)) {
+        await db.put(storeName, {
+          document_name: doc_name,
+          collection_name: col_name,
+          properties: props
+        });
+      }
     }
   } else {
     throw new Error(`[${response.status}] GETting ${baseUrl}${sep}${path}`);
@@ -101,7 +67,7 @@ export async function refreshData (storeType, path = '') {
 
 /**
  * Synchronize local data updates with the remote data service.
- * TODO: see about leveraging workbox cache/post workflow for queuing persistent offline retries
+ * TODO: If background-sync supported, leverage workbox cache/post workflow for queuing persistent offline retries
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document to which the update applies
@@ -129,16 +95,38 @@ export async function installDatabase () {
   /* eslint-disable no-unused-vars */
   db = await openDB(dbname, schemaVersion, {
     upgrade(db, oldVersion, newVersion, transaction, event) {
-      upgradeDatabase(db, event, transaction);
+      storeTypes.forEach(storeType => {
+        const storeName = makeStoreName(storeType);
+        
+        if (!db.objectStoreNames.contains(storeName)) {
+          const store = db.createObjectStore(storeName, {
+            keyPath: ['document_name', 'collection_name'] 
+          });
+          store.createIndex('document', 'document_name', {
+            unique: false
+          });
+          store.createIndex('collection', 'collection_name', {
+            unique: false
+          });
+        }
+    
+        // Do future migrations here...
+
+        // cleanup all old objectStores after migration
+        for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
+          let oldStoreName = makeStoreName(storeType, oldVersion);
+          if (db.objectStoreNames.contains(oldStoreName)) {
+            db.deleteObjectStore(oldStoreName);
+          }
+        }
+      });
     },
     blocked(currentVersion, blockedVersion, event) {
-      blocked = {
-        db,
-        event
-      };
+      blocked = true;
     },
     async blocking(currentVersion, blockedVersion, event) {
       db.close();
+
       if (self.clients) {
         await self.clients.matchAll().then(clients => {
           for (let i = 0; i < clients.length; i++) {
@@ -158,13 +146,9 @@ export async function installDatabase () {
  */
 export async function activateDatabase () {
   if (blocked) {
-    upgradeDatabase(blocked.db, blocked.event);
-    blocked = null;
+    blocked = false;
+    await installDatabase();
   }
 
   await refreshData('app');
-
-  if (versionChange) {
-    // TODO: cleanup the old database
-  }
 }
