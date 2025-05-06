@@ -12,6 +12,9 @@ export default defineConfig({
   timeout: 5000,
   globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
+    name: "localdata",
+    testMatch: /_createlocalappdata\.js/
+  }, {
     name: "dummy",
     testMatch: /dummy\.test\.js/
   }, {

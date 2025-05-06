@@ -29,7 +29,8 @@
     "test:build": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 playwright test --project=dummy --headed",
     "test:debug2": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=api --project=pages --workers=2 --timeout=120000 --headed",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=api --project=pages --workers=1 --timeout=120000 --headed",
-    "test:_user": "node src/test/_createlocaluser.js"
+    "test:_user": "node src/test/_createlocaluser.js",
+    "test:_data": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata"
   },
   "repository": {
     "type": "git",
