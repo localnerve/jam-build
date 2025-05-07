@@ -1,6 +1,7 @@
 /**
  * Service Worker application data handling.
  * Handles indexeddb maintainence and synchronization with the remote database.
+ * Handles offline/spotty network with background sync, polyfilled if required.
  * 
  * Build time replacements:
  *   API_VERSION - The X-Api-Version header value that corresponds to the api for this app version.
@@ -11,22 +12,26 @@
  */
 import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
+import { _private } from 'workbox-core';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
-const queueName = `${dbname}-requests-${apiVersion.replace('.', '_')}`;
+const queueName = `${dbname}-requests-${apiVersion.replace('.', '-')}`;
 
-let canSync = 'sync' in self.registration;
 let blocked = false;
 let db;
-let queue;
 
+let canSync = 'sync' in self.registration;
+let queue;
 try {
   queue = new Queue(queueName, {
-    maxRetentionTime: 60 * 72 // 72 hours
+    forceSyncFallback: !canSync,
+    maxRetentionTime: 60 * 72, // 72 hours
+    onSync: replayQueueRequestsWithDataAPI.bind(queue)
   });
+  canSync = true;
 } catch (e) {
   // eslint-disable-next-line
   console.debug(`Couldn't create Workbox Background Sync Queue ${e.name}`);
@@ -59,6 +64,66 @@ async function sendMessage (meta, payload) {
         meta,
         payload
       });
+    }
+  }
+}
+
+/**
+ * Make a network request to the remote data service.
+ *
+ * @param {Request} request - The request object
+ * @param {Object} [options] - data handler, metadata to pass to retryHandler, retry flag to prevent reuse in retryHandler
+ */
+async function dataAPICall (request, {
+  asyncResponseHandler = null,
+  metadata = null,
+  retry = true
+} = {}) {
+  let response = null;
+  try {
+    response = await fetch(request);
+    if (response.ok) {
+      if (typeof asyncResponseHandler === 'function') {
+        const data = await response.json();
+        await asyncResponseHandler(data);
+      }
+    } else {
+      throw new Error(`[${response.status}] ${request.method} ${request.url}`);
+    }
+  } catch (error) {
+    if (canSync && retry && !response) {
+      queue.pushRequest({
+        request,
+        metadata
+      });
+    } else {
+      throw error;
+    }
+  }
+}
+
+/**
+ * Substitute for stock Queue.replayRequests.
+ * Used while bound to this modules Queue instance (this).
+ * Stores data for GETs and sends update notifications to the app.
+ */
+async function replayQueueRequestsWithDataAPI () {
+  let asyncResponseHandler = null;
+  let entry;
+  while ((entry = await this.shiftRequest())) {
+    try {
+      if (entry.request.method === 'GET' && entry.metadata) {
+        asyncResponseHandler = async data => {
+          await storeData(entry.metadata.storeType, data);
+        };
+      }
+      await dataAPICall(entry.request.clone(), {
+        asyncResponseHandler,
+        retry: false
+      });
+    } catch {
+      await this.unshiftRequest(entry);
+      throw new _private.WorkboxError('queue-replay-failed', {name: this._name});
     }
   }
 }
@@ -133,7 +198,7 @@ async function loadData (storeType, document, collections = null) {
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {String} [document] - document name
- * @param {String} [collection] - collection name
+ * @param {String} [collection] - collection name (collection is the smallest GET, no indiv props)
  */
 export async function refreshData (storeType, document, collection) {
   const baseUrl = `/api/data/${storeType}`;
@@ -147,22 +212,14 @@ export async function refreshData (storeType, document, collection) {
     }
   });
 
-  let response = null;
-  try {
-    response = await fetch(request);
-    if (response.ok) {
-      const data = await response.json();
+  await dataAPICall(request, {
+    asyncResponseHandler: async data => {
       await storeData(storeType, data);
-    } else {
-      throw new Error(`[${response.status}] GETting ${url}`);
+    },
+    metadata: {
+      storeType
     }
-  } catch (e) {
-    if (canSync && !response) {
-      queue.pushRequest({ request });
-    } else {
-      throw e;
-    }
-  }
+  });
 }
 
 /**
@@ -187,19 +244,36 @@ export async function upsertData (storeType, document, collections = null) {
     body: JSON.stringify(body)
   });
 
-  let response = null;
-  try {
-    response = await fetch(request);
-    if (!response.ok) {
-      throw new Error(`[${response.status}] POSTing ${url}`);
-    }
-  } catch (e) {
-    if (canSync && !response) {
-      queue.pushRequest({ request });
-    } else {
-      throw e;
-    }
+  await dataAPICall(request);
+}
+
+/**
+ * Synchronize local data deletions with the remote data service.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} document - The document to which the delete applies
+ * @param {String|Object|Array<Object>} [collectionInput] - Collection name, or Object or Array of { collection: 'name', properties: ['propName'...] }
+ */
+export async function deleteData (storeType, document, collectionInput = null) {
+  const baseUrl = `/api/data/${storeType}`;
+  let url = `${baseUrl}/${document}`;
+  let collections = collectionInput;
+
+  if (typeof collections === 'string') {
+    url += `/${collections}`;
+    collections = false;
   }
+
+  const request = new Request(url, {
+    method: 'DELETE',
+    headers: {
+      'X-Api-Version': apiVersion,
+      'Content-Type': 'application/json'
+    },
+    body: collections ? JSON.stringify({ collections }) : undefined
+  });
+
+  await dataAPICall(request);
 }
 
 /**

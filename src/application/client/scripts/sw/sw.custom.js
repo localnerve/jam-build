@@ -14,7 +14,8 @@ import {
   installDatabase,
   activateDatabase,
   refreshData,
-  upsertData
+  upsertData,
+  deleteData
 } from './sw.data.js';
 
 setCacheNameDetails({
@@ -113,6 +114,11 @@ self.addEventListener('message', event => {
     case 'upsert-data':
       waitOrPassThru(
         upsertData(payload.storeType, payload.document, payload.collections)
+      );
+      break;
+    case 'delete-data':
+      waitOrPassThru(
+        deleteData(payload.storeType, payload.document, payload.collections)
       );
       break;
     default:
