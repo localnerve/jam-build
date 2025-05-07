@@ -16,14 +16,22 @@ const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
+const queueName = `${dbname}-requests-${apiVersion.replace('.', '_')}`;
 
-const queue = new Queue(`${dbname}-requests`, {
-  forceSyncFallback: true,
-  maxRetentionTime: 60 * 72 // 72 hours
-});
-
+let canSync = 'sync' in self.registration;
 let blocked = false;
 let db;
+let queue;
+
+try {
+  queue = new Queue(queueName, {
+    maxRetentionTime: 60 * 72 // 72 hours
+  });
+} catch (e) {
+  // eslint-disable-next-line
+  console.debug(`Couldn't create Workbox Background Sync Queue ${e.name}`);
+  canSync = false;
+}
 
 /**
  * Make the storeName from the storeType.
@@ -131,7 +139,6 @@ export async function refreshData (storeType, document, collection) {
   const baseUrl = `/api/data/${storeType}`;
   const path = document ? `/${document}${collection ? `/${collection}` : ''}`: '';
   const url = `${baseUrl}${path}`;
-  const canSync = 'sync' in self.registration;
 
   const request = new Request(url, {
     headers: {
@@ -168,7 +175,6 @@ export async function refreshData (storeType, document, collection) {
 export async function upsertData (storeType, document, collections = null) {
   const baseUrl = `/api/data/${storeType}`;
   const url = `${baseUrl}/${document}`;
-  const canSync = 'sync' in self.registration;
 
   const body = await loadData(storeType, document, collections);
 
@@ -248,6 +254,6 @@ export async function activateDatabase () {
     blocked = false;
     await installDatabase();
   }
-
+  
   await refreshData('app');
 }
