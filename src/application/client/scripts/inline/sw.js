@@ -19,9 +19,11 @@
    * @param {Event} event - Message Event
    * @param {Object} event.data - Service Worker message data envelope
    * @param {String} event.data.meta - Identifier for the message
+   * @param {String} [event.data.payload] - A message payload
    */
   function swMessageHandler (event) {
     const msgId = event?.data?.meta;
+    const payload = event?.data?.payload;
 
     switch (msgId) {
       case 'workbox-broadcast-update':
@@ -33,6 +35,11 @@
             isUpdate: true,
             duration: 1000
           }
+        });
+        break;
+      case 'database-data-update':
+        window.App.exec('pageDataUpdate', {
+          args: payload
         });
         break;
       default:

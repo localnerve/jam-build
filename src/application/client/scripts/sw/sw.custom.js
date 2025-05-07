@@ -10,7 +10,12 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
-import { installDatabase, activateDatabase } from './sw.data.js';
+import {
+  installDatabase,
+  activateDatabase,
+  refreshData,
+  upsertData
+} from './sw.data.js';
 
 setCacheNameDetails({
   prefix: CACHE_PREFIX // eslint-disable-line
@@ -65,7 +70,7 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('message', event => {
-  const { action } = event.data;
+  const { action, payload = {} } = event.data;
   const backgroundSyncSupportTest = 'ln-background-sync-support-test';
   const waitOrPassThru = 'waitUntil' in event ? event.waitUntil.bind(event): val => val;
   const sendReply = sendResponse.bind(null, event);
@@ -73,21 +78,23 @@ self.addEventListener('message', event => {
   switch (action) {
     case backgroundSyncSupportTest:
       if ('sync' in self.registration) {
-        self.registration.sync.register(backgroundSyncSupportTest)
+        waitOrPassThru(self.registration.sync.register(backgroundSyncSupportTest)
           .then(() => {
             sendReply({ action: backgroundSyncSupportTest, result: true });
           }, () => {
             sendReply({ action: backgroundSyncSupportTest, result: false });
-          });
+          }));
       } else {
-        sendReply({ action: backgroundSyncSupportTest, result: false });
+        waitOrPassThru(sendReply({
+          action: backgroundSyncSupportTest, result: false
+        }));
       }
       break;
     case 'version':
-      sendReply({
+      waitOrPassThru(sendReply({
         action: 'ln-version-buildstamp',
         version: VERSION_BUILDSTAMP // eslint-disable-line
-      });
+      }));
       break;
     case 'runtime-update':
       waitOrPassThru(
@@ -96,6 +103,16 @@ self.addEventListener('message', event => {
         }, () => {
           sendReply({ result: false });
         })
+      );
+      break;
+    case 'refresh-data':
+      waitOrPassThru(
+        refreshData(payload.storeType, payload.document, payload.collection)
+      );
+      break;
+    case 'upsert-data':
+      waitOrPassThru(
+        upsertData(payload.storeType, payload.document, payload.collections)
       );
       break;
     default:

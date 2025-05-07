@@ -1,5 +1,6 @@
 /**
  * Service Worker application data handling.
+ * Handles indexeddb maintainence and synchronization with the remote database.
  * 
  * Build time replacements:
  *   API_VERSION - The X-Api-Version header value that corresponds to the api for this app version.
@@ -9,11 +10,17 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { openDB } from 'idb';
+import { Queue } from 'workbox-background-sync'; // workbox-core
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
+
+const queue = new Queue(`${dbname}-requests`, {
+  forceSyncFallback: true,
+  maxRetentionTime: 60 * 72 // 72 hours
+});
 
 let blocked = false;
 let db;
@@ -30,61 +37,162 @@ function makeStoreName (storeType, version = schemaVersion) {
 }
 
 /**
- * Refresh the local store copy with remote data.
- * TODO: add event to alert the app that potentially new data has arrived.
+ * Send a message to all the open application tabs.
+ *
+ * @param {String} meta - The meta message identifier
+ * @param {Any} payload - The message payload
+ */
+async function sendMessage (meta, payload) {
+  if (self.clients) {
+    const clients = await self.clients.matchAll();
+
+    for (let i = 0; i < clients.length; i++) {
+      clients[i].postMessage({
+        meta,
+        payload
+      });
+    }
+  }
+}
+
+/**
+ * Store data in the jam_build database.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {Object} data - The remote data to store
+ */
+async function storeData (storeType, data) {
+  const storeName = makeStoreName(storeType);
+  const keys = [];
+
+  // format and store the data
+  for (const [doc_name, col] of Object.entries(data)) {
+    for (const [col_name, props] of Object.entries(col)) {
+      keys.push([doc_name, col_name]);
+      await db.put(storeName, {
+        document_name: doc_name,
+        collection_name: col_name,
+        properties: props
+      });
+    }
+  }
+
+  await sendMessage('database-data-update', {
+    storeName,
+    keys
+  });
+}
+
+/**
+ * Load data from an objectStore by document name or document and collection name(s).
+ * Format them for upsert to the remote data service.
  *
  * @param {String} storeType - 'app' or 'user'
- * @param {String} [path] - '' == all, /:document, /:document/:collection
+ * @param {String} document - The document name
+ * @param {Array<String>} [collections] - An array of collection names
  */
-export async function refreshData (storeType, path = '') {
-  const baseUrl = `/api/data/${storeType}`;
-  const sep = path ? '/' : '';
+async function loadData (storeType, document, collections = null) {
+  const result = { collections: [] };
+  const storeName = makeStoreName(storeType);
 
-  const response = await fetch(`${baseUrl}${sep}${path}`, {
+  if (!collections) {
+    const idbResults = await db.getAllFromIndex(storeName, 'document', document);
+    for (const idbResult of idbResults) {
+      result.collections.push({
+        collection: idbResult.collection_name,
+        properties: {
+          ...idbResult.properties
+        }
+      });
+    }
+  } else {
+    for (const collection of collections) {
+      const idbResult = await db.get(storeName, [document, collection]);
+      result.collections.push({
+        collection,
+        properties: {
+          ...idbResult.properties
+        }
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Refresh the local store copy with remote data.
+ *
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} [document] - document name
+ * @param {String} [collection] - collection name
+ */
+export async function refreshData (storeType, document, collection) {
+  const baseUrl = `/api/data/${storeType}`;
+  const path = document ? `/${document}${collection ? `/${collection}` : ''}`: '';
+  const url = `${baseUrl}${path}`;
+  const canSync = 'sync' in self.registration;
+
+  const request = new Request(url, {
     headers: {
       'X-Api-Version': apiVersion,
       'Content-Type': 'application/json'
     }
   });
-  if (response.ok) {
-    const data = await response.json();
-    const storeName = makeStoreName(storeType);
 
-    // format and store the data
-    for (const [doc_name, col] of Object.entries(data)) {
-      for (const [col_name, props] of Object.entries(col)) {
-        await db.put(storeName, {
-          document_name: doc_name,
-          collection_name: col_name,
-          properties: props
-        });
-      }
+  let response = null;
+  try {
+    response = await fetch(request);
+    if (response.ok) {
+      const data = await response.json();
+      await storeData(storeType, data);
+    } else {
+      throw new Error(`[${response.status}] GETting ${url}`);
     }
-  } else {
-    throw new Error(`[${response.status}] GETting ${baseUrl}${sep}${path}`);
+  } catch (e) {
+    if (canSync && !response) {
+      queue.pushRequest({ request });
+    } else {
+      throw e;
+    }
   }
 }
 
 /**
  * Synchronize local data updates with the remote data service.
- * TODO: If background-sync supported, leverage workbox cache/post workflow for queuing persistent offline retries
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document to which the update applies
- * @param {Object} body - The collection(s) and their properties to update, can be incomplete for upsert
+ * @param {Array<String>} [collections] - The collections to upsert, omit for all
  */
-export async function writeThrough (storeType, document, body) {
+export async function upsertData (storeType, document, collections = null) {
   const baseUrl = `/api/data/${storeType}`;
-  const response = await fetch(`${baseUrl}/${document}`, {
+  const url = `${baseUrl}/${document}`;
+  const canSync = 'sync' in self.registration;
+
+  const body = await loadData(storeType, document, collections);
+
+  const request = new Request(url, {
     method: 'POST',
     headers: {
       'X-Api-Version': apiVersion,
       'Content-Type': 'application/json'
     },
-    body // TODO: format/workout the local/remote format differences, if any
+    body: JSON.stringify(body)
   });
-  if (!response.ok) {
-    throw new Error(`[${response.status}] POSTing ${baseUrl}/${document}`);
+
+  let response = null;
+  try {
+    response = await fetch(request);
+    if (!response.ok) {
+      throw new Error(`[${response.status}] POSTing ${url}`);
+    }
+  } catch (e) {
+    if (canSync && !response) {
+      queue.pushRequest({ request });
+    } else {
+      throw e;
+    }
   }
 }
 
@@ -95,7 +203,7 @@ export async function installDatabase () {
   /* eslint-disable no-unused-vars */
   db = await openDB(dbname, schemaVersion, {
     upgrade(db, oldVersion, newVersion, transaction, event) {
-      storeTypes.forEach(storeType => {
+      for (const storeType of storeTypes) {
         const storeName = makeStoreName(storeType);
         
         if (!db.objectStoreNames.contains(storeName)) {
@@ -119,23 +227,14 @@ export async function installDatabase () {
             db.deleteObjectStore(oldStoreName);
           }
         }
-      });
+      }
     },
     blocked(currentVersion, blockedVersion, event) {
       blocked = true;
     },
     async blocking(currentVersion, blockedVersion, event) {
       db.close();
-
-      if (self.clients) {
-        await self.clients.matchAll().then(clients => {
-          for (let i = 0; i < clients.length; i++) {
-            clients[i].postMessage({
-              meta: 'database-update-required'
-            });
-          }
-        });
-      }
+      await sendMessage('database-update-required');
     }
   });
   /* eslint-enable no-unused-vars */
