@@ -4,7 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { expect, test } from '../fixtures.js';
+import { test } from '../fixtures.js';
 import {
   getData,
   postData,
@@ -325,7 +325,7 @@ test.describe('/api/data/app', () => {
             property14: 'value14'
           }
         })
-      })
+      });
     });
     await deleteData(adminRequest, `${baseUrl}/home/empty`);
   });
