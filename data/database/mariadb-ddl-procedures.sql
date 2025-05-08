@@ -84,12 +84,14 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertApplicationDocumentWithCollection
     p_data JSON
 )
 BEGIN
-    DECLARE v_document_id INT;
-    DECLARE v_collection_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_collection_name VARCHAR(255);
-    DECLARE v_property_id INT;
+    DECLARE v_property_id BIGINT UNSIGNED;
     DECLARE v_property_name VARCHAR(255);
     DECLARE v_property_value JSON;
+    DECLARE v_properties JSON;
+    DECLARE v_message VARCHAR(255);
     DECLARE i INT DEFAULT 0;
     DECLARE j INT DEFAULT 0;
 
@@ -115,11 +117,22 @@ BEGIN
     -- Get the document_id for the given document_name
     SELECT document_id INTO v_document_id FROM application_documents WHERE document_name = p_document_name;
 
+    IF v_document_id IS NULL THEN
+        SET v_message = CONCAT('Could not find document for INPUT document_name "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
+    END IF;
+
     -- Process collections and their associated properties
     WHILE i < JSON_LENGTH(p_data) DO
         SET v_collection_id = NULL;
         SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].collection_name')));
     
+        IF v_collection_name IS NULL THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'JSON input did not contain a proper collection_name';
+        END IF;
+
         -- Check if the collection already exists for this document
         SELECT collection_id INTO v_collection_id 
         FROM application_documents_collections 
@@ -142,12 +155,19 @@ BEGIN
             VALUES (v_document_id, v_collection_id);
         END IF;
 
-        -- Process properties for the current collection
+        -- Process properties for the current collection, can have 0 properties
         SET j = 0;
-        WHILE j < JSON_LENGTH(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties'))) DO
+        SET v_properties = JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties'));
+        WHILE j < (SELECT CASE WHEN v_properties IS NULL THEN 0 ELSE JSON_LENGTH(v_properties) END) DO
             SET v_property_id = NULL;
             SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_name')));
             SET v_property_value = JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_value'));
+
+            IF v_property_name IS NULL OR v_property_value IS NULL THEN
+                SET v_message = CONCAT('JSON input for collection_name "', v_collection_name, '" had bad property_name or property_value');
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = v_message;
+            END IF;
 
             -- Check if the property already exists in this collection
             SELECT property_id INTO v_property_id 
@@ -198,7 +218,8 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationDocument (
     IN p_document_name VARCHAR(255)
 )
 BEGIN
-    DECLARE v_document_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_message VARCHAR(255);
 
     -- Declare a handler for SQL exceptions
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -238,6 +259,10 @@ BEGIN
         WHERE property_id NOT IN (
             SELECT property_id FROM application_collections_properties
         );
+    ELSE
+        SET v_message = CONCAT('Could not find document_id for the input document_name "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
     END IF;
 
     -- Commit the transaction
@@ -250,20 +275,25 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationCollection (
     IN p_collection_name VARCHAR(255)
 )
 BEGIN
-    DECLARE v_document_id INT;
-    DECLARE v_collection_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_collection_id BIGINT UNSIGNED;
+    DECLARE v_message VARCHAR(255);
 
     -- Declare a handler for SQL exceptions
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-        -- Rollback the transaction on any error
-        ROLLBACK;
+        IF @in_transaction IS NULL THEN
+            -- Rollback the transaction on any error
+            ROLLBACK;
+        END IF;
         -- Optionally, you can raise an error to notify the caller
         RESIGNAL;
     END;
 
-    -- Start a new transaction
-    START TRANSACTION;
+    IF @in_transaction IS NULL THEN
+        -- Start a new transaction
+        START TRANSACTION;
+    END IF;
 
     SET v_document_id = NULL;
 
@@ -304,11 +334,21 @@ BEGIN
             WHERE property_id NOT IN (
                 SELECT property_id FROM application_collections_properties
             );
+        ELSE
+            SET v_message = CONCAT('Could not find collection_id for the input collection_name "', p_collection_name, '"');
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = v_message;
         END IF;
+    ELSE
+        SET v_message = CONCAT('Could not find document_id for the input document_name "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
     END IF;
 
-    -- Commit the transaction
-    COMMIT;
+    IF @in_transaction IS NULL THEN
+        -- Commit the transaction
+        COMMIT;
+    END IF;
 END;
 //
 
@@ -317,12 +357,13 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationProperties (
     IN p_collection_data JSON
 )
 BEGIN
-    DECLARE v_document_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
     DECLARE v_collection_name VARCHAR(255);
-    DECLARE v_collection_id INT;
+    DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_property_names JSON;
     DECLARE v_property_name VARCHAR(255);
     DECLARE v_property_id INT;
+    DECLARE v_message VARCHAR(255);
     DECLARE i INT DEFAULT 0;
     DECLARE j INT DEFAULT 0;
 
@@ -331,6 +372,7 @@ BEGIN
     BEGIN
         -- Rollback the transaction on any error
         ROLLBACK;
+        SET @in_transaction = NULL;
         -- Optionally, you can raise an error to notify the caller
         RESIGNAL;
     END;
@@ -338,6 +380,7 @@ BEGIN
     -- Start a new transaction
     START TRANSACTION;
 
+    SET @in_transaction = 1;
     SET v_document_id = NULL;
 
     -- Get the document_id for the given document_name
@@ -351,6 +394,10 @@ BEGIN
             SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].collection_name')));
             SET v_property_names = JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].property_names'));
 
+            IF v_collection_name IS NULL THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'JSON input did not contain an expected collection_name';
+            END IF;
+
             -- Get the collection_id for the given collection_name within the document
             SELECT collection_id INTO v_collection_id FROM application_collections 
             WHERE collection_id IN (
@@ -361,27 +408,36 @@ BEGIN
             );
 
             IF v_collection_id IS NOT NULL THEN
-                -- Delete specified properties for this collection
-                WHILE j < JSON_LENGTH(v_property_names) DO
-                    SET v_property_id = NULL;
+                -- If property_names is empty, delete the whole collection
+                IF v_property_names IS NULL OR JSON_LENGTH(v_property_names) = 0 THEN
+                    CALL jam_build.DeleteApplicationCollection(p_document_name, v_collection_name);
+                ELSE
+                    -- Delete specified properties for this collection
+                    WHILE j < JSON_LENGTH(v_property_names) DO
+                        SET v_property_id = NULL;
 
-                    -- Get the property name for this iteration
-                    SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(v_property_names, CONCAT('$[', j, ']')));
+                        -- Get the property name for this iteration
+                        SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(v_property_names, CONCAT('$[', j, ']')));
 
-                    -- Get the property_id for the given property_name
-                    SELECT property_id INTO v_property_id FROM application_properties
-                        WHERE property_name = v_property_name AND property_id IN (
-                            SELECT property_id from application_collections_properties WHERE collection_id = v_collection_id
-                        );
+                        IF v_property_name IS NULL THEN
+                            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'JSON input did not contain expected array of property names';
+                        END IF;
 
-                    IF v_property_id IS NOT NULL THEN
-                        -- Delete the property from the collection (CASCADE will handle deletions in application_collections_properties)
-                        DELETE FROM application_collections_properties 
-                        WHERE collection_id = v_collection_id AND property_id = v_property_id;
-                    END IF;
+                        -- Get the property_id for the given property_name
+                        SELECT property_id INTO v_property_id FROM application_properties
+                            WHERE property_name = v_property_name AND property_id IN (
+                                SELECT property_id from application_collections_properties WHERE collection_id = v_collection_id
+                            );
 
-                    SET j = j + 1;
-                END WHILE;
+                        IF v_property_id IS NOT NULL THEN
+                            -- Delete the property from the collection (CASCADE will handle deletions in application_collections_properties)
+                            DELETE FROM application_collections_properties 
+                            WHERE collection_id = v_collection_id AND property_id = v_property_id;
+                        END IF;
+
+                        SET j = j + 1;
+                    END WHILE;
+                END IF;
             END IF;
 
             SET i = i + 1;
@@ -404,10 +460,15 @@ BEGIN
         WHERE property_id NOT IN (
             SELECT property_id FROM application_collections_properties
         );
+    ELSE
+        SET v_message = CONCAT('Could not find document_id for the input document_name "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
     END IF;
 
     -- Commit the transaction
     COMMIT;
+    SET @in_transaction = NULL;
 END;
 //
 
@@ -503,6 +564,8 @@ BEGIN
     DECLARE v_property_id INT;
     DECLARE v_property_name VARCHAR(255);
     DECLARE v_property_value JSON;
+    DECLARE v_properties JSON;
+    DECLARE v_message VARCHAR(255);
     DECLARE i INT DEFAULT 0;
     DECLARE j INT DEFAULT 0;
 
@@ -528,10 +591,21 @@ BEGIN
     -- Get the document_id for the given user_id and document_name
     SELECT document_id INTO v_document_id FROM user_documents WHERE user_id = p_user_id AND document_name = p_document_name;
 
+    IF v_document_id IS NULL THEN
+        SET v_message = CONCAT('Could not find document for INPUT document_name "', p_document_name, '" and user_id "', p_user_id, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
+    END IF;
+
     -- Process collections and their associated properties
     WHILE i < JSON_LENGTH(p_data) DO
         SET v_collection_id = NULL;
         SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].collection_name')));
+
+        IF v_collection_name IS NULL THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'JSON input did not contain a proper collection_name';
+        END IF;
 
         -- Check if the collection already exists for this user's document
         SELECT collection_id INTO v_collection_id
@@ -555,12 +629,19 @@ BEGIN
             VALUES (v_document_id, v_collection_id);
         END IF;
 
-        -- Process properties for the current collection
+        -- Process properties for the current collection, can have 0 properties
         SET j = 0;
-        WHILE j < JSON_LENGTH(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties'))) DO
+        SET v_properties = JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties'));
+        WHILE j < (SELECT CASE WHEN v_properties IS NULL THEN 0 ELSE JSON_LENGTH(v_properties) END) DO
             SET v_property_id = NULL;
             SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_name')));
             SET v_property_value = JSON_EXTRACT(p_data, CONCAT('$[', i, '].properties[', j, '].property_value'));
+
+            IF v_property_name IS NULL OR v_property_value IS NULL THEN
+                SET v_message = CONCAT('JSON input for collection_name "', v_collection_name, '" had bad property_name or property_value');
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = v_message;
+            END IF;
 
             -- Check if the property already exists in this collection
             SELECT property_id INTO v_property_id 
@@ -612,7 +693,8 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserDocument (
     IN p_document_name VARCHAR(255)
 )
 BEGIN
-    DECLARE v_document_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_message VARCHAR(255);
 
     -- Declare a handler for SQL exceptions
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -652,6 +734,10 @@ BEGIN
         WHERE property_id NOT IN (
             SELECT property_id FROM user_collections_properties
         );
+    ELSE
+        SET v_message = CONCAT('Could not find document_id for the input document_name "', p_document_name, '" and user_id "', p_user_id, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
     END IF;
 
     -- Commit the transaction
@@ -665,20 +751,25 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserCollection (
     IN p_collection_name VARCHAR(255)
 )
 BEGIN
-    DECLARE v_document_id INT;
-    DECLARE v_collection_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_collection_id BIGINT UNSIGNED;
+    DECLARE v_message VARCHAR(255);
 
     -- Declare a handler for SQL exceptions
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-        -- Rollback the transaction on any error
-        ROLLBACK;
+        IF @in_user_transaction IS NULL THEN
+            -- Rollback the transaction on any error
+            ROLLBACK;
+        END IF;
         -- Optionally, you can raise an error to notify the caller
         RESIGNAL;
     END;
 
-    -- Start a new transaction
-    START TRANSACTION;
+    IF @in_user_transaction IS NULL THEN
+        -- Start a new transaction
+        START TRANSACTION;
+    END IF;
 
     SET v_document_id = NULL;
 
@@ -719,11 +810,21 @@ BEGIN
             WHERE property_id NOT IN (
                 SELECT property_id FROM user_collections_properties
             );
+        ELSE
+            SET v_message = CONCAT('Could not find collection_id for the input collection_name "', p_collection_name, '"');
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = v_message;
         END IF;
+    ELSE
+        SET v_message = CONCAT('Could not find document_id for the input document_name "', p_document_name, '" and user_id "', p_user_id, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
     END IF;
 
-    -- Commit the transaction
-    COMMIT;
+    IF @in_user_transaction IS NULL THEN
+        -- Commit the transaction
+        COMMIT;
+    END IF;
 END;
 //
 
@@ -733,12 +834,13 @@ CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserProperties (
     IN p_collection_data JSON
 )
 BEGIN
-    DECLARE v_document_id INT;
-    DECLARE v_collection_id INT;
+    DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_collection_name VARCHAR(255);
     DECLARE v_property_name VARCHAR(255);
     DECLARE v_property_id INT;
     DECLARE v_property_names JSON;
+    DECLARE v_message VARCHAR(255);
     DECLARE i INT DEFAULT 0;
     DECLARE j INT DEFAULT 0;
 
@@ -747,13 +849,15 @@ BEGIN
     BEGIN
         -- Rollback the transaction on any error
         ROLLBACK;
+        SET @in_user_transaction = NULL;
         -- Optionally, you can raise an error to notify the caller
         RESIGNAL;
     END;
 
     -- Start a new transaction
     START TRANSACTION;
-
+    
+    SET @in_user_transaction = 1;
     SET v_document_id = NULL;
 
     -- Get the document_id for the given user_id and document_name
@@ -767,6 +871,10 @@ BEGIN
             SET v_collection_name = JSON_UNQUOTE(JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].collection_name')));
             SET v_property_names = JSON_EXTRACT(p_collection_data, CONCAT('$[', i, '].property_names'));
 
+            IF v_collection_name IS NULL THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'JSON input did not contain an expected collection_name';
+            END IF;
+            
             -- Get the collection_id for the given collection_name within the document
             SELECT collection_id INTO v_collection_id FROM user_collections 
             WHERE collection_id IN (
@@ -777,27 +885,36 @@ BEGIN
             );
 
             IF v_collection_id IS NOT NULL THEN
-                -- Delete specified properties for this collection
-                WHILE j < JSON_LENGTH(v_property_names) DO
-                    SET v_property_id = NULL;
-        
-                    -- Get the property name for this iteration
-                    SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(v_property_names, CONCAT('$[', j, ']')));
+                -- if v_property_names is empty, then delete the whole collection
+                IF v_property_names IS NULL OR JSON_LENGTH(v_property_names) = 0 THEN
+                    CALL jam_build.DeleteUserCollection(p_document_name, v_collection_name);
+                ELSE
+                    -- Delete specified properties for this collection
+                    WHILE j < JSON_LENGTH(v_property_names) DO
+                        SET v_property_id = NULL;
+            
+                        -- Get the property name for this iteration
+                        SET v_property_name = JSON_UNQUOTE(JSON_EXTRACT(v_property_names, CONCAT('$[', j, ']')));
 
-                    -- Get the property_id for the given property_name
-                    SELECT property_id INTO v_property_id FROM user_properties
-                        WHERE property_name = v_property_name AND property_id IN (
-                            SELECT property_id from user_collections_properties WHERE collection_id = v_collection_id
-                        );
+                        IF v_property_name IS NULL THEN
+                            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'JSON input did not contain expected array of property names';
+                        END IF;
 
-                    IF v_property_id IS NOT NULL THEN
-                        -- Delete the property from the collection (CASCADE will handle deletions in user_collections_properties)
-                        DELETE FROM user_collections_properties 
-                        WHERE collection_id = v_collection_id AND property_id = v_property_id;
-                    END IF;
+                        -- Get the property_id for the given property_name
+                        SELECT property_id INTO v_property_id FROM user_properties
+                            WHERE property_name = v_property_name AND property_id IN (
+                                SELECT property_id from user_collections_properties WHERE collection_id = v_collection_id
+                            );
 
-                    SET j = j + 1;
-                END WHILE;
+                        IF v_property_id IS NOT NULL THEN
+                            -- Delete the property from the collection (CASCADE will handle deletions in user_collections_properties)
+                            DELETE FROM user_collections_properties 
+                            WHERE collection_id = v_collection_id AND property_id = v_property_id;
+                        END IF;
+
+                        SET j = j + 1;
+                    END WHILE;
+                END IF;
             END IF;
 
             SET i = i + 1;
@@ -820,10 +937,15 @@ BEGIN
         WHERE property_id NOT IN (
             SELECT property_id FROM user_collections_properties
         );
+    ELSE
+        SET v_message = CONCAT('Could not find document_id for the input document_name "', p_document_name, '" and user_id "', p_user_id, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
     END IF;
 
     -- Commit the transaction
     COMMIT;
+    SET @in_user_transaction = NULL;
 END;
 //
 
