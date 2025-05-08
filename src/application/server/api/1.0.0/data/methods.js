@@ -36,8 +36,7 @@ function transformAndValidateInput (inputDocument, inputCollections, mapCollecti
     }
 
     procedureCollections = collections.map(coll => {
-      const invalidInput = !coll.collection || typeof coll.collection !== 'string' ||
-      !coll.properties || Object.keys(coll.properties).length <= 0;
+      const invalidInput = !coll.collection || typeof coll.collection !== 'string'; // can have no properties for deletes, upsert
       if (invalidInput) {
         const e = new Error();
         e.type = 'data.validation.input.collections';
@@ -216,10 +215,10 @@ export async function setProperties (pool, methodName, procName, req, res) {
   const procedureCollections = transformAndValidateInput(
     document, collections, coll => ({
       collection_name: coll.collection,
-      properties: Object.entries(coll.properties).map(([key, value]) => ({
+      properties: coll.properties ? Object.entries(coll.properties).map(([key, value]) => ({
         property_name: key,
         property_value: value
-      }))
+      })) : []
     })
   );
 
@@ -361,7 +360,7 @@ export async function deleteProperties (
   const procedureCollections = transformAndValidateInput(
     document, collections, coll => ({
       collection_name: coll.collection,
-      property_names: coll.properties
+      property_names: coll.properties ? coll.properties : []
     })
   );
 

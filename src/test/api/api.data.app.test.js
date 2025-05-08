@@ -4,7 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { test } from '../fixtures.js';
+import { expect, test } from '../fixtures.js';
 import {
   getData,
   postData,
@@ -14,8 +14,22 @@ import {
 
 test.describe('/api/data/app', () => {
   let baseUrl;
+
+  async function deleteHomeDocument (adminRequest) {
+    await deleteData(adminRequest, `${baseUrl}/home`, {
+      deleteDocument: true
+    });
+    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
+      expect(json.ok).not.toBeTruthy();
+    }, 404);
+  }
+
   test.beforeAll(() => {
     baseUrl = `${process.env.BASE_URL}/api/data/app`;
+  });
+
+  test('delete home document', async ({ adminRequest }) => {
+    return deleteHomeDocument(adminRequest);
   });
 
   test('get non-existant route', async ({ adminRequest }) => {
@@ -276,7 +290,94 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/girls`, 204);
   });
 
-  test('delete a collection', async ({ adminRequest }) => {
+  test('post empty collections, no property input', async ({ adminRequest }) => {
+    await postData(adminRequest, `${baseUrl}/home`, {
+      collections: [{
+        collection: 'empty'
+      }]
+    });
+    await getData(adminRequest, `${baseUrl}/home/empty`, 204);
+    await deleteData(adminRequest, `${baseUrl}/home/empty`);
+    await getData(adminRequest, `${baseUrl}/home/empty`, 404);
+  });
+
+  test('update empty collections', async ({ adminRequest }) => {
+    await postData(adminRequest, `${baseUrl}/home`, {
+      collections: [{
+        collection: 'empty'
+      }]
+    });
+    await getData(adminRequest, `${baseUrl}/home/empty`, 204);
+    await postData(adminRequest, `${baseUrl}/home`, {
+      collections: {
+        collection: 'empty',
+        properties: {
+          property13: 'value13',
+          property14: 'value14'
+        }
+      }
+    });
+    await getData(adminRequest, `${baseUrl}/home/empty`, (expect, json) => {
+      expect(json).toEqual({
+        home: expect.objectContaining({
+          empty: {
+            property13: 'value13',
+            property14: 'value14'
+          }
+        })
+      })
+    });
+    await deleteData(adminRequest, `${baseUrl}/home/empty`);
+  });
+
+  test('delete multiple collections, no property input', async ({ adminRequest }) => {
+    await postData(adminRequest, `${baseUrl}/home`, {
+      collections: [{
+        collection: 'other1',
+        properties: {
+          property1: 'value81',
+          property2: 'value82'
+        }
+      }, {
+        collection: 'other2',
+        properties: {
+          property3: 'value83',
+          property4: 'value84'
+        }
+      }]
+    });
+    await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
+      expect(json).toEqual({
+        home: expect.objectContaining({
+          other1: {
+            property1: 'value81',
+            property2: 'value82'
+          },
+          other2: {
+            property3: 'value83',
+            property4: 'value84'
+          }
+        })
+      });
+    });
+    await deleteData(adminRequest, `${baseUrl}/home`, {
+      collections: [{
+        collection: 'other1'
+      }, {
+        collection: 'other2'
+      }]
+    });
+    await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
+      expect(json).toEqual({
+        home: expect.not.objectContaining({
+          other1: expect.any(Object),
+          other2: expect.any(Object)
+        })
+      });
+    });
+  });
+
+  test('delete one collection', async ({ adminRequest }) => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
@@ -307,11 +408,6 @@ test.describe('/api/data/app', () => {
         }
       }));
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
-      deleteDocument: true
-    });
-    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json.ok).not.toBeTruthy();
-    }, 404);
+    await deleteHomeDocument(adminRequest);
   });
 });
