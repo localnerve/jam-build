@@ -108,7 +108,7 @@ self.addEventListener('message', event => {
       break;
     case 'refresh-data':
       waitOrPassThru(
-        refreshData(payload.storeType, payload.document, payload.collection)
+        refreshData(payload.storeType, payload.document, payload.collections)
       );
       break;
     case 'put-data':

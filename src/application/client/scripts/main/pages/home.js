@@ -7,23 +7,28 @@
 import {
   dataUpdate,
   pageSeed,
+  filterSeed,
   requestDataRefresh
 } from '../data.js';
+
+const page = 'home';
 
 window.App.add('pageDataUpdate', payload => {
   console.log('@@@ pageDataUpdate ', payload);
 
-  const page = 'home';
-  const seed = JSON.parse(localStorage.getItem(page));
+  const seed = JSON.parse(localStorage.getItem(page)) || undefined;
   localStorage.setItem(
-    page, JSON.stringify(pageSeed(page, seed || {}, payload))
+    page, JSON.stringify(pageSeed(page, seed, payload))
   );
 
   dataUpdate(payload);
 });
 
 export default function setup (support) {
-  console.log('@@@ home setup', support);
+  console.log(`@@@ ${page} setup`, support);
 
-  requestDataRefresh(JSON.parse(localStorage.getItem('home')));
+  const seed = JSON.parse(localStorage.getItem(page));
+  requestDataRefresh(filterSeed(page, seed, {
+    storeTypes: ['app']
+  }));
 }
