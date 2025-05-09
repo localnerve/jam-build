@@ -105,6 +105,7 @@ export default function setup () {
   const nomsgClassname = 'no-messaging';
   const support = {
     passiveEvent: false,
+    serviceWorker: 'serviceWorker' in navigator,
     isSafari: detectSafari(),
     isSafariDesktop: detectSafariDesktop(),
     isFF: navigator.userAgent.toLowerCase().indexOf('firefox') > -1,

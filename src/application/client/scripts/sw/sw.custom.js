@@ -111,7 +111,7 @@ self.addEventListener('message', event => {
         refreshData(payload.storeType, payload.document, payload.collection)
       );
       break;
-    case 'upsert-data':
+    case 'put-data':
       waitOrPassThru(
         upsertData(payload.storeType, payload.document, payload.collections)
       );

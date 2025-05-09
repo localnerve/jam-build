@@ -53,7 +53,7 @@ function makeStoreName (storeType, version = schemaVersion) {
  * Send a message to all the open application tabs.
  *
  * @param {String} meta - The meta message identifier
- * @param {Any} payload - The message payload
+ * @param {Any} [payload] - The message payload
  */
 async function sendMessage (meta, payload) {
   if (self.clients) {
@@ -72,7 +72,10 @@ async function sendMessage (meta, payload) {
  * Make a network request to the remote data service.
  *
  * @param {Request} request - The request object
- * @param {Object} [options] - data handler, metadata to pass to retryHandler, retry flag to prevent reuse in retryHandler
+ * @param {Object} [options] - options to handle data and control replay failure behavior
+ * @param {AsyncFunction} [options.asyncResponseHandler] - data response handler
+ * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
+ * @param {Boolean} [options.retry] - true if failures should be queued for replay
  */
 async function dataAPICall (request, {
   asyncResponseHandler = null,
@@ -114,7 +117,8 @@ async function replayQueueRequestsWithDataAPI () {
     try {
       if (entry.request.method === 'GET' && entry.metadata) {
         asyncResponseHandler = async data => {
-          await storeData(entry.metadata.storeType, data);
+          const { storeType } = entry.metadata;
+          await storeData(storeType, data);
         };
       }
       await dataAPICall(entry.request.clone(), {
@@ -130,7 +134,7 @@ async function replayQueueRequestsWithDataAPI () {
 
 /**
  * Store data in the jam_build database.
- * 
+ *
  * @param {String} storeType - 'app' or 'user'
  * @param {Object} data - The remote data to store
  */
@@ -151,7 +155,9 @@ async function storeData (storeType, data) {
   }
 
   await sendMessage('database-data-update', {
+    dbname,
     storeName,
+    storeType,
     keys
   });
 }
@@ -252,7 +258,7 @@ export async function upsertData (storeType, document, collections = null) {
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document to which the delete applies
- * @param {String|Object|Array<Object>} [collectionInput] - Collection name, or Object or Array of { collection: 'name', properties: ['propName'...] }
+ * @param {String|Array<String>|Object|Array<Object>} [collectionInput] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
  */
 export async function deleteData (storeType, document, collectionInput = null) {
   const baseUrl = `/api/data/${storeType}`;
@@ -262,6 +268,14 @@ export async function deleteData (storeType, document, collectionInput = null) {
   if (typeof collections === 'string') {
     url += `/${collections}`;
     collections = false;
+  }
+
+  if (Array.isArray(collections)) {
+    if (collections.every(c => typeof c === 'string')) {
+      collections = collections.map(colName => ({
+        collection_name: colName
+      }));
+    }
   }
 
   const request = new Request(url, {

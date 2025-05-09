@@ -27,11 +27,11 @@ function updateCurrentYear () {
 /**
  * Get the version-buildstamp from the active app(sw), display on UI.
  *
+ * @param {Object} support - The browser support profile
  * @returns {Promise} resolves on success (or no sw), reject on failure
  */
-function updateVersion () {
-  const hasSw = 'serviceWorker' in navigator;
-  if (hasSw) {
+function updateVersion (support) {
+  if (support.serviceWorker) {
     const versionEl = document.querySelector('.version-buildtime');
     return navigator.serviceWorker.ready.then(reg => {
       return new Promise(resolve => {
@@ -92,7 +92,7 @@ function setup () {
     setupPrompts(support);
 
     updateCurrentYear();
-    updateVersion();
+    updateVersion(support);
   });
 }
 
