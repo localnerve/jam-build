@@ -15,10 +15,16 @@ import {
 test.describe('/api/data/app', () => {
   let baseUrl;
 
-  async function deleteHomeDocument (adminRequest) {
-    await deleteData(adminRequest, `${baseUrl}/home`, {
-      deleteDocument: true
-    });
+  async function deleteHomeDocument (adminRequest, deleteCanFail = false) {
+    try {
+      await deleteData(adminRequest, `${baseUrl}/home`, {
+        deleteDocument: true
+      });
+    } catch (error) {
+      if (!deleteCanFail) {
+        throw error;
+      }
+    }
     return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
     }, 404);
@@ -28,8 +34,8 @@ test.describe('/api/data/app', () => {
     baseUrl = `${process.env.BASE_URL}/api/data/app`;
   });
 
-  test('delete home document', async ({ adminRequest }) => {
-    return deleteHomeDocument(adminRequest);
+  test('clear home document, if required', async ({ adminRequest }) => {
+    return deleteHomeDocument(adminRequest, true);
   });
 
   test('get non-existant route', async ({ adminRequest }) => {
