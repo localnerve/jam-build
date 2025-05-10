@@ -14,7 +14,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 import express from 'express';
 import mariadb from 'mariadb';
 import {

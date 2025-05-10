@@ -2,7 +2,7 @@
  * Create a user on local instance.
  */
 import { Authorizer } from '@authorizerdev/authorizer-js';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 
 const debug = debugLib('_createlocaluser');
 

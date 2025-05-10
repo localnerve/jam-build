@@ -10,7 +10,7 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import versionRouter from 'express-version-route';
 import versionRequest from 'express-version-request';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 import { create as createVersion100 } from './1.0.0/index.js';
 
 export const mountpath = '/api';

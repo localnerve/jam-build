@@ -8,8 +8,10 @@ import { rollup } from 'rollup';
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 import replace from '@rollup/plugin-replace';
+import alias from '@rollup/plugin-alias';
 import dynamicImportVariables from '@rollup/plugin-dynamic-import-vars';
 import pluginOutputManifest from 'rollup-plugin-output-manifest';
+import nodePolyfills from 'rollup-plugin-polyfill-node';
 import { loadSiteData } from './data.js';
 import pkg from '../../package.json' with { type: 'json' };
 
@@ -27,11 +29,12 @@ const { default: outputManifest } = pluginOutputManifest;
  * @param {String} [settings.dataDir] - The directory of site-data.
  * @param {String} [settings.webScripts] - The path to the root of scripts on the web. If supplied, creates the data.scripts namespace.
  * @param {Object} [settings.replacements] - additional replacements.
+ * @param {Array<string | RegExp>} [settings.nodeIncludes] - files to match for node includes. if undefined, node plugin omitted.
  */
 export async function createScripts (settings) {
   const {
     rollupInput, rollupOutput, prod, jsManifestFilename,
-    replacements = {}, dataDir, webScripts
+    replacements = {}, dataDir, webScripts, nodeIncludes
   } = settings;
   const appVersion = pkg.version;
   
@@ -61,6 +64,15 @@ export async function createScripts (settings) {
       ...replacements
     })
   ];
+
+  if (nodeIncludes) {
+    rollupInput.plugins.push(alias({
+      entries: [{find: /^node:(.*)/, replacement: '$1'}],
+    }));
+    rollupInput.plugins.push(nodePolyfills({
+      include: nodeIncludes
+    }));
+  }
 
   if (prod) {
     rollupInput.plugins.push(terser());

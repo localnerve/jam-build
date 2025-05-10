@@ -7,7 +7,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 import { test as baseTest } from '@playwright/test';
 import { authenticateAndSaveState, acquireAccount } from './authz.js';
 

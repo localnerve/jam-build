@@ -6,7 +6,7 @@
  */
 import { default as fs, promises as afs } from 'node:fs';
 import path from 'node:path';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 
 const debug = debugLib('server');
 

@@ -42,6 +42,9 @@ async function generateSWCustom (settings, replacements) {
     jsManifestFilename,
     prod,
     replacements,
+    nodeIncludes: [
+      'src/application/client/scripts/sw/**'
+    ],
     rollupInput: {
       input: {
         [swCustomName]: swCustomFileSrc

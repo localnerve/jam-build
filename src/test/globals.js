@@ -7,7 +7,7 @@
 import fs from 'node:fs/promises';
 import * as tar from 'tar';
 import { glob } from 'glob';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 import { getAuthzClientID } from './authz.js';
 
 import {

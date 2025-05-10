@@ -5,7 +5,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import net from 'node:net';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 
 const debug = debugLib('api:utils');
 

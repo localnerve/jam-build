@@ -11,7 +11,7 @@ import fs from 'node:fs/promises';
 import { GenericContainer, Network, Wait, getContainerRuntimeClient, PullPolicy } from 'testcontainers';
 import mariadb from 'mariadb';
 import { MariaDbContainer } from '@testcontainers/mariadb';
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 
 const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
 const toRoot = '../..';

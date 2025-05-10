@@ -2,7 +2,7 @@
  * A check project to exercise the fixtures
  * 
  */
-import debugLib from 'debug';
+import debugLib from '@localnerve/debug';
 import { expect, test } from './fixtures.js';
 
 const debug = debugLib('test:fixture:check');
