@@ -8,19 +8,18 @@
  */
 import { openDB } from 'idb';
 import { setPersistentEngine } from '@nanostores/persistent';
+import debugLib from '@localnerve/debug';
 export { persistentMap } from '@nanostores/persistent';
+
+const debug = debugLib('data');
 
 const storeNames = new Map();
 
+const storageMemory = {};
+
 let db;
 let listeners = [];
-
-function onChange (key, newValue) {
-  const event = { key, newValue };
-  for (const i of listeners) {
-    i(event);
-  }
-}
+let disableMutation = false;
 
 export function pageSeed (page, seed = {}, next = null) {
   if (!next) {
@@ -72,7 +71,7 @@ export function filterSeed (page, seed, {
 }
 
 export async function requestDataRefresh (seed) {
-  console.log('@@@ requestDataRefresh', seed);
+  debug('requestDataRefresh', seed);
 
   if ('serviceWorker' in navigator && seed) {
     const reg = await navigator.serviceWorker.ready;
@@ -96,7 +95,24 @@ export async function dataUpdate ({ dbname, storeType, storeName, keys }) {
 
   for (const [docName, colName] of keys) {
     const entry = await db.get(storeName, [docName, colName]);
-    onChange(`${storeType}:${docName}:${colName}`, entry.properties);
+    const key = `${storeType}:${docName}:${colName}`;
+    const value = entry.properties;
+
+    storageMemory[key] = value;
+    onChange(key, value);
+  }
+}
+
+export function initializeMap (map) {
+  disableMutation = true;
+  map.get(); // force mount if not done yet
+  disableMutation = false;
+}
+
+function onChange (key, newValue) {
+  const event = { key, newValue };
+  for (const i of listeners) {
+    i(event);
   }
 }
 
@@ -133,6 +149,10 @@ async function batchMutation (op, storeType, document, collection) {
 }
 
 function queueMutation (op, key, value, notify) {
+  if (disableMutation) {
+    return;
+  }
+
   const keyParts = key.split(':');
   const storeType = keyParts[0];
   const keyPath = keyParts.slice(1);
@@ -154,10 +174,11 @@ function queueMutation (op, key, value, notify) {
 
 }
 
-const storage = new Proxy({}, {
+const storage = new Proxy(storageMemory, {
   set(target, name, value) {
     target[name] = value;
     queueMutation('put', name, value, onChange);
+    return true;
   },
   get(target, name) {
     return target[name];
@@ -165,10 +186,11 @@ const storage = new Proxy({}, {
   deleteProperty(target, name) {
     delete target[name];
     queueMutation('delete', name, undefined, onChange);
+    return true;
   }
 });
 
-const events = {
+export const events = {
   addEventListener (key, callback) {
     listeners.push(callback);
   },
