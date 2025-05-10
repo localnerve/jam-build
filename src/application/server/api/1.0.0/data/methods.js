@@ -164,11 +164,18 @@ export async function getProperties (pool, methodName, procName, req, res) {
  */
 export async function getCollectionsAndProperties (pool, methodName, procName, req, res) {
   const { document } = req.params;
+  let { collections: inputCollections } = req.query;
 
-  debug(`${methodName} '${document}'`);
+  if (!Array.isArray(inputCollections)) {
+    inputCollections = [inputCollections ? `${inputCollections}` : ''];
+  }
+  inputCollections = Array.from(new Set(inputCollections)); // dedup
+  const collections = inputCollections.join(',');
+
+  debug(`${methodName} '${document}', collections = ${collections}`);
 
   const isUser = /user/i.test(methodName);
-  const inputParams = isUser ? [req.user.id, document] : [document];
+  const inputParams = isUser ? [req.user.id, document, collections] : [document, collections];
 
   return getWithParams(pool, methodName, procName, res, inputParams, reduceDocumentResults);
 }

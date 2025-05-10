@@ -10,6 +10,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import querystring from 'node:querystring';
 import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
@@ -204,12 +205,20 @@ async function loadData (storeType, document, collections = null) {
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {String} [document] - document name
- * @param {String} [collection] - collection name (collection is the smallest GET, no indiv props)
+ * @param {String|Array<String>} [collections] - collection name(s) to get
  */
-export async function refreshData (storeType, document, collection) {
+export async function refreshData (storeType, document, collections) {
   const baseUrl = `/api/data/${storeType}`;
-  const path = document ? `/${document}${collection ? `/${collection}` : ''}`: '';
-  const url = `${baseUrl}${path}`;
+  const path = document ? `/${document}${
+    typeof collections === 'string' ? `/${collections}`
+      : collections?.length === 1 ? `/${collections[0]}` : ''
+  }`: '';
+  let url = `${baseUrl}${path}`;
+
+  if (document && collections?.length > 1) {
+    const query = querystring.stringify({ collections });
+    url += `?${query}`;
+  }
 
   const request = new Request(url, {
     headers: {

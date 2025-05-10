@@ -225,6 +225,47 @@ test.describe('/api/data/user', () => {
     }, 404);
   });
 
+  test('get specific multiple collections', ({ userRequest }) => {
+    return getData(userRequest, `${baseUrl}/home?collections=state&collections=friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          state: expect.any(Object),
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
+  test('get specific collections, only one, less than the total', ({ userRequest }) => {
+    return getData(userRequest, `${baseUrl}/home?collections=friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
+  test('get specific collections, deduplicate', ({ userRequest }) => {
+    return getData(userRequest, `${baseUrl}/home?collections=friends&collections=friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
+  test('get include non-existant collections, ignored', ({ userRequest }) => {
+    return getData(userRequest, `${baseUrl}/home?collections=friends&collections=nonexistant&collections=`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
   test('mutate a single property, user', async ({ userRequest }) => {
     await getData(userRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({

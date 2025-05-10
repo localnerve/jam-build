@@ -68,9 +68,10 @@ export function create (logger, options = {}, locals = {}) {
   api.use((err, req, res, next) => {
     const msg = {
       status: err.status || err.statusCode || 500,
-      ok: false,
       message: err.sql ? err.code : err.message,
+      ok: false,
       timestamp: (new Date()).toISOString(),
+      url: req.originalUrl,
       type: err.type || err.name || 'unknown'
     };
     debug(err);

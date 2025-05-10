@@ -4,7 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { test } from '../fixtures.js';
+import { expect, test } from '../fixtures.js';
 import {
   getData,
   postData,
@@ -149,6 +149,47 @@ test.describe('/api/data/app', () => {
     }
   });
 
+  test('get specific multiple collections', ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home?collections=state&collections=friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          state: expect.any(Object),
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
+  test('get specific collections, only one, less than the total', ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home?collections=friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
+  test('get specific collections, deduplicate', ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home?collections=friends&collections=friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
+  test('get include non-existant collections, ignored', ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home?collections=friends&collections=nonexistant&collections=`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.any(Object)
+        }
+      });
+    });
+  });
+
   test('get non-existing document', async ({ adminRequest }) => {
     return getData(adminRequest, `${baseUrl}/nonexistant`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
@@ -170,6 +211,12 @@ test.describe('/api/data/app', () => {
 
   test('get non-existing collection', async ({ adminRequest }) => {
     return getData(adminRequest, `${baseUrl}/home/nonexistant`, (expect, json) => {
+      expect(json.ok).not.toBeTruthy();
+    }, 404);
+  });
+
+  test('get non-existing collections with query string', ({ adminRequest }) => {
+    return getData(adminRequest, `${baseUrl}/home?collections=nonexistant1&collections=nonexistant2`, (expect, json) => {
       expect(json.ok).not.toBeTruthy();
     }, 404);
   });
