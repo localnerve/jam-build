@@ -74,6 +74,7 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
         retry: false
       });
     } catch {
+      debug('Failed to replay request: ', entry.request.url);
       await queue.unshiftRequest(entry);
       throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
     }
@@ -124,6 +125,8 @@ async function dataAPICall (request, {
   metadata = null,
   retry = true
 } = {}) {
+  debug('dataAPICall ', request.url);
+
   let response = null;
   try {
     response = await fetch(request);
