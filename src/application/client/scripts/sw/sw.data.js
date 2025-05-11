@@ -20,23 +20,64 @@ const storeTypes = ['app', 'user'];
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion.replace('.', '-')}`;
+const debug = console.log; // eslint-disable-line
 
 let blocked = false;
 let db;
 
-let canSync = 'sync' in self.registration;
+let canSync = 'sync' in self.registration; // NOT good enough, setupBackgroundRequests handles properly
 let queue;
-try {
-  queue = new Queue(queueName, {
-    forceSyncFallback: !canSync,
-    maxRetentionTime: 60 * 72, // 72 hours
-    onSync: replayQueueRequestsWithDataAPI.bind(queue)
-  });
-  canSync = true;
-} catch (e) {
-  // eslint-disable-next-line
-  console.debug(`Couldn't create Workbox Background Sync Queue ${e.name}`);
-  canSync = false;
+export function setupBackgroundRequests (syncSupport) {
+  debug('setupBackgroundRequests, support:', syncSupport);
+
+  try {
+    if (!queue) {
+      queue = new Queue(queueName, {
+        forceSyncFallback: !syncSupport,
+        maxRetentionTime: 60 * 72, // 72 hours
+        onSync: replayQueueRequestsWithDataAPI
+      });
+      debug('Sync queue created: ', queue);
+      canSync = true;
+    } else {
+      debug(`Queue ${queueName} already created`);
+    }
+  } catch (e) {
+    debug(`Couldn't create Workbox Background Sync Queue ${e.name}`);
+    canSync = false;
+  }
+}
+
+/**
+ * Substitute for stock Queue.replayRequests.
+ * Stores data for GETs and sends update notifications to the app.
+ */
+async function replayQueueRequestsWithDataAPI ({ queue }) {
+  debug('Replaying queue requests...', queue);
+
+  if (!queue) {
+    throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+  }
+
+  let asyncResponseHandler = null;
+  let entry;
+  while ((entry = await queue.shiftRequest())) {
+    try {
+      if (entry.request.method === 'GET' && entry.metadata) {
+        asyncResponseHandler = async data => {
+          const { storeType } = entry.metadata;
+          await storeData(storeType, data);
+        };
+      }
+      await dataAPICall(entry.request.clone(), {
+        asyncResponseHandler,
+        retry: false
+      });
+    } catch {
+      await queue.unshiftRequest(entry);
+      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+    }
+  }
 }
 
 /**
@@ -102,33 +143,6 @@ async function dataAPICall (request, {
       });
     } else {
       throw error;
-    }
-  }
-}
-
-/**
- * Substitute for stock Queue.replayRequests.
- * Used while bound to this modules Queue instance (this).
- * Stores data for GETs and sends update notifications to the app.
- */
-async function replayQueueRequestsWithDataAPI () {
-  let asyncResponseHandler = null;
-  let entry;
-  while ((entry = await this.shiftRequest())) {
-    try {
-      if (entry.request.method === 'GET' && entry.metadata) {
-        asyncResponseHandler = async data => {
-          const { storeType } = entry.metadata;
-          await storeData(storeType, data);
-        };
-      }
-      await dataAPICall(entry.request.clone(), {
-        asyncResponseHandler,
-        retry: false
-      });
-    } catch {
-      await this.unshiftRequest(entry);
-      throw new _private.WorkboxError('queue-replay-failed', {name: this._name});
     }
   }
 }
@@ -208,6 +222,8 @@ async function loadData (storeType, document, collections = null) {
  * @param {String|Array<String>} [collections] - collection name(s) to get
  */
 export async function refreshData (storeType, document, collections) {
+  debug(`refreshData, ${storeType}:${document}`, collections);
+
   const baseUrl = `/api/data/${storeType}`;
   const path = document ? `/${document}${
     typeof collections === 'string' ? `/${collections}`
@@ -245,6 +261,8 @@ export async function refreshData (storeType, document, collections) {
  * @param {Array<String>} [collections] - The collections to upsert, omit for all
  */
 export async function upsertData (storeType, document, collections = null) {
+  debug(`upsertData, ${storeType}:${document}`, collections);
+
   const baseUrl = `/api/data/${storeType}`;
   const url = `${baseUrl}/${document}`;
 
@@ -270,6 +288,8 @@ export async function upsertData (storeType, document, collections = null) {
  * @param {String|Array<String>|Object|Array<Object>} [collectionInput] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
  */
 export async function deleteData (storeType, document, collectionInput = null) {
+  debug(`deleteData, ${storeType}:${document}`, collectionInput);
+  
   const baseUrl = `/api/data/${storeType}`;
   let url = `${baseUrl}/${document}`;
   let collections = collectionInput;

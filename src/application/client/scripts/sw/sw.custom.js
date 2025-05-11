@@ -15,8 +15,11 @@ import {
   activateDatabase,
   refreshData,
   upsertData,
-  deleteData
+  deleteData,
+  setupBackgroundRequests
 } from './sw.data.js';
+
+const debug = console.log; // eslint-disable-line
 
 setCacheNameDetails({
   prefix: CACHE_PREFIX // eslint-disable-line
@@ -78,49 +81,64 @@ self.addEventListener('message', event => {
 
   switch (action) {
     case backgroundSyncSupportTest:
+      debug('backgroundSyncSupportTest message');
       if ('sync' in self.registration) {
         waitOrPassThru(self.registration.sync.register(backgroundSyncSupportTest)
           .then(() => {
-            sendReply({ action: backgroundSyncSupportTest, result: true });
+            setupBackgroundRequests(true);
+            return sendReply({ action: backgroundSyncSupportTest, result: true });
           }, () => {
-            sendReply({ action: backgroundSyncSupportTest, result: false });
+            setupBackgroundRequests(false);
+            return sendReply({ action: backgroundSyncSupportTest, result: false });
           }));
       } else {
+        setupBackgroundRequests(false);
         waitOrPassThru(sendReply({
           action: backgroundSyncSupportTest, result: false
         }));
       }
       break;
+
     case 'version':
+      debug('version message');
       waitOrPassThru(sendReply({
         action: 'ln-version-buildstamp',
         version: VERSION_BUILDSTAMP // eslint-disable-line
       }));
       break;
+
     case 'runtime-update':
+      debug('runtime-update message');
       waitOrPassThru(
         updateRuntimeCache().then(() => {
-          sendReply({ result: true });
+          return sendReply({ result: true });
         }, () => {
-          sendReply({ result: false });
+          return sendReply({ result: false });
         })
       );
       break;
+
     case 'refresh-data':
+      debug('refresh-data message');
       waitOrPassThru(
         refreshData(payload.storeType, payload.document, payload.collections)
       );
       break;
+
     case 'put-data':
+      debug('put-data message');
       waitOrPassThru(
         upsertData(payload.storeType, payload.document, payload.collections)
       );
       break;
+
     case 'delete-data':
+      debug('delete-data message');
       waitOrPassThru(
         deleteData(payload.storeType, payload.document, payload.collections)
       );
       break;
+
     default:
       break;
   }
