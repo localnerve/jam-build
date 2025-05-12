@@ -8,8 +8,9 @@ import {
   createMap,
   updatePageData
 } from '../data.js';
+import debugLib from '@localnerve/debug';
 
-const debug = console.log; // eslint-disable-line
+const debug = debugLib('home');
 const page = 'home';
 
 const appMap = createMap('app', page);

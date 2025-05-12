@@ -8,8 +8,9 @@
  */
 import { openDB } from 'idb';
 import { setPersistentEngine, persistentMap } from '@nanostores/persistent';
+import debugLib from '@localnerve/debug';
 
-const debug = console.log; // eslint-disable-line
+const debug = debugLib('data');
 
 const storeNames = new Map();
 const createdMaps = new Set();
