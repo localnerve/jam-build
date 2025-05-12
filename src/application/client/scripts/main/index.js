@@ -54,13 +54,12 @@ function updateVersion (support) {
  *
  * @param {Object} support - The browser support profile
  */
-function setupPage (support) {
+async function setupPage (support) {
   const { content:page } = document.querySelector('meta[name="page"]');
   if (window.App.pageModules.includes(page)) {
-    import(`./pages/${page}.js`).then(module => {
-      const { default:setup } = module;
-      setup(support);
-    });
+    const module = await import(`./pages/${page}.js`);
+    const { default: setup } = module;
+    return setup(support);
   }
 }
 
@@ -76,24 +75,26 @@ function loaded (support) {
 /**
  * App setup main execution on DOMContentReady
  */
-function setup () {
-  createSupport().then(support => {
-    support.init();
+async function setup () {
+  const support = await createSupport();
 
-    if (document.readyState === 'complete') {
-      loaded(support);
-    } else {
-      window.addEventListener('load', loaded.bind(null, support), {
-        once: true
-      });
-    }
+  support.init();
 
-    setupPage(support);
-    setupPrompts(support);
+  if (document.readyState === 'complete') {
+    loaded(support);
+  } else {
+    window.addEventListener('load', loaded.bind(null, support), {
+      once: true
+    });
+  }
 
-    updateCurrentYear();
-    updateVersion(support);
-  });
+  setupPrompts(support);
+  updateCurrentYear();
+
+  return Promise.all([
+    updateVersion(support),
+    setupPage(support)
+  ]);
 }
 
 /**
