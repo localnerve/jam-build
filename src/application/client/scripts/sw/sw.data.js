@@ -20,12 +20,20 @@ const storeTypes = ['app', 'user'];
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion.replace('.', '-')}`;
-const debug = console.log; // eslint-disable-line
+const { debug } = _private.logger;
 
 let blocked = false;
 let db;
 
-let canSync = 'sync' in self.registration; // NOT good enough, setupBackgroundRequests handles properly
+/**
+ * RE: background sync setup -
+ * Chrome will warn 'sync' must be top-level script hook to catch events. Not true,
+ * you'll miss the very first event only. This is a happy compromise:
+ * 'sync' in self.registration is NOT good enough, setupBackgroundRequests handles properly.
+ *    @see sw.custom.js for the call on 'message' ln-background-sync-support-test.
+ * Some popular browser vendors (brave) make the namespace, but DONT IMPLEMENT 🙁
+ */
+let canSync = 'sync' in self.registration;
 let queue;
 export function setupBackgroundRequests (syncSupport) {
   debug('setupBackgroundRequests, support:', syncSupport);
@@ -49,8 +57,8 @@ export function setupBackgroundRequests (syncSupport) {
 }
 
 /**
- * Substitute for stock Queue.replayRequests.
- * Stores data for GETs and sends update notifications to the app.
+ * Substitute for stock workbox Queue.replayRequests.
+ * Updates local data for GETs and sends notifications to the app.
  */
 async function replayQueueRequestsWithDataAPI ({ queue }) {
   debug('Replaying queue requests...', queue);
@@ -152,6 +160,7 @@ async function dataAPICall (request, {
 
 /**
  * Store data in the jam_build database.
+ * Re-formats data from the network to the idb objectStore format.
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {Object} data - The remote data to store
@@ -160,7 +169,7 @@ async function storeData (storeType, data) {
   const storeName = makeStoreName(storeType);
   const keys = [];
 
-  // format and store the data
+  // Format and store the data
   for (const [doc_name, col] of Object.entries(data)) {
     for (const [col_name, props] of Object.entries(col)) {
       keys.push([doc_name, col_name]);
@@ -172,6 +181,7 @@ async function storeData (storeType, data) {
     }
   }
 
+  // Notify the front-end app
   await sendMessage('database-data-update', {
     dbname,
     storeName,
@@ -285,6 +295,8 @@ export async function upsertData (storeType, document, collections = null) {
 
 /**
  * Synchronize local data deletions with the remote data service.
+ * Formats data for the delete api methods if input is String|Array<String>.
+ * If input is Object|Array<Object> this assumes the data is already formatted.
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document to which the delete applies
@@ -346,7 +358,8 @@ export async function installDatabase () {
     
         // Do future migrations here...
 
-        // cleanup all old objectStores after migration
+        // Cleanup all old objectStores after migration
+        // deleteObjectStore can only be called in a version event transaction (like here).
         for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
           let oldStoreName = makeStoreName(storeType, oldVersion);
           if (db.objectStoreNames.contains(oldStoreName)) {
