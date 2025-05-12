@@ -7,7 +7,7 @@ import { postData } from './api/api.js';
 
 const baseUrl = 'http://localhost:5000';
 
-test('post application home state and friends', async ({ adminRequest }) => {
+test('post local application home test data', async ({ adminRequest }) => {
   return postData(adminRequest, `${baseUrl}/api/data/app/home`, {
     collections: [{
       collection: 'state',
