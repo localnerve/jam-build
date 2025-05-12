@@ -19,7 +19,7 @@ import {
   setupBackgroundRequests
 } from './sw.data.js';
 
-const { debug } = _private.logger;
+const { debug } = _private.logger || { debug: ()=> {} };
 
 setCacheNameDetails({
   prefix: CACHE_PREFIX // eslint-disable-line

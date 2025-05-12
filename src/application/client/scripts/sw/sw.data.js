@@ -20,7 +20,7 @@ const storeTypes = ['app', 'user'];
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion.replace('.', '-')}`;
-const { debug } = _private.logger;
+const { debug } = _private.logger || { debug: ()=> {} };
 
 let blocked = false;
 let db;
