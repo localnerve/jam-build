@@ -20,12 +20,10 @@ function testUpdate () {
   const { state } = appMap.get();
   debug('state: ', state);
 
-  /*
   debug('@@@ testUpdate set state');
   state.newItem = 'hello there';
   appMap.setKey('state', state);
   debug('@@@ testUpdate set state *done*');
-  */
 }
 
 /**
@@ -34,7 +32,7 @@ function testUpdate () {
  * @param {Object} support - The browser support object
  */
 export default async function setup (support) {
-  debug(`@@@ ${page} setup`, support);
+  debug(`${page} setup...`, support);
 
   await updatePageData(page);
 

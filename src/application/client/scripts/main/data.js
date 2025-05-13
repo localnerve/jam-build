@@ -1,7 +1,7 @@
 /**
  * Main thread data access.
  * 
- * A persistent nanostore proxy on indexeddb.
+ * A persistent nanostore proxy on indexeddb with batched backend mutations.
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
@@ -20,6 +20,74 @@ const storageMemory = {};
 let db;
 let listeners = [];
 let disableMutation = false;
+
+/**
+ * Creates the data map for the given page.
+ * Sets up data update handling.
+ * Should only be called once per page load.
+ *
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} page - The page, document of the map to get
+ * @returns {persistentMap} - The persistent map
+ */
+export function createMap (storeType, page) {
+  if (!createdMaps.has(`${storeType}:${page}`)) {
+    debug(`Creating map for ${storeType}:${page}...`);
+
+    const map = new persistentMap(`${storeType}:${page}:`, {}, { listen: true });
+    createdMaps.add(`${storeType}:${page}`);
+
+    // Install the handler for pageDataUpdate network callbacks from the service worker
+    // window.App doesn't allow duplicates
+    window.App.add('pageDataUpdate', async payload => {
+      debug(`Page ${page} received pageDataUpdate from service worker`, payload);
+
+      const seed = JSON.parse(localStorage.getItem(page)) || undefined;
+      localStorage.setItem(
+        page, JSON.stringify(pageSeed(page, seed, payload))
+      );
+
+      await dataUpdate(payload);
+
+      disableMutation = true;
+      map.get(); // force mount if not done yet
+      disableMutation = false;
+    });
+
+    return map;
+  } else {
+    throw new Error(`${storeType}:${page} map was already created`);
+  }
+}
+
+/**
+ * Launch a series of refresh-data requests from the page request seed.
+ * Defaults to getting/refreshing the 'app' storeType for the page.
+ * Eventually results in 'pageDataUpdate' getting called.
+ *
+ * @param {String} page - The page, document name
+ * @param {Object} [filterObject] - Request seed filter @see data.js/filterSeed
+ * @param {Array} [filterObject.storeTypes] - The storeTypes to update
+ * @param {Array} [filterObject.collections] - The collections to update
+ */
+export async function updatePageData (page, filter = {
+  storeTypes: ['app']
+}) {
+  const seed = JSON.parse(localStorage.getItem(page));
+  const filteredSeed = filterSeed(page, seed, filter);
+
+  if ('serviceWorker' in navigator && filteredSeed) {
+    const reg = await navigator.serviceWorker.ready;
+    for (const [, payload] of Object.entries(filteredSeed)) {
+      debug(`${page} Sending 'refresh-data' action to service worker`, payload);
+
+      reg.active.postMessage({ 
+        action: 'refresh-data',
+        payload
+      });
+    }
+  }
+}
 
 /**
  * Create or update a page request seed object.
@@ -95,33 +163,6 @@ function filterSeed (page, seed, {
 }
 
 /**
- * Launch a series of refresh-data requests from the page request seed.
- * Defaults to getting/refreshing the 'app' storeType for the page.
- * Eventually results in 'pageDataUpdate' getting called.
- *
- * @param {String} page - The page, document name
- * @param {Object} [filterObject] - Request seed filter @see data.js/filterSeed
- * @param {Array} [filterObject.storeTypes] - The storeTypes to update
- * @param {Array} [filterObject.collections] - The collections to update
- */
-export async function updatePageData (page, filter = {
-  storeTypes: ['app']
-}) {
-  const seed = JSON.parse(localStorage.getItem(page));
-  const filteredSeed = filterSeed(page, seed, filter);
-
-  if ('serviceWorker' in navigator && filteredSeed) {
-    const reg = await navigator.serviceWorker.ready;
-    for (const [, payload] of Object.entries(filteredSeed)) {
-      reg.active.postMessage({ 
-        action: 'refresh-data',
-        payload
-      });
-    }
-  }
-}
-
-/**
  * Main handler for 'database-data-update' message from the service worker.
  * Updates memory store backing, and sends the notifications.
  *
@@ -146,99 +187,14 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
 }
 
 /**
- * Creates the data map for the given page.
- * Sets up data update handling.
- *
- * @param {String} storeType - 'app' or 'user'
- * @param {String} page - The page, document of the map to get
- * @returns {persistentMap} - The persistent map
- */
-export function createMap (storeType, page) {
-  if (!createdMaps.has(`${storeType}:${page}`)) {
-    const map = new persistentMap(`${storeType}:${page}:`, {}, { listen: true });
-    createdMaps.add(`${storeType}:${page}`);
-
-    // Install the handler for pageDataUpdate network callbacks from the service worker
-    // window.App doesn't allow duplicates
-    window.App.add('pageDataUpdate', async payload => {
-      debug(`@@@ pageDataUpdate ${page}`, payload);
-
-      const seed = JSON.parse(localStorage.getItem(page)) || undefined;
-      localStorage.setItem(
-        page, JSON.stringify(pageSeed(page, seed, payload))
-      );
-
-      await dataUpdate(payload);
-
-      disableMutation = true;
-      map.get(); // force mount if not done yet
-      disableMutation = false;
-    });
-
-    return map;
-  } else {
-    throw new Error(`${storeType}:${page} map was already created`);
-  }
-}
-
-// The time to wait to collect updates...
-// If this is in front of a UI user, this should be pretty high
-const batchTime = 5000;
-const batch = {
-  put: [],
-  delete: []
-};
-const timers = {
-  put: 0,
-  delete: 0
-};
-
-/**
- * Queue mutations.
- * Remember, since all this loads every time, the document doesn't change per memory load.
- * Every load, the reason this exists, is a page/document.
- * So just collect collections for a batch period, then let them go.
- * When the service worker gets the the notice, it reads the idb for the values on the
- * way out.
- * 
- * @param {String} op - 'put' or 'delete'
- * @param {String} storeType - 'app' or 'user'
- * @param {String} document - The document name
- * @param {String} collection - The collection name
- */
-async function batchMutation (op, storeType, document, collection) {
-  clearTimeout(timers[op]);
-
-  if (!batch[op].includes(collection)) {
-    batch[op].push(collection);
-  }
-
-  timers[op] = setTimeout(async () => {
-    if ('serviceWorker' in navigator) {
-      const reg = await navigator.serviceWorker.ready;
-      reg.active.postMessage({
-        action: `${op}-data`,
-        payload: {
-          storeType,
-          document,
-          collections: batch[op]
-        }
-      });
-    }
-    batch[op].length = 0;
-  }, batchTime);
-}
-
-/**
  * Update the database, notify listeners, queue the backend mutation request.
  * 
  * @param {String} op - 'put' or 'delete'
  * @param {String} key - The collection name
- * @param {Object} value - The collection value
- * @param {Function} notify - The listener caller to push the values out to memory
+ * @param {Object} [value] - The collection value
  * @returns 
  */
-function queueMutation (op, key, value, notify) {
+function queueMutation (op, key, value = null) {
   if (disableMutation) {
     return;
   }
@@ -254,14 +210,26 @@ function queueMutation (op, key, value, notify) {
     properties: value
   };
 
-  // queue microTask to update db, send notification to app, queue remote sync
+  // Schedule microTask to update db, queue remote sync
   Promise.resolve()
     .then(() => db[op](storeName, param))
     .then(() => {
-      notify(key, value);
-      batchMutation(op, storeType, keyPath[0], keyPath[1]);
+      if ('serviceWorker' in navigator) {
+        return navigator.serviceWorker.ready;
+      }
+      return null;
+    })
+    .then(reg => {
+      reg?.active.postMessage({
+        action: 'batch-update',
+        payload: {
+          storeType,
+          document: keyPath[0],
+          collection: keyPath[1],
+          op
+        }
+      });
     });
-
 }
 
 /**
@@ -270,7 +238,8 @@ function queueMutation (op, key, value, notify) {
 const storage = new Proxy(storageMemory, {
   set(target, name, value) {
     target[name] = value;
-    queueMutation('put', name, value, onChange);
+    onChange(name, value);
+    queueMutation('put', name, value);
     return true;
   },
   get(target, name) {
@@ -278,7 +247,8 @@ const storage = new Proxy(storageMemory, {
   },
   deleteProperty(target, name) {
     delete target[name];
-    queueMutation('delete', name, undefined, onChange);
+    onChange(name, undefined);
+    queueMutation('delete', name);
     return true;
   }
 });
@@ -296,7 +266,7 @@ function onChange (key, newValue) {
   }
 }
 
-export const events = {
+const events = {
   addEventListener (key, callback) {
     listeners.push(callback);
   },

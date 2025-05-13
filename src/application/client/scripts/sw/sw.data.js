@@ -17,10 +17,13 @@ import { _private } from 'workbox-core';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
+const batchStoreType = 'batch';
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
-const queueName = `${dbname}-requests-${apiVersion.replace('.', '-')}`;
+const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
+const batchTimer = 0;
+const batchCollectionWindow = 10000;
 
 let blocked = false;
 let db;
@@ -59,6 +62,7 @@ export function setupBackgroundRequests (syncSupport) {
 /**
  * Substitute for stock workbox Queue.replayRequests.
  * Updates local data for GETs and sends notifications to the app.
+ * Processes any left over batchUpdates.
  */
 async function replayQueueRequestsWithDataAPI ({ queue }) {
   debug('Replaying queue requests...', queue);
@@ -87,6 +91,8 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
       throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
     }
   }
+
+  await processBatchUpdates();
 }
 
 /**
@@ -147,6 +153,8 @@ async function dataAPICall (request, {
       throw new Error(`[${response.status}] ${request.method} ${request.url}`);
     }
   } catch (error) {
+    debug('dataAPICall failed', error.message);
+
     if (canSync && retry && !response) {
       queue.pushRequest({
         request,
@@ -276,6 +284,10 @@ export async function refreshData (storeType, document, collections) {
 export async function upsertData (storeType, document, collections = null) {
   debug(`upsertData, ${storeType}:${document}`, collections);
 
+  if (!storeType || !document) {
+    throw new Error('Bad input passed to upsertData');
+  }
+
   const baseUrl = `/api/data/${storeType}`;
   const url = `${baseUrl}/${document}`;
 
@@ -305,6 +317,10 @@ export async function upsertData (storeType, document, collections = null) {
 export async function deleteData (storeType, document, collectionInput = null) {
   debug(`deleteData, ${storeType}:${document}`, collectionInput);
   
+  if (!storeType || !document) {
+    throw new Error('Bad input passed to deleteData');
+  }
+
   const baseUrl = `/api/data/${storeType}`;
   let url = `${baseUrl}/${document}`;
   let collections = collectionInput;
@@ -334,6 +350,110 @@ export async function deleteData (storeType, document, collectionInput = null) {
   await dataAPICall(request);
 }
 
+async function processBatchUpdates () {
+  const storeName = makeStoreName(batchStoreType);
+  const totalRecords = await db.count(storeName);
+
+  if (totalRecords === 0) {
+    debug(`Batch process skipped, no records found in the ${storeName}`);
+    return;
+  }
+
+  const output = {
+    put: [],
+    delete: []
+  };
+  const network = {
+    put: upsertData,
+    delete: deleteData
+  };
+  
+  debug(`processBatchUpdates processing ${totalRecords} records...`);
+
+  // Sort in descending timestamp order
+  // The latest updates are always first per storeType+document+collection+op
+  const timestamps = await db.transaction(storeName).store.index('timestamp');
+
+  let lastKey;
+  for await (const cursor of timestamps.iterate(null, 'prev')) {
+    const item = cursor.value;
+    const key = `${item.storeType}${item.document}${item.collection}`;
+
+    // A new unique collection entry, latest is first, that's the op we want
+    if (key !== lastKey) {
+      const duplicate = output[item.op].find(i => (
+        i.storeType === item.storeType && i.document === item.document
+      ));
+      if (duplicate) {
+        // If we've encountered this storeType+document for this op before, add to the collections
+        if (!duplicate.collections.includes(item.collection)) { // check for old record
+          duplicate.collections.push(item.collection);
+        }
+      } else {
+        output[item.op].push({
+          storeType: item.storeType,
+          document: item.document,
+          collections: [item.collection]
+        });
+      }
+    }
+
+    lastKey = key;
+  }
+
+  debug(`processBatchUpdates processing ${output.put.length} puts, ${output.delete.length} deletes...`, output);
+
+  for (const op of Object.keys(output)) {
+    for (const item of output[op]) {
+      let deleteOK = true; // I can't think why this should be false right now, but give me time... maybe delete...
+      try {
+        await network[op](item.storeType, item.document, item.collections);
+        debug(`processBatchUpdates '${network[op].name}' succeeded for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
+      }
+      catch (e) {
+        debug(`processBatchUpdates '${network[op].name}' failed for '${op}' with '${item.storeType}:${item.document}', will retry later, continuing...`, item.collections, e);
+      }
+      if (deleteOK) {
+        const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
+        const indexCountBegin = await deleteRecords.count();
+        for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
+          cursor.delete();
+        }
+        const indexCountEnd = await deleteRecords.count();
+        debug(`processBatchUpdates '${op}' processed ${indexCountBegin - indexCountEnd} records for '${item.storeType}:${item.document}'`);
+      }
+    }
+  }
+}
+
+/**
+ * Queue a mutation record for batch processing.
+ * Reset the batchCollectionWindow.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} document - The document for these updates
+ * @param {String} collection - The collection to update
+ * @param {String} op - 'put' or 'delete'
+ */
+export async function batchUpdate (storeType, document, collection, op) {
+  debug(`batchUpdate, ${storeType}:${document}:${collection}:${op}`);
+
+  clearTimeout(batchTimer);
+
+  if (!storeType || !document || !collection || !op) {
+    throw new Error('Bad input passed to batchUpdate');
+  }
+
+  const storeName = makeStoreName(batchStoreType);
+  await db.put(storeName, {
+    storeType, document, collection, op, timestamp: Date.now()
+  });
+
+  debug(`batchCollectionWindow reset to ${batchCollectionWindow}`);
+
+  setTimeout(processBatchUpdates, batchCollectionWindow);
+}
+
 /**
  * The service worker install lifecycle handler.
  */
@@ -341,6 +461,8 @@ export async function installDatabase () {
   /* eslint-disable no-unused-vars */
   db = await openDB(dbname, schemaVersion, {
     upgrade(db, oldVersion, newVersion, transaction, event) {
+
+      // upgrade storeType objectStores...
       for (const storeType of storeTypes) {
         const storeName = makeStoreName(storeType);
         
@@ -356,7 +478,7 @@ export async function installDatabase () {
           });
         }
     
-        // Do future migrations here...
+        // Do future migrations of storeType objectStores here...
 
         // Cleanup all old objectStores after migration
         // deleteObjectStore can only be called in a version event transaction (like here).
@@ -365,6 +487,32 @@ export async function installDatabase () {
           if (db.objectStoreNames.contains(oldStoreName)) {
             db.deleteObjectStore(oldStoreName);
           }
+        }
+      }
+
+      // Upgrade bachUpdate objectStore...
+      const batchStoreName = makeStoreName(batchStoreType);
+      if (!db.objectStoreNames.contains(batchStoreName)) {
+        // storeType, document, collection, op, timestamp
+        const store = db.createObjectStore(batchStoreName, {
+          keyPath: ['storeType', 'document', 'timestamp'] // there might be duplicate collections, op
+        });
+        store.createIndex('timestamp', ['timestamp'], {
+          unique: true
+        });
+        store.createIndex('delete', ['storeType', 'document', 'op'], {
+          unique: false
+        });
+      }
+
+      // Do future migrations of batchUpdate objectStore here...
+
+      // Cleanup all old objectStores after migration
+      // deleteObjectStore can only be called in a version event transaction (like here).
+      for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
+        let oldStoreName = makeStoreName(batchStoreType, oldVersion);
+        if (db.objectStoreNames.contains(oldStoreName)) {
+          db.deleteObjectStore(oldStoreName);
         }
       }
     },

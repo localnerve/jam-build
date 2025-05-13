@@ -16,6 +16,7 @@ import {
   refreshData,
   upsertData,
   deleteData,
+  batchUpdate,
   setupBackgroundRequests
 } from './sw.data.js';
 
@@ -136,6 +137,13 @@ self.addEventListener('message', event => {
       debug('delete-data message');
       waitOrPassThru(
         deleteData(payload.storeType, payload.document, payload.collections)
+      );
+      break;
+
+    case 'batch-update':
+      debug('batch-update message');
+      waitOrPassThru(
+        batchUpdate(payload.storeType, payload.document, payload.collection, payload.op)
       );
       break;
 
