@@ -39,8 +39,13 @@
   "keywords": [
     "jam",
     "build",
+    "fullstack",
     "web",
-    "app"
+    "app",
+    "development",
+    "pwa",
+    "scalable",
+    "architecture"
   ],
   "author": "Alex Grant <alex@localnerve.com>",
   "license": "UNLICENSED",
@@ -62,7 +67,7 @@
   "devDependencies": {
     "@eslint/js": "^9.26.0",
     "@localnerve/csp-hashes": "^5.0.8",
-    "@localnerve/gulp-imagemin": "^11.5.4",
+    "@localnerve/gulp-imagemin": "^11.5.5",
     "@localnerve/gulp-responsive": "^7.3.1",
     "@localnerve/sass-asset-functions": "^6.13.0",
     "@nanostores/persistent": "^1.0.0",
@@ -93,7 +98,7 @@
     "modern-normalize": "^3.0.1",
     "pino-pretty": "^13.0.0",
     "plugin-error": "^2.0.1",
-    "puppeteer": "^24.8.1",
+    "puppeteer": "^24.8.2",
     "rimraf": "^6.0.1",
     "rollup": "^4.40.2",
     "rollup-plugin-output-manifest": "^2.0.0",
@@ -102,7 +107,7 @@
     "sitemap": "^8.0.0",
     "stylelint": "^16.19.1",
     "stylelint-config-standard": "^38.0.0",
-    "stylelint-config-standard-scss": "^14.0.0",
+    "stylelint-config-standard-scss": "^15.0.0",
     "stylelint-no-unsupported-browser-features": "^8.0.4",
     "tar": "^7.4.3",
     "testcontainers": "^10.25.0",
@@ -118,5 +123,8 @@
     "got": "^13.0.0",
     "semver-regex": "^4.0.5",
     "cross-spawn": "^7.0.6"
+  },
+  "engines": {
+    "node": "22.15.0"
   }
 }

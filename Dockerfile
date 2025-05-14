@@ -1,4 +1,4 @@
-FROM node:20.19
+FROM node:22.15.0-bullseye
 
 ARG UID=1000
 ARG GID=1000
