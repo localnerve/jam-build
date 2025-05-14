@@ -126,6 +126,18 @@ async function sendMessage (meta, payload) {
 }
 
 /**
+ * Get a reference to the database.
+ * 
+ * @returns {IDBDatabase} An idb enhanced interface to an open IDBDatabase
+ */
+async function getDB () {
+  if (!db) {
+    db = await openDB(dbname, schemaVersion);
+  }
+  return db;
+}
+
+/**
  * Make a network request to the remote data service.
  *
  * @param {Request} request - The request object
@@ -176,6 +188,7 @@ async function dataAPICall (request, {
 async function storeData (storeType, data) {
   const storeName = makeStoreName(storeType);
   const keys = [];
+  const db = await getDB();
 
   // Format and store the data
   for (const [doc_name, col] of Object.entries(data)) {
@@ -209,6 +222,7 @@ async function storeData (storeType, data) {
 async function loadData (storeType, document, collections = null) {
   const result = { collections: [] };
   const storeName = makeStoreName(storeType);
+  const db = await getDB();
 
   if (!collections) {
     const idbResults = await db.getAllFromIndex(storeName, 'document', document);
@@ -352,6 +366,7 @@ export async function deleteData (storeType, document, collectionInput = null) {
 
 async function processBatchUpdates () {
   const storeName = makeStoreName(batchStoreType);
+  const db = await getDB();
   const totalRecords = await db.count(storeName);
 
   if (totalRecords === 0) {
@@ -444,6 +459,7 @@ export async function batchUpdate (storeType, document, collection, op) {
     throw new Error('Bad input passed to batchUpdate');
   }
 
+  const db = await getDB();
   const storeName = makeStoreName(batchStoreType);
   await db.put(storeName, {
     storeType, document, collection, op, timestamp: Date.now()
