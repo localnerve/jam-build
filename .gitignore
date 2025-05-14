@@ -147,5 +147,8 @@ dump*
 # no coverage reports
 coverage
 
-#no auth files
+# no auth files
 .auth
+
+# no stats output
+stats

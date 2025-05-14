@@ -41,6 +41,7 @@ async function generateSWCustom (settings, replacements) {
   await createScripts({
     jsManifestFilename,
     prod,
+    name: 'sw.custom',
     replacements,
     nodeIncludes: [
       'src/application/client/scripts/sw/**'

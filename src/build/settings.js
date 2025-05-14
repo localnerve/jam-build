@@ -82,6 +82,7 @@ export function createSettings (prod = true) {
       dist,
       dataDir,
       prod,
+      name: 'main',
       webScripts,
       jsManifestFilename,
       replacements: {
@@ -120,6 +121,7 @@ export function createSettings (prod = true) {
       },
       scriptOptions: {
         prod,
+        name: 'templates',
         replacements: {
           POLY_TEST_FN: 'function polyTest () {\
 return !("fetch" in window && \

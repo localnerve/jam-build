@@ -4,6 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import fs from 'node:fs/promises';
 import { rollup } from 'rollup';
 import resolve from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
@@ -12,6 +13,7 @@ import alias from '@rollup/plugin-alias';
 import dynamicImportVariables from '@rollup/plugin-dynamic-import-vars';
 import pluginOutputManifest from 'rollup-plugin-output-manifest';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
+import { visualizer } from 'rollup-plugin-visualizer';
 import { loadSiteData } from './data.js';
 import pkg from '../../package.json' with { type: 'json' };
 
@@ -27,13 +29,14 @@ const { default: outputManifest } = pluginOutputManifest;
  * @param {Object} settings.rollupOutput - rollup output object.
  * @param {String} settings.jsManifestFilename - Filename for the generated manifest file.
  * @param {String} [settings.dataDir] - The directory of site-data.
+ * @param {String} [settings.name] - A name to use to identify this bundle run, used for visualizer output.
  * @param {String} [settings.webScripts] - The path to the root of scripts on the web. If supplied, creates the data.scripts namespace.
  * @param {Object} [settings.replacements] - additional replacements.
  * @param {Array<string | RegExp>} [settings.nodeIncludes] - files to match for node includes. if undefined, node plugin omitted.
  */
 export async function createScripts (settings) {
   const {
-    rollupInput, rollupOutput, prod, jsManifestFilename,
+    rollupInput, rollupOutput, prod, jsManifestFilename, name,
     replacements = {}, dataDir, webScripts, nodeIncludes
   } = settings;
   const appVersion = pkg.version;
@@ -43,7 +46,7 @@ export async function createScripts (settings) {
     data.scripts = { webScripts: webScripts.replace(/\/$/, '') };
   }
   
-  rollupInput.plugins = [
+  const rollupInputPlugins = [
     dynamicImportVariables({
       errorWhenNoFilesFound: true
     }),
@@ -65,6 +68,12 @@ export async function createScripts (settings) {
     })
   ];
 
+  if (rollupInput.plugins) {
+    rollupInput.plugins.unshift(...rollupInputPlugins);
+  } else {
+    rollupInput.plugins = rollupInputPlugins;
+  }
+
   if (nodeIncludes) {
     rollupInput.plugins.push(alias({
       entries: [{find: /^node:(.*)/, replacement: '$1'}],
@@ -77,6 +86,16 @@ export async function createScripts (settings) {
   if (prod) {
     rollupInput.plugins.push(terser());
   }
+
+  // ensure 'stats' dir
+  const statsDir = 'stats';
+  await fs.mkdir(statsDir, { recursive: true });
+
+  // Must be last plugin
+  rollupInput.plugins.push(visualizer({
+    filename: `${statsDir}/${name}.html`,
+    gzipSize: true
+  }));
 
   const bundle = await rollup(rollupInput);
   return bundle.write(rollupOutput);
