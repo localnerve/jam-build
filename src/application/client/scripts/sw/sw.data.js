@@ -14,6 +14,7 @@ import querystring from 'node:querystring';
 import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
+import { startTimer } from './sw.timer.js';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
@@ -22,8 +23,7 @@ const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bund
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
-const batchTimer = 0;
-const batchCollectionWindow = 10000;
+const batchCollectionWindow = 30000;
 
 let blocked = false;
 let db;
@@ -364,6 +364,14 @@ export async function deleteData (storeType, document, collectionInput = null) {
   await dataAPICall(request);
 }
 
+/**
+ * Reads the batch database, processes the records, performs the required actions to
+ * synchronize the remote data service.
+ * Presumes the local idb is the source of truth that need to be conveyed to the remote data service.
+ * Called from the batch timer @see batchUpdate, or on sync event or equivalent.
+ * 
+ * @returns {Promise<undefined>} fulfills when the function completes.
+ */
 async function processBatchUpdates () {
   const storeName = makeStoreName(batchStoreType);
   const db = await getDB();
@@ -385,23 +393,29 @@ async function processBatchUpdates () {
   
   debug(`processBatchUpdates processing ${totalRecords} records...`);
 
-  // Sort in descending timestamp order
-  // The latest updates are always first per storeType+document+collection+op
-  const timestamps = await db.transaction(storeName).store.index('timestamp');
+  // For iterating in descending storeType+document+collection+timestamp order
+  // The latest updates are always first per storeType+document+collection, op vary
+  const batch = await db.transaction(storeName).store.index('batch');
+  // I assume this is sorted by key ['storeType', 'document', 'collection', 'timestamp']
+  // If not, the following algorithm can duplicate operations.
+  // TODO: Verify
 
   let lastKey;
-  for await (const cursor of timestamps.iterate(null, 'prev')) {
+  for await (const cursor of batch.iterate(null, 'prev')) { // descending means latest first
     const item = cursor.value;
     const key = `${item.storeType}${item.document}${item.collection}`;
 
-    // A new unique collection entry, latest is first, that's the op we want
+    debug('processBatchUpdates loop key: ', key);
+
+    // A new unique collection in this storeType+document, latest is first, so that's the op we want
     if (key !== lastKey) {
+      // Also check for collection in other op? TODO: answer - see Verify above
       const duplicate = output[item.op].find(i => (
         i.storeType === item.storeType && i.document === item.document
       ));
       if (duplicate) {
         // If we've encountered this storeType+document for this op before, add to the collections
-        if (!duplicate.collections.includes(item.collection)) { // check for old record
+        if (!duplicate.collections.includes(item.collection)) { // if this is actually an old repeat, do nothing
           duplicate.collections.push(item.collection);
         }
       } else {
@@ -420,23 +434,25 @@ async function processBatchUpdates () {
 
   for (const op of Object.keys(output)) {
     for (const item of output[op]) {
-      let deleteOK = true; // I can't think why this should be false right now, but give me time... maybe delete...
       try {
         await network[op](item.storeType, item.document, item.collections);
-        debug(`processBatchUpdates '${network[op].name}' succeeded for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
+        debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
       }
       catch (e) {
-        debug(`processBatchUpdates '${network[op].name}' failed for '${op}' with '${item.storeType}:${item.document}', will retry later, continuing...`, item.collections, e);
+        // This only happens if the remote data service errors on the input
+        // The local copy is out of sync with the remote service here...
+        // TODO: find the exact reasons this could occur, decide if any rollback/refresh should occur, or other remedy
+        debug(`processBatchUpdates '${network[op].name}' failed for '${op}' with '${item.storeType}:${item.document}', continuing...`, item.collections, e);
       }
-      if (deleteOK) {
-        const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
-        const indexCountBegin = await deleteRecords.count();
-        for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
-          cursor.delete();
-        }
-        const indexCountEnd = await deleteRecords.count();
-        debug(`processBatchUpdates '${op}' processed ${indexCountBegin - indexCountEnd} records for '${item.storeType}:${item.document}'`);
+
+      // Always delete. If it threw, it's not going to work by retrying, the input is bad
+      const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
+      const indexCountBegin = await deleteRecords.count();
+      for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
+        await cursor.delete();
       }
+      const indexCountEnd = await deleteRecords.count();
+      debug(`processBatchUpdates '${op}' processed ${indexCountBegin - indexCountEnd} records for '${item.storeType}:${item.document}'`);
     }
   }
 }
@@ -453,21 +469,18 @@ async function processBatchUpdates () {
 export async function batchUpdate (storeType, document, collection, op) {
   debug(`batchUpdate, ${storeType}:${document}:${collection}:${op}`);
 
-  clearTimeout(batchTimer);
-
   if (!storeType || !document || !collection || !op) {
     throw new Error('Bad input passed to batchUpdate');
   }
+
+  debug(`batchCollectionWindow reset to ${batchCollectionWindow}`);
+  startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);
 
   const db = await getDB();
   const storeName = makeStoreName(batchStoreType);
   await db.put(storeName, {
     storeType, document, collection, op, timestamp: Date.now()
   });
-
-  debug(`batchCollectionWindow reset to ${batchCollectionWindow}`);
-
-  setTimeout(processBatchUpdates, batchCollectionWindow);
 }
 
 /**
@@ -511,9 +524,9 @@ export async function installDatabase () {
       if (!db.objectStoreNames.contains(batchStoreName)) {
         // storeType, document, collection, op, timestamp
         const store = db.createObjectStore(batchStoreName, {
-          keyPath: ['storeType', 'document', 'timestamp'] // there might be duplicate collections, op
+          keyPath: ['storeType', 'document', 'collection', 'timestamp']
         });
-        store.createIndex('timestamp', ['timestamp'], {
+        store.createIndex('batch', ['storeType', 'document', 'collection', 'timestamp'], {
           unique: true
         });
         store.createIndex('delete', ['storeType', 'document', 'op'], {
