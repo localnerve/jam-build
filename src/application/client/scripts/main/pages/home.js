@@ -55,5 +55,5 @@ export default async function setup (support) {
 
   await updatePageData(page);
 
-  setTimeout(testUpdate, 30000);
+  setTimeout(testUpdate, 10000);
 }
