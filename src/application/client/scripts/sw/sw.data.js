@@ -23,7 +23,7 @@ const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bund
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
-const batchCollectionWindow = 30000;
+const batchCollectionWindow = 10000;
 
 let blocked = false;
 let db;
@@ -398,18 +398,16 @@ async function processBatchUpdates () {
   const batch = await db.transaction(storeName).store.index('batch');
   // I assume this is sorted by key ['storeType', 'document', 'collection', 'timestamp']
   // If not, the following algorithm can duplicate operations.
-  // TODO: Verify
 
   let lastKey;
   for await (const cursor of batch.iterate(null, 'prev')) { // descending means latest first
     const item = cursor.value;
-    const key = `${item.storeType}${item.document}${item.collection}`;
+    const key = `${item.storeType}:${item.document}:${item.collection}`;
 
     debug('processBatchUpdates loop key: ', key);
 
     // A new unique collection in this storeType+document, latest is first, so that's the op we want
     if (key !== lastKey) {
-      // Also check for collection in other op? TODO: answer - see Verify above
       const duplicate = output[item.op].find(i => (
         i.storeType === item.storeType && i.document === item.document
       ));
@@ -447,12 +445,12 @@ async function processBatchUpdates () {
 
       // Always delete. If it threw, it's not going to work by retrying, the input is bad
       const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
-      const indexCountBegin = await deleteRecords.count();
+      let count = 0;
       for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
+        count++;
         await cursor.delete();
       }
-      const indexCountEnd = await deleteRecords.count();
-      debug(`processBatchUpdates '${op}' processed ${indexCountBegin - indexCountEnd} records for '${item.storeType}:${item.document}'`);
+      debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
     }
   }
 }
