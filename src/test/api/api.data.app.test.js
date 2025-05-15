@@ -92,7 +92,7 @@ test.describe('/api/data/app', () => {
     });
   });
 
-  test('get application docs, colls, and props', async ({ adminRequest, userRequest, request }) => {
+  test('get application docs, colls, and props - all user types', async ({ adminRequest, userRequest, request }) => {
     const requestors = [adminRequest, userRequest, request];
     for (const requestor of requestors) {
       await getData(requestor, baseUrl, (expect, json) => {
@@ -115,7 +115,7 @@ test.describe('/api/data/app', () => {
     }
   });
 
-  test('get application home', async ({ adminRequest, userRequest, request }) => {
+  test('get application home - all user types', async ({ adminRequest, userRequest, request }) => {
     const result = {
       home: {
         state: {
@@ -246,6 +246,38 @@ test.describe('/api/data/app', () => {
             property1: 'value44',
             property2: 'value45',
             property3: 'value46'    
+          }
+        }
+      });
+    });
+  });
+
+  test('missing a single property does not delete the property', async ({ adminRequest }) => {
+    await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toEqual({
+        home: {
+          friends: expect.objectContaining({
+            property3: 'value46'
+          })
+        }
+      });
+    });
+    await postData(adminRequest, `${baseUrl}/home`, { // should have no effect
+      collections: {
+        collection: 'friends',
+        properties: {
+          property1: 'value44',
+          property2: 'value45'
+        }
+      }
+    });
+    return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toStrictEqual({
+        home: {
+          friends: {
+            property1: 'value44',
+            property2: 'value45',
+            property3: 'value46'
           }
         }
       });
