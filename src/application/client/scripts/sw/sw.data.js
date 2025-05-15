@@ -51,7 +51,7 @@ export function setupBackgroundRequests (syncSupport) {
       debug('Sync queue created: ', queue);
       canSync = true;
     } else {
-      debug(`Queue ${queueName} already created`);
+      debug(`Sync queue '${queueName}' already created`);
     }
   } catch (e) {
     debug(`Couldn't create Workbox Background Sync Queue ${e.name}`);
