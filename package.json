@@ -70,7 +70,6 @@
     "@localnerve/gulp-imagemin": "^11.5.5",
     "@localnerve/gulp-responsive": "^7.3.1",
     "@localnerve/sass-asset-functions": "^6.13.0",
-    "@nanostores/persistent": "^1.0.0",
     "@playwright/test": "^1.52.0",
     "@rollup/plugin-alias": "^5.1.1",
     "@rollup/plugin-dynamic-import-vars": "^2.1.5",
@@ -123,7 +122,10 @@
     "sourcemap-codec": "npm:@jridgewell/sourcemap-codec",
     "got": "^13.0.0",
     "semver-regex": "^4.0.5",
-    "cross-spawn": "^7.0.6"
+    "cross-spawn": "^7.0.6",
+    "@localnerve/csp-hashes": {
+      "undici": "^6.21.3"
+    }
   },
   "engines": {
     "node": "22.15.0"
