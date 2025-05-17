@@ -311,6 +311,37 @@ test.describe('/api/data/app', () => {
     });
   });
 
+  test('delete a non-existent property without incident or effects', async ({ adminRequest}) => {
+    await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toStrictEqual({
+        home: {
+          friends: {
+            property1: 'value44',
+            property2: 'value45',
+            property3: 'value46'
+          }
+        }
+      });
+    });
+    await deleteData(adminRequest, `${baseUrl}/home`, {
+      collections: [{ // can be an array or one object
+        collection: 'friends',
+        properties: ['property4'] // not there
+      }]
+    });
+    await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
+      expect(json).toStrictEqual({
+        home: {
+          friends: {
+            property1: 'value44',
+            property2: 'value45',
+            property3: 'value46'
+          }
+        }
+      });
+    });
+  });
+
   test('delete a single property', async ({ adminRequest }) => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
