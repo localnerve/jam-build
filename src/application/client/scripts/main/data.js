@@ -41,20 +41,23 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
 
   if (!storeNames.has(storeType)) {
     storeNames.set(storeType, storeName);
+    store[storeType] = {};
   }
 
   for (const [docName, colName] of keys) {
     const entry = await db.get(storeName, [docName, colName]);
     const value = entry.properties;
 
-    store[storeType] = store[storeType] ?? {};
     store[storeType][docName] = store[storeType][docName] ?? {};
     store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
-    store[storeType][docName][colName] = {
-      ...store[storeType][docName][colName],
-      ...value
-    };
 
+    const deletes = (new Set(Object.keys(store[storeType][docName][colName])))
+      .difference(new Set(Object.keys(value)));
+    for (const prop of deletes) {
+      delete store[storeType][docName][colName][prop];
+    }
+    Object.assign(store[storeType][docName][colName], value);
+    
     onChange('update', [storeType, docName, colName], value);
   }
 }
