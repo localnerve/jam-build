@@ -61,6 +61,8 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
 
 /**
  * Perform the update(s) required to reflect the in memory store in idb.
+ *   'put' only writes entire documents or [document, collections]
+ *   'delete' allows document, collection, or property removal
  * 
  * @param {String} op - 'put' or 'delete'
  * @param {String} storeType - 'app' or 'user'
