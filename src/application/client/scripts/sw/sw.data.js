@@ -6,6 +6,7 @@
  * Build time replacements:
  *   API_VERSION - The X-Api-Version header value that corresponds to the api for this app version.
  *   SCHEMA_VERSION - The schema version corresponding to this app version.
+ *   process.env.NODE_ENV - 'production' or not
  *
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
@@ -23,7 +24,7 @@ const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bund
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
-const batchCollectionWindow = 10000;
+const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 8000 : 3000; // eslint-disable-line -- assigned at bundle time
 
 let blocked = false;
 let db;
@@ -252,11 +253,12 @@ async function loadData (storeType, document, collections = null) {
 /**
  * Refresh the local store copy with remote data.
  *
- * @param {String} storeType - 'app' or 'user'
- * @param {String} [document] - document name
- * @param {String|Array<String>} [collections] - collection name(s) to get
+ * @param {Object} payload - payload parameters
+ * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} [payload.document] - document name
+ * @param {String|Array<String>} [payload.collections] - collection name(s) to get
  */
-export async function refreshData (storeType, document, collections) {
+export async function refreshData ({ storeType, document, collections }) {
   debug(`refreshData, ${storeType}:${document}`, collections);
 
   const baseUrl = `/api/data/${storeType}`;
@@ -291,11 +293,12 @@ export async function refreshData (storeType, document, collections) {
 /**
  * Synchronize local data updates with the remote data service.
  * 
- * @param {String} storeType - 'app' or 'user'
- * @param {String} document - The document to which the update applies
- * @param {Array<String>} [collections] - The collections to upsert, omit for all
+ * @param {Object} payload - payload parameters
+ * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.document - The document to which the update applies
+ * @param {Array<String>} [payload.collections] - The collections to upsert, omit for all
  */
-export async function upsertData (storeType, document, collections = null) {
+export async function upsertData ({ storeType, document, collections = null }) {
   debug(`upsertData, ${storeType}:${document}`, collections);
 
   if (!storeType || !document) {
@@ -324,12 +327,13 @@ export async function upsertData (storeType, document, collections = null) {
  * Formats data for the delete api methods if input is String|Array<String>.
  * If input is Object|Array<Object> this assumes the data is already formatted.
  * 
- * @param {String} storeType - 'app' or 'user'
- * @param {String} document - The document to which the delete applies
- * @param {String|Array<String>|Object|Array<Object>} [collectionInput] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
+ * @param {Object} payload - parameters
+ * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.document - The document to which the delete applies
+ * @param {String|Array<String>|Object|Array<Object>} [payload.collections] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
  */
-export async function deleteData (storeType, document, collectionInput = null) {
-  debug(`deleteData, ${storeType}:${document}`, collectionInput);
+export async function deleteData ({ storeType, document, collections }) {
+  debug(`deleteData, ${storeType}:${document}`, collections);
   
   if (!storeType || !document) {
     throw new Error('Bad input passed to deleteData');
@@ -337,17 +341,16 @@ export async function deleteData (storeType, document, collectionInput = null) {
 
   const baseUrl = `/api/data/${storeType}`;
   let url = `${baseUrl}/${document}`;
-  let collections = collectionInput;
 
   if (typeof collections === 'string') {
     url += `/${collections}`;
-    collections = false;
+    collections = false; // eslint-disable-line no-param-reassign
   }
 
   if (Array.isArray(collections)) {
     if (collections.every(c => typeof c === 'string')) {
-      collections = collections.map(colName => ({
-        collection_name: colName
+      collections = collections.map(colName => ({ // eslint-disable-line no-param-reassign
+        collection: colName
       }));
     }
   }
@@ -387,6 +390,8 @@ async function processBatchUpdates () {
     delete: []
   };
   const network = {
+    // keys (network ops) iterated by ascending chronological order of property creation
+    // because we use upserts, deletes should come last
     put: upsertData,
     delete: deleteData
   };
@@ -399,28 +404,47 @@ async function processBatchUpdates () {
   // I assume this is sorted by key ['storeType', 'document', 'collection', 'timestamp']
   // If not, the following algorithm can duplicate operations.
 
+  // vvv
+  // TODO: handle cross op overriding priorities for document, collection level deletes
+  // TODO: handle overriding priorities for document puts
+
   let lastKey;
   for await (const cursor of batch.iterate(null, 'prev')) { // descending means latest first
     const item = cursor.value;
-    const key = `${item.storeType}:${item.document}:${item.collection}`;
+    const key = `${item.storeType}:${item.document}:${item.collection}:${item.propertyName}`;
 
-    debug('processBatchUpdates loop key: ', key);
+    debug('processBatchUpdates loop key: ', key, item.op);
 
-    // A new unique collection in this storeType+document, latest is first, so that's the op we want
     if (key !== lastKey) {
       const duplicate = output[item.op].find(i => (
         i.storeType === item.storeType && i.document === item.document
       ));
       if (duplicate) {
-        // If we've encountered this storeType+document for this op before, add to the collections
-        if (!duplicate.collections.includes(item.collection)) { // if this is actually an old repeat, do nothing
+        if (!duplicate.collections.includes(item.collection)) {
           duplicate.collections.push(item.collection);
         }
+        let props = duplicate?.properties?.get(item.collection);
+        if (props) {
+          if (!props.includes(item.propertyName)) {
+            props.push(item.propertyName);
+          }
+        } else {
+          props = duplicate?.properties?.set(item.collection, item.propertyName ? [item.propertyName] : []);
+          if (props) {
+            props.hasProps = item.propertyName ? true : false;
+          }
+        }
       } else {
+        let properties;
+        if (item.op === 'delete') {
+          properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
+          properties.hasProps = item.propertyName ? true : false;
+        }
         output[item.op].push({
           storeType: item.storeType,
           document: item.document,
-          collections: [item.collection]
+          collections: [item.collection],
+          properties
         });
       }
     }
@@ -433,7 +457,13 @@ async function processBatchUpdates () {
   for (const op of Object.keys(output)) {
     for (const item of output[op]) {
       try {
-        await network[op](item.storeType, item.document, item.collections);
+        if (op === 'delete' && item.properties.hasProps) {
+          item.collections = item.collections.map(collection => ({
+            collection,
+            properties: item.properties.get(collection)
+          }));
+        }
+        await network[op](item);
         debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
       }
       catch (e) {
@@ -441,6 +471,7 @@ async function processBatchUpdates () {
         // The local copy is out of sync with the remote service here...
         // TODO: find the exact reasons this could occur, decide if any rollback/refresh should occur, or other remedy
         debug(`processBatchUpdates '${network[op].name}' failed for '${op}' with '${item.storeType}:${item.document}', continuing...`, item.collections, e);
+        // TODO: revisit. considering refreshData
       }
 
       // Always delete. If it threw, it's not going to work by retrying, the input is bad
@@ -459,14 +490,16 @@ async function processBatchUpdates () {
  * Queue a mutation record for batch processing.
  * Reset the batchCollectionWindow.
  * 
- * @param {String} storeType - 'app' or 'user'
- * @param {String} document - The document for these updates
- * @param {String} collection - The collection to update
- * @param {String} op - 'put' or 'delete'
+ * @param {Object} payload - The message payload object
+ * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.document - The document for these updates
+ * @param {String} payload.collection - The collection to update
+ * @param {String} payload.op - 'put' or 'delete'
+ * @param {String} [payload.propertyName] - The property name to delete, op must === 'delete'
  */
-export async function batchUpdate (storeType, document, collection, op) {
-  debug(`batchUpdate, ${storeType}:${document}:${collection}:${op}`);
-
+export async function batchUpdate ({ storeType, document, collection, op, propertyName }) {
+  debug(`batchUpdate, ${op}:${storeType}:${document}:${collection}:${propertyName}`);
+  
   if (!storeType || !document || !collection || !op) {
     throw new Error('Bad input passed to batchUpdate');
   }
@@ -477,7 +510,7 @@ export async function batchUpdate (storeType, document, collection, op) {
   const db = await getDB();
   const storeName = makeStoreName(batchStoreType);
   await db.put(storeName, {
-    storeType, document, collection, op, timestamp: Date.now()
+    storeType, document, collection, op, propertyName, timestamp: Date.now()
   });
 }
 
@@ -522,9 +555,9 @@ export async function installDatabase () {
       if (!db.objectStoreNames.contains(batchStoreName)) {
         // storeType, document, collection, op, timestamp
         const store = db.createObjectStore(batchStoreName, {
-          keyPath: ['storeType', 'document', 'collection', 'timestamp']
+          keyPath: ['storeType', 'document', 'collection', 'timestamp', 'propertyName']
         });
-        store.createIndex('batch', ['storeType', 'document', 'collection', 'timestamp'], {
+        store.createIndex('batch', ['storeType', 'document', 'collection', 'timestamp', 'propertyName'], {
           unique: true
         });
         store.createIndex('delete', ['storeType', 'document', 'op'], {
@@ -563,5 +596,5 @@ export async function activateDatabase () {
     await installDatabase();
   }
   
-  await refreshData('app');
+  await refreshData({ storeType: 'app' });
 }

@@ -6,32 +6,34 @@
  */
 import { updatePageData } from '../request.js';
 import { createStore } from '../data.js';
-
 import debugLib from '@localnerve/debug';
 
-const debug = debugLib('home');
 const page = 'home';
-
-const appStore = await createStore('app', page);
+const debug = debugLib(page);
+let appStore;
 
 async function testUpdate () {
-  debug('@@@ testUpdate get state');
-  const { state, friends } = appStore[page];
+  const homeStore = appStore[page];
+  const { state, friends } = homeStore;
   debug('state: ', state);
 
-  debug('@@@ testUpdate set state (2)');
   state.newItem = 'hello there';
   state.newItem2 = 'how you doin?';
   state.newItem3 = 'the weather is nice';
 
-  debug('@@@ deleting state property newItem2');
   delete state.newItem2;
 
-  debug('@@@ update friends');
   friends.newFriend = 'Fred Friendly';
-  // !!!
-  // TODO: handle if you delete newFriend right here - you will end up with a delete for a new property that never went.
-  // So you'll have to check for a delete that wins over a put for the same collection or property.
+  friends.newFriend2 = 'Dolly Parton';
+  friends.newFriend3 = 'Don Johnson';
+
+  delete friends.newFriend;
+  delete state.property1;
+  delete state.property4;
+
+  // should be
+  // 2 upserts, state [newItem, newItem3], friends [newFriend2, newFriend3]
+  // 2 deletes, state [newItem2 (nonexist), property1, property4], friends [newFriend (nonexist)]
 }
 
 /**
@@ -40,9 +42,11 @@ async function testUpdate () {
  * @param {Object} support - The browser support object
  */
 export default async function setup (support) {
-  debug(`${page} setup...`, support);
+  debug('setup...', support);
 
   await updatePageData(page);
+
+  appStore = await createStore('app', page);
 
   setTimeout(testUpdate, 15000);
 }

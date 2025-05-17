@@ -122,28 +122,28 @@ self.addEventListener('message', event => {
     case 'refresh-data':
       debug('refresh-data message');
       waitOrPassThru(
-        refreshData(payload.storeType, payload.document, payload.collections)
+        refreshData(payload)
       );
       break;
 
     case 'put-data':
       debug('put-data message');
       waitOrPassThru(
-        upsertData(payload.storeType, payload.document, payload.collections)
+        upsertData(payload)
       );
       break;
 
     case 'delete-data':
       debug('delete-data message');
       waitOrPassThru(
-        deleteData(payload.storeType, payload.document, payload.collections)
+        deleteData(payload)
       );
       break;
 
     case 'batch-update':
       debug('batch-update message');
       waitOrPassThru(
-        batchUpdate(payload.storeType, payload.document, payload.collection, payload.op)
+        batchUpdate(payload)
       );
       break;
 

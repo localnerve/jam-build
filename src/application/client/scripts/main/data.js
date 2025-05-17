@@ -11,10 +11,16 @@ import { pageSeed } from './seed.js';
 const debug = debugLib('data');
 
 let db;
+let swActive;
 let listeners = [];
 const store = {};
 const storeNames = new Map();
-const createdStores = new Set();
+const createdStores = new Map();
+
+if ('serviceWorker' in navigator) {
+  const reg = await navigator.serviceWorker.ready;
+  swActive = reg.active;
+}
 
 /**
  * Main handler for 'database-data-update' message from the service worker.
@@ -43,7 +49,9 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
 
     store[storeType] = store[storeType] ?? {};
     store[storeType][docName] = store[storeType][docName] ?? {};
-    store[storeType][docName][colName] = store[storeType][docName][colName] ?? {
+    store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
+    store[storeType][docName][colName] = {
+      ...store[storeType][docName][colName],
       ...value
     };
 
@@ -52,53 +60,145 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
 }
 
 /**
- * Update the database, notify listeners, queue the backend mutation request.
+ * Perform the update(s) required to reflect the in memory store in idb.
  * 
  * @param {String} op - 'put' or 'delete'
- * @param {Array} key - The keypath to the update
- * @param {Object} [value] - The collection value
+ * @param {String} storeType - 'app' or 'user'
+ * @param {Array} keyPath - The keyPath to the data [document, collection]
+ * @param {String|Nullish} [propertyName] - The propertyName (deleteOnly)
  * @returns 
  */
-function queueMutation (op, key, value = null) {
-  const storeType = key[0];
-  const keyPath = key.slice(1, 3);
-  const propertyName = key.slice(3);
+async function performDatabaseUpdate (op, storeType, keyPath, propertyName = null) {
+  debug('performDatabaseUpdate', op, storeType, keyPath, propertyName);
+
   const document = keyPath[0];
   const collection = keyPath[1];
   const storeName = storeNames.get(storeType);
+  let result = false;
 
-  const param = op == 'delete' ? keyPath : {
-    document_name: document,
-    collection_name: collection,
-    properties: value
-  };
-
-  // Schedule microTask to update db, queue remote sync
-  Promise.resolve()
-    .then(() => db[op](storeName, param))
-    .then(() => {
-      if ('serviceWorker' in navigator) {
-        return navigator.serviceWorker.ready.then(reg => {
-          reg.active.postMessage({
-            action: 'batch-update',
-            payload: {
-              storeType,
-              document,
-              collection,
-              propertyName, // TODO: make sure this is handled in sw.data
-              op
-            }
-          });
-        });
+  switch (op) {
+    case 'delete':
+      if (collection) {
+        if (propertyName) { // delete single property
+          debug(`deleting propertyName '${propertyName}' from '${collection}'...`);
+          const item = await db.get(storeName, keyPath);
+          debug(`deleting propertyName '${propertyName}' from item.properties...`, item.properties);
+          if (propertyName in item.properties) {
+            delete item.properties[propertyName];
+            await db.put(storeName, item);
+            debug(`deleted propertyName '${propertyName}' from '${collection}'`);
+          }
+          // If its not there, it might've already been removed from idb by a preceeding put.
+          // Declare victory anyways, remote service will ignore non-existant property deletion attempts.
+          result = true;
+        } else { // delete whole collection
+          debug(`deleting collection '${collection}'...`);
+          await db.delete(storeName, keyPath);
+          debug(`deleted collection '${collection}'`);
+          result = true;
+        }
+      } else { // delete the whole document
+        debug(`deleting document '${document}'...`);
+        const docs = await db.transaction(storeName).store.index('document');
+        for await (const cursor of docs.iterate(IDBKeyRange.only(document))) {
+          await cursor.delete();
+        }
+        debug(`deleted document '${document}'`);
+        result = true;
       }
-    });
+      break;
+
+    case 'put':
+      if (collection) { // put collection and/or properties
+        debug(`putting collection ${collection}...`);
+        await db.put(storeName, {
+          document_name: document,
+          collection_name: collection,
+          properties: store[storeType][document][collection]
+        });
+        debug(`put collection ${collection}`);
+        result = true;
+      } else { // put whole document
+        debug(`putting document '${document}'...`);
+        const doc = store[storeType][document];
+        for (const collection of Object.keys(doc)) {
+          await db.put({
+            document_name : document,
+            collection_name: collection,
+            properties: doc[collection]
+          });
+        }
+        debug(`put document '${document}'`);
+        result = true;
+      }
+      break;
+    
+    default:
+      break;
+  }
+
+  return result;
 }
 
 /**
+ * Time batch mutation queue
+ */
+let mutationTimer = 0;
+const mutationQueue = [];
+async function serviceMutationQueue () {
+  let mutation;
+  const queue = mutationQueue.slice(0);
+  mutationQueue.length = 0;
+  while ((mutation = queue.shift())) {
+    await mutation();
+  }
+}
+
+/**
+ * Update the database, notify listeners, queue the backend mutation request.
+ * 
+ * @param {String} op - 'put' or 'delete'
+ * @param {Array} key - The keypath to the update [storeType, document, collection, propertyName]
+ * @returns nothing
+ */
+function queueMutation (op, key) {
+  debug(`queueMutation ${op} ${key}`);
+
+  clearTimeout(mutationTimer);
+
+  const storeType = key[0];
+  const keyPath = key.slice(1, 3);
+  const propertyName = key.length > 3 ? key[3] : null;
+  const document = keyPath[0];
+  const collection = keyPath[1]; // could be undefined
+
+  // Schedule task to update db, queue remote sync
+  mutationQueue.push(async () => {
+    const result = await performDatabaseUpdate(op, storeType, keyPath, propertyName);
+    if (result && swActive) {
+      debug('Sending batch-update...', op, key);
+      swActive.postMessage({
+        action: 'batch-update',
+        payload: {
+          storeType,
+          document,
+          collection,
+          propertyName,
+          op
+        }
+      });
+    }
+  });
+
+  mutationTimer = setTimeout(serviceMutationQueue, 67);
+}
+
+/**
+ * Notify the listeners and schedule work for mutation ops.
  * 
  * @param {String} op - 'update', 'put', or 'delete'
- * @param {Array} key - The keypath of the update
- * @param {Object} value 
+ * @param {Array} key - The keypath of the update [storeType, document, collection, property]
+ * @param {Object} [value] - Undefined for deletes
  */
 function onChange(op, key, value) {
   debug('onChange: ', op, key, value);
@@ -108,13 +208,15 @@ function onChange(op, key, value) {
     i(event);
   }
 
-  if (['put', 'delete'].includes(op)) {
-    queueMutation(op, key, value);
+  // Must be a mutation on at least the document level
+  if (['put', 'delete'].includes(op) && key.length > 1) {
+    queueMutation(op, key);
   }
 }
 
 /**
  * Recursive proxy handler.
+ * This formats the key into an array and sets the mutation op for changes.
  * 
  * @param {Array} path - The keypath to 'here'
  * @returns {Object} The proxy handler for this keypath
@@ -129,23 +231,26 @@ function createHandler (path = []) {
       return target[key];
     },
     set: (target, key, value) => {
-      onChange('put', [...path, key], value);
       target[key] = value;
+      onChange('put', [...path, key], value);
       return true;
     },
     deleteProperty(target, key) {
-      onChange('delete', [...path, key], undefined);
       delete target[key];
+      onChange('delete', [...path, key], undefined);
       return true;
     }
   };
 }
 
+/**
+ * Allow clients to listen to changes
+ */
 export const storeEvents = {
   addEventListener (listenKey, callback) {
     listeners.push(event => {
       const { key } = event;
-      if (key.includes(listenKey)) callback();
+      if (key.includes(listenKey)) callback(event);
     });
   },
   removeEventListener (key, callback) {
@@ -154,45 +259,52 @@ export const storeEvents = {
 };
 
 /**
- * Creates the connected data store for the given page.
+ * Creates the connected data store for the given storeType.
  * Sets up data service worker data update handling.
- * Should only be called once per page load.
  *
  * @param {String} storeType - 'app' or 'user'
- * @param {String} page - The page, document of the map to get
+ * @param {String} page - The page, document for use
  * @returns {Object} - The connected data store for the storeType
  */
 export async function createStore (storeType, page) {
-  if (!createdStores.has(`${storeType}:${page}`)) {
-    debug(`Creating store for ${storeType}:${page}...`);
+  const storeKey = storeType;
 
-    let dataIsReady;
-    const waitForStore = new Promise(resolve => dataIsReady = resolve);
+  if (!createdStores.has(storeKey)) {
+    debug(`Creating store for ${storeKey}...`);
+
+    let initSignal = null;
+    const waitForInitialStore = new Promise(resolve => initSignal = resolve);
   
     // Install the handler for pageDataUpdate network callbacks from the service worker
-    // (window.App.add discards duplicate adds)
+    // (window.App.add discards duplicate adds, returns false)
     const installed = window.App.add('pageDataUpdate', async payload => {
       debug(`Page ${page} received pageDataUpdate from service worker`, payload);
 
+      // Update the request seed for the page with any new data that arrived
+      // TODO: review the need to key seeds by page. shouldn't key by storeType?
       const seed = JSON.parse(localStorage.getItem(page)) || undefined;
       localStorage.setItem(
         page, JSON.stringify(pageSeed(page, seed, payload))
       );
 
+      // Update the store, sends onChange 'update'
       await dataUpdate(payload);
 
-      dataIsReady();
+      if (typeof initSignal === 'function') {
+        initSignal();
+      }
     });
 
     if (installed) {
-      await waitForStore;
+      await waitForInitialStore;
+      initSignal = null;
     }
 
     const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
-    createdStores.add(`${storeType}:${page}`);
+    createdStores.set(storeKey, connectedStore);
 
     return connectedStore;
-  } else {
-    throw new Error(`${storeType}:${page} map was already created`);
   }
+
+  return createdStores.get(storeKey);
 }
