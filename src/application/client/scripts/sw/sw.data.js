@@ -24,7 +24,7 @@ const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bund
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
-const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 8000 : 3000; // eslint-disable-line -- assigned at bundle time
+const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 20000 : 3000; // eslint-disable-line -- assigned at bundle time
 
 let blocked = false;
 let db;
@@ -386,12 +386,13 @@ async function processBatchUpdates () {
   }
 
   const output = {
+    // Property order here controls network call order.
+    // Keys (ops) iterated by ascending chronological order of property creation...
+    // because we use upserts, deletes should come last
     put: [],
     delete: []
   };
   const network = {
-    // keys (network ops) iterated by ascending chronological order of property creation
-    // because we use upserts, deletes should come last
     put: upsertData,
     delete: deleteData
   };
@@ -458,13 +459,14 @@ async function processBatchUpdates () {
   for (const op of Object.keys(output)) {
     for (const item of output[op]) {
       try {
-        if (op === 'delete' && item.properties.hasProps) {
-          item.collections = item.collections.map(collection => ({
+        const request = { ...item };
+        if (op === 'delete' && request.properties.hasProps) {
+          request.collections = request.collections.map(collection => ({
             collection,
             properties: item.properties.get(collection)
           }));
         }
-        await network[op](item);
+        await network[op](request);
         debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
       }
       catch (e) {
