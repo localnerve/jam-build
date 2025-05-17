@@ -454,6 +454,7 @@ async function processBatchUpdates () {
 
   debug(`processBatchUpdates processing ${output.put.length} puts, ${output.delete.length} deletes...`, output);
 
+  const reconcile = [];
   for (const op of Object.keys(output)) {
     for (const item of output[op]) {
       try {
@@ -467,11 +468,14 @@ async function processBatchUpdates () {
         debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
       }
       catch (e) {
-        // This only happens if the remote data service errors on the input
-        // The local copy is out of sync with the remote service here...
-        // TODO: find the exact reasons this could occur, decide if any rollback/refresh should occur, or other remedy
+        const exist = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
+        if (exist) {
+          const newColl = (new Set(item.collections)).difference(new Set(exist.collections));
+          exist.collections.push(...newColl);
+        } else {
+          reconcile.push(item);
+        }
         debug(`processBatchUpdates '${network[op].name}' failed for '${op}' with '${item.storeType}:${item.document}', continuing...`, item.collections, e);
-        // TODO: revisit. considering refreshData
       }
 
       // Always delete. If it threw, it's not going to work by retrying, the input is bad
@@ -483,6 +487,14 @@ async function processBatchUpdates () {
       }
       debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
     }
+  }
+
+  // This only happens if the remote data service errors on the input
+  // The local copy is out of sync with the remote service here...
+  // TODO: find the exact reasons this could occur, decide if any rollback/refresh should occur, or other remedy
+  // TODO: doing refreshData. revisit
+  for (const item of reconcile) {
+    refreshData(item);
   }
 }
 
