@@ -5,12 +5,21 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { updatePageData } from '../request.js';
-import { createStore } from '../data.js';
+import { createStore, storeEvents } from '../data.js';
 import debugLib from '@localnerve/debug';
 
 const page = 'home';
 const debug = debugLib(page);
 let appStore;
+
+function updatedData () {
+  const homeStore = appStore[page];
+  const { state } = homeStore;
+  debug('Updated state: ', state);
+
+  debug('Still wired?');
+  state.property1 = 'Updated Property1';
+}
 
 async function testUpdate () {
   const homeStore = appStore[page];
@@ -48,5 +57,10 @@ export default async function setup (support) {
 
   appStore = await createStore('app', page);
 
-  setTimeout(testUpdate, 15000);
+  storeEvents.addEventListener(page, ({ key, value }) => {
+    debug(`@@@ ${page} changed: `, key, value);
+  });
+
+  setTimeout(testUpdate, 10000);
+  setTimeout(updatedData, 40000); // after the failures
 }
