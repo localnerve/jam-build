@@ -498,7 +498,9 @@ async function processBatchUpdates () {
       }
       try {
         await network[op](request);
-        debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${request.storeType}:${request.document}'`, request.collections);
+        debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${request.storeType}:${request.document}'`, {
+          ...request.collections
+        });
       }
       catch (e) {
         const failure = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
@@ -508,7 +510,9 @@ async function processBatchUpdates () {
         } else {
           reconcile.push(request);
         }
-        debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${request.storeType}:${request.document}', continuing...`, request.collections, e);
+        debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${request.storeType}:${request.document}', continuing...`, {
+          ...request.collections
+        }, e);
       }
 
       // Always delete. If it threw, it's not going to work by retrying, the input is bad
