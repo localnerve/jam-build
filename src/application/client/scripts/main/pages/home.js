@@ -9,7 +9,9 @@ import { createStore, storeEvents } from '../data.js';
 import debugLib from '@localnerve/debug';
 
 const page = 'home';
+
 const debug = debugLib(page);
+
 let appStore;
 
 function updatedData () {
@@ -53,14 +55,14 @@ async function testUpdate () {
 export default async function setup (support) {
   debug('setup...', support);
 
-  await updatePageData(page);
-
-  appStore = await createStore('app', page);
-
+  // Every page should have this startup to listen, refresh, and get stores.
   storeEvents.addEventListener(page, ({ key, value }) => {
     debug(`@@@ ${page} changed: `, key, value);
   });
+  await updatePageData(page);
+  appStore = await createStore('app', page);
 
+  // tests n stuff
   setTimeout(testUpdate, 10000);
   setTimeout(updatedData, 40000); // after the failures
 }
