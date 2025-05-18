@@ -468,9 +468,13 @@ async function processBatchUpdates () {
       }
       if (!sameOpDuplicate && !deletedLater) {
         let properties;
-        if (item.op === 'delete' && item.collection) { // deletes can have properties
-          properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
-          properties.hasProps = item.propertyName ? true : false;
+        if (item.op === 'delete') { // deletes can have properties
+          if (item.collection) {
+            properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
+            properties.hasProps = item.propertyName ? true : false;
+          } else { // this is a document delete
+            properties = { set(){}, get(){}, hasProps: false };
+          }
         }
         output[item.op].push({
           storeType: item.storeType,
@@ -529,8 +533,14 @@ async function processBatchUpdates () {
   // This only happens if the remote data service errors on the input
   // The local copy is out of sync with the remote service, reconcile contains all the failed items
   // TODO: find the exact reasons this could occur, revisit user notification strategy
+  // TODO: if refresh fails, what next? if doc/collection doesn't exist (is new) it will fail 404 not found
   for (const item of reconcile) {
-    refreshData(item);
+    debug('Reconciling by refreshData ', { ...item });
+    try {
+      await refreshData(item);
+    } catch (e) {
+      debug(`Failed to reconcile ${item.storeType}:${item.document}`, { ...item }, e);
+    }
   }
 }
 
