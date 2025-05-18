@@ -458,7 +458,7 @@ async function processBatchUpdates () {
             } else {
               props = sameOpDuplicate.properties?.set(item.collection, item.propertyName ? [item.propertyName] : []);
               if (props) {
-                props.hasProps = item.propertyName ? true : false;
+                props.hasProps = props.hasProps || (item.propertyName ? true : false);
               }
             }
           }
