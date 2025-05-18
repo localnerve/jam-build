@@ -104,7 +104,7 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
         }
       } else { // delete the whole document
         debug(`deleting document '${document}'...`);
-        const docs = await db.transaction(storeName).store.index('document');
+        const docs = await db.transaction(storeName, 'readwrite').store.index('document');
         for await (const cursor of docs.iterate(IDBKeyRange.only(document))) {
           await cursor.delete();
         }
@@ -126,11 +126,11 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
       } else { // put whole document
         debug(`putting document '${document}'...`);
         const doc = store[storeType][document];
-        for (const collection of Object.keys(doc)) {
-          await db.put({
+        for (const coll of Object.keys(doc)) {
+          await db.put(storeName, {
             document_name : document,
-            collection_name: collection,
-            properties: doc[collection]
+            collection_name: coll,
+            properties: doc[coll] || {}
           });
         }
         debug(`put document '${document}'`);
