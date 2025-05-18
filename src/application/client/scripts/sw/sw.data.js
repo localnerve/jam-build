@@ -535,16 +535,21 @@ async function processBatchUpdates () {
  * @param {Object} payload - The message payload object
  * @param {String} payload.storeType - 'app' or 'user'
  * @param {String} payload.document - The document for these updates
- * @param {String} payload.collection - The collection to update
  * @param {String} payload.op - 'put' or 'delete'
+ * @param {String} [payload.collection] - The collection to update
  * @param {String} [payload.propertyName] - The property name to delete, op must === 'delete'
  */
-export async function batchUpdate ({ storeType, document, collection, op, propertyName }) {
+export async function batchUpdate ({ storeType, document, op, collection, propertyName }) {
   debug(`batchUpdate, ${op}:${storeType}:${document}:${collection}:${propertyName}`);
   
-  if (!storeType || !document || !collection || !op) {
+  if (!storeType || !document || !op) {
     throw new Error('Bad input passed to batchUpdate');
   }
+
+  /* eslint-disable no-param-reassign */
+  collection = collection ?? '';
+  propertyName = propertyName ?? '';
+  /* eslint-enable no-param-reassign */
 
   debug(`batchCollectionWindow reset to ${batchCollectionWindow}`);
   startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);

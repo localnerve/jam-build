@@ -88,13 +88,13 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
           debug(`deleting propertyName '${propertyName}' from '${collection}'...`);
           const item = await db.get(storeName, keyPath);
           debug(`deleting propertyName '${propertyName}' from item.properties...`, item.properties);
-          if (propertyName in item.properties) {
+          if (item.properties && propertyName in item.properties) {
             delete item.properties[propertyName];
             await db.put(storeName, item);
             debug(`deleted propertyName '${propertyName}' from '${collection}'`);
           }
-          // If its not there, it might've already been removed from idb by a preceeding put.
-          // Declare victory anyways, remote service will ignore non-existant property deletion attempts.
+          // If its not there, it might've already been removed from idb by a preceeding op.
+          // Declare victory anyways, duplicates will be removed, and the remote service ignores non-existant property deletion attempts.
           result = true;
         } else { // delete whole collection
           debug(`deleting collection '${collection}'...`);
