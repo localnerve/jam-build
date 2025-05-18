@@ -432,10 +432,11 @@ async function processBatchUpdates () {
           return i; // whole doc was deleted later, this item is irrelevant
         }
         const matchingDocCol = matchingDoc && i.collections.includes(item.collection);
-        if (matchingDocCol && !i.properties.hasProps) {
+        const props = i.properties.get(item.collection);
+        if (matchingDocCol && !props.length) {
           return i; // whole collection was deleted later, this item is irrelevant
         }
-        if (matchingDocCol && i.properties.get(item.propertyName)) {
+        if (matchingDocCol && props.includes(item.propertyName)) {
           return i; // property was deleted later, this item is irrelevant
         }
       });
@@ -446,13 +447,14 @@ async function processBatchUpdates () {
         ));
         if (sameOpDuplicate) {
           // if there are ZERO collections, a full doc put or delete came later, discard this item
-          if (sameOpDuplicate.collections.length > 0) {
+          if (sameOpDuplicate.collections.length > 0 && item.collection) {
             if (sameOpDuplicate.collections.length > 0 && !sameOpDuplicate.collections.includes(item.collection)) {
               sameOpDuplicate.collections.push(item.collection);
             }
             let props = sameOpDuplicate.properties?.get(item.collection);
             if (props) {
-              if (!props.includes(item.propertyName)) {
+              // If there's an existing delete with 0 props, its for the whole collection, discard this item
+              if (props.length > 0 && item.propertyName && !props.includes(item.propertyName)) {
                 props.push(item.propertyName);
               }
             } else {
@@ -557,7 +559,7 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   const db = await getDB();
   const storeName = makeStoreName(batchStoreType);
   await db.put(storeName, {
-    storeType, document, collection, op, propertyName, timestamp: Date.now()
+    storeType, document, collection, op, propertyName, timestamp: performance.now()
   });
 }
 
@@ -604,7 +606,7 @@ export async function installDatabase () {
         const store = db.createObjectStore(batchStoreName, {
           keyPath: ['storeType', 'document', 'collection', 'timestamp', 'propertyName']
         });
-        store.createIndex('batch', ['storeType', 'document', 'collection', 'timestamp', 'propertyName'], {
+        store.createIndex('batch', ['timestamp', 'storeType', 'document', 'collection'], {
           unique: true
         });
         store.createIndex('delete', ['storeType', 'document', 'op'], {
