@@ -325,7 +325,7 @@ export async function upsertData ({ storeType, document, collections = null }) {
 /**
  * Synchronize local data deletions with the remote data service.
  * Formats data for the delete api methods if input is String|Array<String>.
- * If input is Object|Array<Object> this assumes the data is already formatted.
+ * If input is Object|Array<Object> this assumes the data is already formatted properly.
  * 
  * @param {Object} payload - parameters
  * @param {String} payload.storeType - 'app' or 'user'
@@ -387,12 +387,12 @@ async function processBatchUpdates () {
 
   const output = {
     // Property order here controls network call order.
-    // Keys (ops) iterated by ascending chronological order of property creation...
-    // because we use upserts, deletes should come last
+    // Keys (ops) are iterated by ascending chronological order of property creation...
+    // Because we use upserts, deletes must come last
     put: [],
     delete: []
   };
-  const network = {
+  const network = { // map output ops to calls
     put: upsertData,
     delete: deleteData
   };
@@ -403,48 +403,77 @@ async function processBatchUpdates () {
   // The latest updates are always first per storeType+document+collection, op vary
   const batch = await db.transaction(storeName).store.index('batch');
   // I assume this is sorted by key ['storeType', 'document', 'collection', 'timestamp']
-  // If not, the following algorithm can duplicate operations.
+  // If not, the following algorithm fails and data inconsistency will develop
 
-  // vvv
-  // TODO: handle cross op overriding priorities for document, collection level deletes
-  // TODO: handle overriding priorities for document puts
+  // vvvv Complex code alert vvvv
+  // Loop through batch records and build network calls.
+  // This loop enforces additional constraints in the reverse timestamp order sort.
+  // (needed because we have asymmetry in allowing property level deletes, not just collection, but puts are always only collection level)
+  // This complexity was introduced by requiring property consideration just for deletes.
+  // 1. newer deletes always override older matching puts (older puts that match with newer deletes are discarded):
+  //    - matching precedence: a. whole document, b. whole collection, c. single property
+  //      - If any of these match, the older puts and deletes have to be discarded
+  //    - In the case where older put does not overlap with a newer delete, both are executed, put first then delete
+  // 2. older puts merge collection with newer matching puts, except whole document puts
+  // 3. older deletes merge properties with newer matching deletes, except whole document or collection deletes
+  // 4. presumes newer puts could not be made on deleted items (code should not compile or crash before).
 
   let lastKey;
-  for await (const cursor of batch.iterate(null, 'prev')) { // descending means latest first
+  for await (const cursor of batch.iterate(null, 'prev')) { // descending means latest timestamp first
     const item = cursor.value;
     const key = `${item.storeType}:${item.document}:${item.collection}:${item.propertyName}`;
 
-    debug('processBatchUpdates loop key: ', key, item.op);
+    debug('processBatchUpdates loop: ', item.op, key);
 
     if (key !== lastKey) {
-      const duplicate = output[item.op].find(i => (
-        i.storeType === item.storeType && i.document === item.document
-      ));
-      if (duplicate) {
-        if (!duplicate.collections.includes(item.collection)) {
-          duplicate.collections.push(item.collection);
+      const deletedLater = output.delete.find(i => {
+        const matchingDoc = i.storeType === item.storeType && i.document === item.document;
+        if (matchingDoc && i.collections.length === 0) {
+          return i; // whole doc was deleted later, this item is irrelevant
         }
-        let props = duplicate?.properties?.get(item.collection);
-        if (props) {
-          if (!props.includes(item.propertyName)) {
-            props.push(item.propertyName);
-          }
-        } else {
-          props = duplicate?.properties?.set(item.collection, item.propertyName ? [item.propertyName] : []);
-          if (props) {
-            props.hasProps = item.propertyName ? true : false;
+        const matchingDocCol = matchingDoc && i.collections.includes(item.collection);
+        if (matchingDocCol && !i.properties.hasProps) {
+          return i; // whole collection was deleted later, this item is irrelevant
+        }
+        if (matchingDocCol && i.properties.get(item.propertyName)) {
+          return i; // property was deleted later, this item is irrelevant
+        }
+      });
+      let sameOpDuplicate = false;
+      if (!deletedLater) {
+        sameOpDuplicate = output[item.op].find(i => (
+          i.storeType === item.storeType && i.document === item.document
+        ));
+        if (sameOpDuplicate) {
+          // if there are ZERO collections, a full doc put or delete came later, discard this item
+          if (sameOpDuplicate.collections.length > 0) {
+            if (sameOpDuplicate.collections.length > 0 && !sameOpDuplicate.collections.includes(item.collection)) {
+              sameOpDuplicate.collections.push(item.collection);
+            }
+            let props = sameOpDuplicate.properties?.get(item.collection);
+            if (props) {
+              if (!props.includes(item.propertyName)) {
+                props.push(item.propertyName);
+              }
+            } else {
+              props = sameOpDuplicate.properties?.set(item.collection, item.propertyName ? [item.propertyName] : []);
+              if (props) {
+                props.hasProps = item.propertyName ? true : false;
+              }
+            }
           }
         }
-      } else {
+      }
+      if (!sameOpDuplicate && !deletedLater) {
         let properties;
-        if (item.op === 'delete') {
+        if (item.op === 'delete' && item.collection) { // deletes can have properties
           properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
           properties.hasProps = item.propertyName ? true : false;
         }
         output[item.op].push({
           storeType: item.storeType,
           document: item.document,
-          collections: [item.collection],
+          collections: item.collection ? [item.collection] : [],
           properties
         });
       }
@@ -470,14 +499,14 @@ async function processBatchUpdates () {
         debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
       }
       catch (e) {
-        const exist = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
-        if (exist) {
-          const newColl = (new Set(item.collections)).difference(new Set(exist.collections));
-          exist.collections.push(...newColl);
+        const failure = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
+        if (failure) {
+          const newColl = (new Set(item.collections)).difference(new Set(failure.collections));
+          failure.collections.push(...newColl);
         } else {
           reconcile.push(item);
         }
-        debug(`processBatchUpdates '${network[op].name}' failed for '${op}' with '${item.storeType}:${item.document}', continuing...`, item.collections, e);
+        debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${item.storeType}:${item.document}', continuing...`, item.collections, item.properties, e);
       }
 
       // Always delete. If it threw, it's not going to work by retrying, the input is bad
@@ -492,9 +521,8 @@ async function processBatchUpdates () {
   }
 
   // This only happens if the remote data service errors on the input
-  // The local copy is out of sync with the remote service here...
-  // TODO: find the exact reasons this could occur, decide if any rollback/refresh should occur, or other remedy
-  // TODO: doing refreshData. revisit
+  // The local copy is out of sync with the remote service, reconcile contains all the failed items
+  // TODO: find the exact reasons this could occur, revisit user notification strategy
   for (const item of reconcile) {
     refreshData(item);
   }
