@@ -272,44 +272,42 @@ export const storeEvents = {
  * @returns {Object} - The connected data store for the storeType
  */
 export async function createStore (storeType, page) {
-  const storeKey = storeType;
-
-  if (!createdStores.has(storeKey)) {
-    debug(`Creating store for ${storeKey}...`);
-
-    let initSignal = null;
-    const waitForInitialStore = new Promise(resolve => initSignal = resolve);
-  
-    // Install the handler for pageDataUpdate network callbacks from the service worker
-    // (window.App.add discards duplicate adds, returns false)
-    const installed = window.App.add('pageDataUpdate', async payload => {
-      debug(`Page ${page} received pageDataUpdate from service worker`, payload);
-
-      // Update the request seed for the page with any new data that arrived
-      // TODO: review the need to key seeds by page. shouldn't key by storeType?
-      const seed = JSON.parse(localStorage.getItem(page)) || undefined;
-      localStorage.setItem(
-        page, JSON.stringify(pageSeed(page, seed, payload))
-      );
-
-      // Update the store, sends onChange 'update'
-      await dataUpdate(payload);
-
-      if (typeof initSignal === 'function') {
-        initSignal();
-      }
-    });
-
-    if (installed) {
-      await waitForInitialStore;
-      initSignal = null;
-    }
-
-    const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
-    createdStores.set(storeKey, connectedStore);
-
-    return connectedStore;
+  if (createdStores.has(storeType)) {
+    return createdStores.get(storeType);
   }
 
-  return createdStores.get(storeKey);
+  debug(`Creating store for ${storeType}...`);
+
+  let updateSignal = null;
+  const waitForInitialStore = new Promise(resolve => updateSignal = resolve);
+
+  // Install the handler for pageDataUpdate network callbacks from the service worker
+  // (window.App.add discards duplicate adds, returns false)
+  const installed = window.App.add('pageDataUpdate', async payload => {
+    debug(`Page ${page} received pageDataUpdate from service worker`, payload);
+
+    // Update the request seed for the page with any new data that arrived
+    // TODO: review the need to key seeds by page. shouldn't key by storeType?
+    const seed = JSON.parse(localStorage.getItem(page)) || undefined;
+    localStorage.setItem(
+      page, JSON.stringify(pageSeed(page, seed, payload))
+    );
+
+    // Update the store, sends onChange 'update'
+    await dataUpdate(payload);
+
+    if (typeof updateSignal === 'function') {
+      updateSignal();
+    }
+  });
+
+  if (installed) {
+    await waitForInitialStore;
+    updateSignal = null;
+  }
+
+  const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
+  createdStores.set(storeType, connectedStore);
+
+  return connectedStore;
 }
