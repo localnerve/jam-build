@@ -489,16 +489,16 @@ async function processBatchUpdates () {
   const reconcile = [];
   for (const op of Object.keys(output)) {
     for (const item of output[op]) {
+      const request = { ...item };
+      if (op === 'delete' && request.properties.hasProps) {
+        request.collections = request.collections.map(collection => ({
+          collection,
+          properties: item.properties.get(collection)
+        }));
+      }
       try {
-        const request = { ...item };
-        if (op === 'delete' && request.properties.hasProps) {
-          request.collections = request.collections.map(collection => ({
-            collection,
-            properties: item.properties.get(collection)
-          }));
-        }
         await network[op](request);
-        debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${item.storeType}:${item.document}'`, item.collections);
+        debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${request.storeType}:${request.document}'`, request.collections);
       }
       catch (e) {
         const failure = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
@@ -506,9 +506,9 @@ async function processBatchUpdates () {
           const newColl = (new Set(item.collections)).difference(new Set(failure.collections));
           failure.collections.push(...newColl);
         } else {
-          reconcile.push(item);
+          reconcile.push(request);
         }
-        debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${item.storeType}:${item.document}', continuing...`, item.collections, item.properties, e);
+        debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${request.storeType}:${request.document}', continuing...`, request.collections, e);
       }
 
       // Always delete. If it threw, it's not going to work by retrying, the input is bad
