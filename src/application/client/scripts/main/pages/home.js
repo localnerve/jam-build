@@ -14,6 +14,26 @@ const debug = debugLib(page);
 
 let appStore;
 
+/*
+function documentsWithUpdates () {
+  const homeStore = appStore[page];
+
+  // try to copy the whole document
+  appStore.newHome = JSON.parse(JSON.stringify(homeStore));
+
+}
+
+function wholeDocuments () {
+  const homeStore = appStore[page];
+
+  // try to copy the whole document
+  appStore.newHome = JSON.parse(JSON.stringify(homeStore));
+
+  // try to delete the whole page document
+  delete appStore[page];
+}
+*/
+
 function updatedData () {
   const homeStore = appStore[page];
   const { state } = homeStore;
@@ -42,9 +62,17 @@ async function testUpdate () {
   delete state.property1;
   delete state.property4;
 
-  // should be
-  // 2 upserts, state [newItem, newItem3], friends [newFriend2, newFriend3]
-  // 2 deletes, state [newItem2 (nonexist), property1, property4], friends [newFriend (nonexist)]
+  delete homeStore.friends;
+
+  homeStore.newCollection = {
+    newProp1: 'newValue1',
+    newProp2: 'newValue2',
+    newProp3: 'newValue3',
+    newProp31: 'newValue31',
+    newProp4: 'newValue4'
+  };
+
+  delete homeStore.newCollection.newProp31;
 }
 
 /**
@@ -63,6 +91,8 @@ export default async function setup (support) {
   appStore = await createStore('app', page);
 
   // tests n stuff
-  setTimeout(testUpdate, 10000);
-  setTimeout(updatedData, 40000); // after the failures
+  setTimeout(testUpdate, 10);
+  setTimeout(updatedData, 25000); // after the failures
+  // setTimeout(wholeDocuments, 50000);
+  // setTimeout(documentsWithUpdates, 75000);
 }
