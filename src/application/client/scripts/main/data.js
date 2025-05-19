@@ -70,7 +70,7 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
  * @param {String} op - 'put' or 'delete'
  * @param {String} storeType - 'app' or 'user'
  * @param {Array} keyPath - The keyPath to the data [document, collection]
- * @param {String|Nullish} [propertyName] - The propertyName (deleteOnly)
+ * @param {String|Nullish} [propertyName] - The propertyName (required for property deletes)
  * @returns 
  */
 async function performDatabaseUpdate (op, storeType, keyPath, propertyName = null) {
@@ -283,6 +283,8 @@ export async function createStore (storeType, page) {
 
   // Install the handler for pageDataUpdate network callbacks from the service worker
   // (window.App.add discards duplicate adds, returns false)
+  // This either gets called immediately bc the service worker installed and has init data ready,
+  // or called shortly after the page calls to requestPageData and is called back.
   const installed = window.App.add('pageDataUpdate', async payload => {
     debug(`Page ${page} received pageDataUpdate from service worker`, payload);
 
