@@ -402,8 +402,7 @@ async function processBatchUpdates () {
   // For iterating in descending storeType+document+collection+timestamp order
   // The latest updates are always first per storeType+document+collection, op vary
   const batch = await db.transaction(storeName).store.index('batch');
-  // I assume this is sorted by key ['storeType', 'document', 'collection', 'timestamp']
-  // If not, the following algorithm fails and data inconsistency will develop
+  // batch is sorted by key ['timestamp', 'storeType', 'document', 'collection'] 
 
   // vvvv Complex code alert vvvv
   // Loop through batch records and build network calls.
@@ -419,7 +418,7 @@ async function processBatchUpdates () {
   // 4. presumes newer puts could not be made on deleted items (code should not compile or crash before).
 
   let lastKey;
-  for await (const cursor of batch.iterate(null, 'prev')) { // descending means latest timestamp first
+  for await (const cursor of batch.iterate(null, 'prev')) { // latest timestamp first
     const item = cursor.value;
     const key = `${item.storeType}:${item.document}:${item.collection}:${item.propertyName}`;
 
@@ -494,10 +493,10 @@ async function processBatchUpdates () {
   for (const op of Object.keys(output)) {
     for (const item of output[op]) {
       const request = { ...item };
-      if (op === 'delete' && request.properties.hasProps) {
+      if (request.properties?.hasProps) {
         request.collections = request.collections.map(collection => ({
           collection,
-          properties: item.properties.get(collection)
+          properties: request.properties.get(collection)
         }));
       }
       try {
@@ -507,12 +506,12 @@ async function processBatchUpdates () {
         });
       }
       catch (e) {
-        const failure = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
-        if (failure) {
-          const newColl = (new Set(item.collections)).difference(new Set(failure.collections));
-          failure.collections.push(...newColl);
+        const failedItem = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
+        if (failedItem) {
+          const newColl = (new Set(item.collections)).difference(new Set(failedItem.collections));
+          failedItem.collections.push(...newColl);
         } else {
-          reconcile.push(request);
+          reconcile.push(item);
         }
         debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${request.storeType}:${request.document}', continuing...`, {
           ...request.collections
@@ -534,12 +533,12 @@ async function processBatchUpdates () {
   // The local copy is out of sync with the remote service, reconcile contains all the failed items
   // TODO: find the exact reasons this could occur, revisit user notification strategy
   // TODO: if refresh fails, what next? if doc/collection doesn't exist (is new) it will fail 404 not found
-  for (const item of reconcile) {
-    debug('Reconciling by refreshData ', { ...item });
+  for (const request of reconcile) {
+    debug('Reconciling by refreshData ', { ...request });
     try {
-      await refreshData(item);
+      await refreshData(request);
     } catch (e) {
-      debug(`Failed to reconcile ${item.storeType}:${item.document}`, { ...item }, e);
+      debug(`Failed to reconcile ${request.storeType}:${request.document}`, { ...request }, e);
     }
   }
 }
