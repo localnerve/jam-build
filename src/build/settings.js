@@ -117,7 +117,10 @@ export function createSettings (prod = true) {
       srcPage: `${dataDir}/partials/page`,
       srcContent: `${dataDir}/partials/content`,
       destDir: dist,
-      frames: [
+      connectsrc: [
+        process.env.AUTHZ_URL
+      ],
+      framesrc: [
         process.env.AUTHZ_URL
       ],
       styleOptions: {
