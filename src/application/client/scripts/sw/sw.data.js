@@ -16,6 +16,7 @@ import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
 import { startTimer } from './sw.timer.js';
+import { Mutex } from './sw.mutex.js';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
@@ -25,6 +26,7 @@ const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle tim
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 20000 : 3000; // eslint-disable-line -- assigned at bundle time
+const mutex = new Mutex();
 
 let blocked = false;
 let db;
@@ -555,25 +557,34 @@ async function processBatchUpdates () {
  * @param {String} [payload.propertyName] - The property name to delete, op must === 'delete'
  */
 export async function batchUpdate ({ storeType, document, op, collection, propertyName }) {
-  debug(`batchUpdate, ${op}:${storeType}:${document}:${collection}:${propertyName}`);
-  
   if (!storeType || !document || !op) {
     throw new Error('Bad input passed to batchUpdate');
   }
 
-  /* eslint-disable no-param-reassign */
-  collection = collection ?? '';
-  propertyName = propertyName ?? '';
-  /* eslint-enable no-param-reassign */
+  mutex.acquire(); // force fifo
 
-  debug(`batchCollectionWindow reset to ${batchCollectionWindow}`);
-  startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);
+  try {
+    // force wait overlapping calls so performance.now has separation
+    await new Promise(resolve => setTimeout(resolve, 1));
 
-  const db = await getDB();
-  const storeName = makeStoreName(batchStoreType);
-  await db.put(storeName, {
-    storeType, document, collection, op, propertyName, timestamp: performance.now()
-  });
+    startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);
+
+    /* eslint-disable no-param-reassign */
+    collection = collection ?? '';
+    propertyName = propertyName ?? '';
+    /* eslint-enable no-param-reassign */
+
+    const timestamp = performance.now();
+
+    debug(`batchUpdate db.put ${storeType}:${document}:${collection}:${timestamp}:${propertyName}:${op}`);
+
+    const db = await getDB();
+    await db.put(makeStoreName(batchStoreType), {
+      storeType, document, collection, timestamp, propertyName, op
+    });
+  } finally {
+    mutex.release();
+  }
 }
 
 /**
