@@ -2,6 +2,8 @@ FROM node:22.15.0-bullseye
 
 ARG UID=1000
 ARG GID=1000
+ARG AUTHZ_URL=localhost:9010
+ARG AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64
 ARG TARGETARCH
 
 USER root
@@ -23,7 +25,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 else \
   npm install; \
 fi
-RUN npm run build
+RUN AUTHZ_URL=$AUTHZ_URL AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID npm run build
 
 EXPOSE 5000
 

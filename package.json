@@ -8,8 +8,8 @@
   "scripts": {
     "build": "npm run gulp-run -- build",
     "build:debug": "npm run gulp-debug -- build",
-    "build:dev": "npm run lint && npm run gulp-run -- dev-build",
-    "build:dev:debug": "npm run gulp-debug -- dev-build",
+    "build:dev": "npm run lint && AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64 AUTHZ_URL=http://localhost:9010 npm run gulp-run -- dev-build",
+    "build:dev:debug": "AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64 AUTHZ_URL=http://localhost:9010 npm run gulp-debug -- dev-build",
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "dev:debug": "cross-env DEBUG=server*,api* node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
     "dev:cover": "c8 node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json --TEST",
@@ -54,7 +54,7 @@
   },
   "homepage": "https://github.com/localnerve/jam-build#readme",
   "dependencies": {
-    "@authorizerdev/authorizer-js": "^2.0.3",
+    "@localnerve/authorizer-js": "^1.0.1",
     "@localnerve/debug": "^1.0.3",
     "compression": "^1.8.0",
     "cookie-parser": "^1.4.7",

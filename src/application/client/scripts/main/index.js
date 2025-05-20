@@ -12,6 +12,7 @@
 import createSupport from './support.js';
 import setupHeader from './header.js';
 import setupPrompts from './prompts.js';
+import setupLogin from './login.js';
 
 /**
  * Update all current year elements in the page with the current full year.
@@ -89,6 +90,7 @@ async function setup () {
   }
 
   setupPrompts(support);
+  setupLogin(support);
   updateCurrentYear();
 
   return Promise.all([

@@ -11,7 +11,7 @@ import url from 'node:url';
 import { randomBytes } from 'node:crypto';
 import puppeteer from 'puppeteer';
 import debugLib from '@localnerve/debug';
-import { Authorizer } from '@authorizerdev/authorizer-js';
+import { Authorizer } from '@localnerve/authorizer-js';
 
 const debug = debugLib('test:authz');
 const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
@@ -170,7 +170,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
 
   debug(`Login to ${process.env.AUTHZ_URL}:${process.env.AUTHZ_CLIENT_ID} with account: `, account);
   await page.addScriptTag({
-    path: 'node_modules/@authorizerdev/authorizer-js/lib/authorizer.min.js'
+    path: 'node_modules/@localnerve/authorizer-js/lib/authorizer.min.js'
     // url: 'https://unpkg.com/@authorizerdev/authorizer-js/lib/authorizer.min.js'
   });
   const loginData = await page.evaluate(async ([authzUrl, authzClientId, account]) => {

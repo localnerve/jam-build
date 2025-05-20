@@ -9,7 +9,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import debugLib from '@localnerve/debug';
-import { Authorizer } from '@authorizerdev/authorizer-js';
+import { Authorizer } from '@localnerve/authorizer-js';
 import { ping } from './utils.js';
 
 const debug = debugLib('api:auth');

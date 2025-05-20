@@ -11,10 +11,6 @@
 
 $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
 
-.no-messaging .icon.logo {
-  display: none;
-}
-
 .ln-header::before {
   content: '';
   position: absolute;
@@ -42,7 +38,7 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
   z-index: v.$z-index-header;
 
   .container {
-    padding: .6em 1em;
+    padding: .6em 1em .2em;
     display: flex;
     flex-flow: row wrap;
     align-items: center;
@@ -60,6 +56,25 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
 
     & > * {
       position: relative; // gets click target above flex-basis of h1
+    }
+  }
+
+  .status {
+    padding: 0 1em 0.2em;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: end;
+    position: relative;
+    width: 100%;
+
+    @include m.min-width (1200px) { // large
+      width: 1200px;
+      margin: 0 auto;
+    }
+
+    p {
+      margin: 0;
     }
   }
 
@@ -185,7 +200,7 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
     box-shadow: $box-shadow;
 
     @include m.breakpoint (medium) {
-      opacity: 0.97;
+      opacity: 0.95;
     }
   }
 

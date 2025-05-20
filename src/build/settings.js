@@ -86,7 +86,9 @@ export function createSettings (prod = true) {
       webScripts,
       jsManifestFilename,
       replacements: {
-        PAGE_MODULES: JSON.stringify(['home'])
+        PAGE_MODULES: JSON.stringify(['home']),
+        'process.env.AUTHZ_URL': JSON.stringify(process.env.AUTHZ_URL),
+        'process.env.AUTHZ_CLIENT_ID': JSON.stringify(process.env.AUTHZ_CLIENT_ID)
       },
       rollupInput: {
         input: [
