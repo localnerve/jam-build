@@ -258,7 +258,7 @@ async function createTemplates (
  */
 export async function renderHtml (settings, args) {
   const {
-    destDir, srcData, srcPage, srcContent, styleOptions, scriptOptions
+    destDir, frames, srcData, srcPage, srcContent, styleOptions, scriptOptions
   } = settings;
 
   const templates = await createTemplates(
@@ -270,7 +270,8 @@ export async function renderHtml (settings, args) {
       page: page.name,
       siteData: page.siteData,
       inlineCss: page.inlineCss,
-      content: page.content
+      content: page.content,
+      frames
     });
 
     return fs.writeFile(path.join(destDir, `${page.file}.html`), rendered);

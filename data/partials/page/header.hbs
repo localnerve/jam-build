@@ -29,6 +29,7 @@
     default-src 'self';
     form-action 'self';
     font-src https://fonts.gstatic.com;
+    frame-src 'self' {{#each frames}}{{this}}{{#unless @last}} {{/unless}}{{/each}};
     img-src 'self' https://*;
     script-src https://polyfill-fastly.io 'unsafe-inline' 'self';
     style-src 'unsafe-inline' 'unsafe-hashes' 'self';

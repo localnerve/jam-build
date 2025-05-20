@@ -117,6 +117,9 @@ export function createSettings (prod = true) {
       srcPage: `${dataDir}/partials/page`,
       srcContent: `${dataDir}/partials/content`,
       destDir: dist,
+      frames: [
+        process.env.AUTHZ_URL
+      ],
       styleOptions: {
         dir: `${srcClient}/styles/inline`,
         prod
