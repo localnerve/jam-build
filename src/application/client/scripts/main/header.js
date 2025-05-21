@@ -154,7 +154,10 @@ function setupNavCompact ({
       e.stopPropagation();
     });
     [body, closeNav].forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', e => {
+        if (e.target === closeNav) {
+          closeNav.blur();
+        }
         hambExpanded.value = 'false';
         offsHidden.value = 'true';
         offscreenNav.classList.remove(offscreenNavClass);
