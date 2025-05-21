@@ -16,7 +16,41 @@ const authRef = new Authorizer({
   clientID: process.env.AUTHZ_CLIENT_ID // eslint-disable-line no-undef -- defined at bundle time
 });
 
-async function getLoginState ({ hdr, hdrStatusText }) {
+function isActive () {
+  const login = JSON.parse(sessionStorage.getItem('login'));
+
+  if (login) {
+    const endTime = new Date(login.startTime + (login.expires_in * 1000)).getTime();
+    const active = Date.now() - endTime;
+    if (active < 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function updateUI (hdr, hdrStatusText, profile) {
+  const message = `Welcome, ${profile.email}`;
+  hdrStatusText.innerHTML = message;
+  hdr.classList.add('logged-in');
+}
+
+function getUserProfile () {
+  if (isActive()) {
+    const profile = sessionStorage.getItem('user');
+
+    if (profile) {
+      return JSON.parse(profile);
+    }
+  } else {
+    sessionStorage.setItem('user', '');
+  }
+
+  return null;
+}
+
+function isLoggingIn () {
   const params = new URLSearchParams(window.location.search);
   const state = params.get('state'); 
 
@@ -24,31 +58,13 @@ async function getLoginState ({ hdr, hdrStatusText }) {
     let clientID;
     try {
       clientID = JSON.parse(atob(state)).clientID;
+      return !!clientID;
     } catch {
       console.warn('bad qs for state'); // eslint-disable-line
     }
-
-    if (clientID) {
-      const { data, errors } = await authRef.authorize({
-        response_type: 'code',
-        use_refresh_token: false
-      });
-      
-      if (!errors.length && data?.access_token) {
-        localStorage.setItem('login', clientID);
-
-        const res = await authRef.getProfile({
-          Authorization: `Bearer ${data.access_token}`,
-        });
-        
-        if (!res.errors.length) {
-          const message = `Welcome, ${res.data.email}`;
-          hdrStatusText.innerHTML = message;
-          hdr.classList.add('logged-in');
-        }
-      }
-    }
   }
+  
+  return false;
 }
 
 export default async function setup () {
@@ -56,10 +72,9 @@ export default async function setup () {
   const hdr = document.querySelector('.ln-header');
   const hdrStatusText = document.querySelector('.ln-header .status p');
 
-  getLoginState({ hdr, hdrStatusText });
-
+  // Install the login/logout handler
   loginButton.addEventListener('click', async () => {
-    const loggedIn = localStorage.getItem('login');
+    const loggedIn = sessionStorage.getItem('login');
     if (!loggedIn) {
       await authRef.authorize({
         response_type: 'code',
@@ -67,10 +82,40 @@ export default async function setup () {
       });
     } else {
       await authRef.logout();
-      localStorage.setItem('login', '');
+      sessionStorage.setItem('login', '');
       hdrStatusText.innerHTML = '';
       hdr.classList.remove('logged-in');
       window.location.href = '/';
     }
   });
+
+  if (isLoggingIn()) {
+    // Finish login
+    const { data: login, errors: loginErrors } = await authRef.authorize({
+      response_type: 'code',
+      use_refresh_token: false
+    });
+    
+    // Save login, profile
+    if (!loginErrors.length && login?.access_token) {
+      sessionStorage.setItem('login', JSON.stringify({
+        startTime: Date.now(),
+        expires_in: login.expires_in
+      }));
+
+      const { data: profile, errors: profileErrors } = await authRef.getProfile({
+        Authorization: `Bearer ${login.access_token}`,
+      });
+
+      if (!profileErrors.length) {
+        sessionStorage.setItem('user', JSON.stringify(profile));
+        updateUI(hdr, hdrStatusText, profile);
+      }
+    }
+  } else {
+    const profile = getUserProfile();
+    if (profile) {
+      updateUI(hdr, hdrStatusText, profile);
+    }
+  }
 }
