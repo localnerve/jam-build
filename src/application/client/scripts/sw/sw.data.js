@@ -16,7 +16,6 @@ import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
 import { startTimer } from './sw.timer.js';
-import { Mutex } from './sw.mutex.js';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
@@ -26,7 +25,6 @@ const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle tim
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 20000 : 3000; // eslint-disable-line -- assigned at bundle time
-const mutex = new Mutex();
 
 let blocked = false;
 let db;
@@ -401,14 +399,14 @@ async function processBatchUpdates () {
   
   debug(`processBatchUpdates processing ${totalRecords} records...`);
 
-  // For iterating in descending storeType+document+collection+timestamp order
-  // The latest updates are always first per storeType+document+collection, op vary
+  // For iterating in descending id+storeType+document+collection order
+  // The latest updates are always first per storeType+document+collection, op+prop vary
   const batch = await db.transaction(storeName).store.index('batch');
-  // batch is sorted by key ['timestamp', 'storeType', 'document', 'collection'] 
+  // batch is sorted by key ['id', 'storeType', 'document', 'collection'] 
 
   // vvvv Complex code alert vvvv
   // Loop through batch records and build network calls.
-  // This loop enforces additional constraints in the reverse timestamp order sort.
+  // This loop enforces additional constraints in the reverse id order sort.
   // (needed because we have asymmetry in allowing property level deletes, not just collection, but puts are always only collection level)
   // This complexity was introduced by requiring property consideration just for deletes.
   // 1. newer deletes always override older matching puts (older puts that match with newer deletes are discarded):
@@ -420,7 +418,7 @@ async function processBatchUpdates () {
   // 4. presumes newer puts could not be made on deleted items (code should not compile or crash before).
 
   let lastKey;
-  for await (const cursor of batch.iterate(null, 'prev')) { // latest timestamp first
+  for await (const cursor of batch.iterate(null, 'prev')) { // latest arrival (autoincrement id) first
     const item = cursor.value;
     const key = `${item.storeType}:${item.document}:${item.collection}:${item.propertyName}`;
 
@@ -561,30 +559,20 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
     throw new Error('Bad input passed to batchUpdate');
   }
 
-  mutex.acquire(); // force fifo
+  startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);
 
-  try {
-    // force wait overlapping calls so performance.now has separation
-    await new Promise(resolve => setTimeout(resolve, 1));
+  /* eslint-disable no-param-reassign */
+  collection = collection ?? '';
+  propertyName = propertyName ?? '';
+  /* eslint-enable no-param-reassign */
 
-    startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);
+  debug(`batchUpdate db.add ${storeType}:${document}:${collection}:${propertyName}:${op}`);
+  // console.log(`batchUpdate db.put ${storeType}:${document}:${collection}:${propertyName}:${op}`); // eslint-disable-line
 
-    /* eslint-disable no-param-reassign */
-    collection = collection ?? '';
-    propertyName = propertyName ?? '';
-    /* eslint-enable no-param-reassign */
-
-    const timestamp = performance.now();
-
-    debug(`batchUpdate db.put ${storeType}:${document}:${collection}:${timestamp}:${propertyName}:${op}`);
-
-    const db = await getDB();
-    await db.put(makeStoreName(batchStoreType), {
-      storeType, document, collection, timestamp, propertyName, op
-    });
-  } finally {
-    mutex.release();
-  }
+  const db = await getDB();
+  await db.add(makeStoreName(batchStoreType), {
+    storeType, document, collection, propertyName, op
+  });
 }
 
 /**
@@ -626,11 +614,11 @@ export async function installDatabase () {
       // Upgrade bachUpdate objectStore...
       const batchStoreName = makeStoreName(batchStoreType);
       if (!db.objectStoreNames.contains(batchStoreName)) {
-        // storeType, document, collection, op, timestamp
         const store = db.createObjectStore(batchStoreName, {
-          keyPath: ['storeType', 'document', 'collection', 'timestamp', 'propertyName']
+          keyPath: 'id',
+          autoIncrement: true
         });
-        store.createIndex('batch', ['timestamp', 'storeType', 'document', 'collection'], {
+        store.createIndex('batch', ['id', 'storeType', 'document', 'collection'], {
           unique: true
         });
         store.createIndex('delete', ['storeType', 'document', 'op'], {
