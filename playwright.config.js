@@ -13,7 +13,7 @@ export default defineConfig({
   globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
     name: "localdata",
-    testMatch: /_createlocalappdata\.js/
+    testMatch: /_createlocaldata(?:app|user)\.js/
   }, {
     name: "dummy",
     testMatch: /dummy\.test\.js/
