@@ -16,6 +16,12 @@ const authRef = new Authorizer({
   clientID: process.env.AUTHZ_CLIENT_ID // eslint-disable-line no-undef -- defined at bundle time
 });
 
+/**
+ * Check the login sessionStorage value to see if the login access token is active.
+ * If not, you need to login again... (unless I change this policy).
+ * 
+ * @returns {Boolean} true if access_token is active, false otherwise
+ */
 function isActive () {
   const login = JSON.parse(sessionStorage.getItem('login'));
 
@@ -30,12 +36,20 @@ function isActive () {
   return false;
 }
 
+/**
+ * Set the UI elements from the profile.
+ */
 function updateUI (hdr, hdrStatusText, profile) {
   const message = `Welcome, ${profile.email}`;
   hdrStatusText.innerHTML = message;
   hdr.classList.add('logged-in');
 }
 
+/**
+ * Get the user profile from sessionStorage.
+ * 
+ * @returns {Object} The user profile object, or null if not access_token not active
+ */
 function getUserProfile () {
   if (isActive()) {
     const profile = sessionStorage.getItem('user');
@@ -50,6 +64,11 @@ function getUserProfile () {
   return null;
 }
 
+/**
+ * Check to see if this is being called back in the PKCE login flow.
+ * 
+ * @returns {Boolean} true if this is actively in PKCE login flow, false otherwise
+ */
 function isLoggingIn () {
   const params = new URLSearchParams(window.location.search);
   const state = params.get('state'); 
@@ -67,6 +86,10 @@ function isLoggingIn () {
   return false;
 }
 
+/**
+ * Called every login setup.
+ * Installs the login/logout button handler, updates the UI with login status.
+ */
 export default async function setup () {
   const loginButton = document.querySelector('#ln-login');
   const hdr = document.querySelector('.ln-header');
