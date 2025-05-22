@@ -81,10 +81,14 @@ async function isDifferent(storeName, keyPath, proposedProperties) {
     debug(`isDifferent could not get from ${storeName}, keyPath: ${keyPath}`, e);
   }
 
-  const { properties: existingProperties } = existing;
-  const different = !fastIsEqual(existingProperties, proposedProperties);
+  let different = true;
+  if (existing) {
+    const { properties: existingProperties } = existing;
+    different = !fastIsEqual(existingProperties, proposedProperties);
 
-  debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
+    debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
+  }
+
   return different;
 }
 
