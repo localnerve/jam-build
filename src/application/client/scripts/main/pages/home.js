@@ -4,10 +4,10 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { updatePageData } from '../request.js';
-import { pageSeed } from '../seed.js';
-import { createStore, storeEvents } from '../data.js';
 import debugLib from '@localnerve/debug';
+import { storeEvents } from '../data.js';
+import { getUserStore } from '../user.js';
+import { getApplicationStore } from '../app.js';
 
 const page = 'home';
 
@@ -31,12 +31,13 @@ function testUserStore () {
   friends.newFriend = 'Christina M';
   friends.newFriend2 = 'Janey Hamilton';
   friends.newFriend3 = 'Lea Cyr';
+  friends.newFriend4 = 'Bad Person';
 
-  delete friends.newFriend;
+  delete friends.newFriend4;
   delete state.property1;
   delete state.property4;
 
-  homeStore.newCollection = {
+  homeStore.user = {
     newProp1: 'newValue10',
     newProp2: 'newValue20',
     newProp3: 'newValue30',
@@ -109,30 +110,18 @@ async function testAppStore () {
 export default async function setup (support) {
   debug('setup...', support);
 
-  // Every page should have this startup to listen, refresh, and get stores.
   storeEvents.addEventListener(page, ({ key, value }) => {
     debug(`@@@ ${page} changed: `, key, value);
   });
-  await updatePageData(page);
 
-  // Test app store
-  appStore = await createStore('app', page);
-
+  appStore = await getApplicationStore(page);
   setTimeout(testAppStore, 100);
   // setTimeout(updateAppAfter, 25000); // after the failures
   // setTimeout(wholeDocuments, 50000);
 
   // Test user store
   window.App.add('login-action-login', async () => {
-    const seed = JSON.parse(localStorage.getItem('seed')) || undefined;
-    localStorage.setItem('seed', JSON.stringify(pageSeed(page, seed, {
-      storeType: 'user',
-      keys: []
-    })));
-    await updatePageData(page, {
-      storeTypes: ['user']
-    });
-    userStore = await createStore('user', page);
+    userStore = await getUserStore(page);
     setTimeout(testUserStore, 100);
   }); 
 }
