@@ -266,6 +266,7 @@ export const storeEvents = {
 /**
  * Creates the connected data store for the given storeType.
  * Sets up data service worker data update handling.
+ * For a new store, this will block until 'database-data-update' message is sent.
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {String} page - The page, document for use
@@ -281,11 +282,19 @@ export async function createStore (storeType, page) {
   let updateSignal = null;
   const waitForInitialStore = new Promise(resolve => updateSignal = resolve);
 
-  // Install the handler for pageDataUpdate network callbacks from the service worker
-  // (window.App.add discards duplicate adds, returns false)
-  // This either gets called immediately bc the service worker installed and has init data ready,
-  // or called shortly after the page calls to requestPageData and is called back.
-  const installed = window.App.add('pageDataUpdate', async payload => {
+  /**
+   * Install the handler for pageDataUpdate network callbacks from the service worker
+   * (window.App.add discards duplicate adds, returns false)
+   * This either gets called immediately bc the service worker installed and has init data ready,
+   * or called shortly after the page calls to requestPageData and is called back.
+   * 
+   * @param {Object} payload - The pageDataUpdate object
+   * @param {String} payload.dbname - The database name
+   * @param {String} payload.storeName - The full store name
+   * @param {String} payload.storeType - 'app' or 'user'
+   * @param {Array} payload.keys - An array of the collections that were updated
+   */
+  window.App.add('pageDataUpdate', async payload => {
     debug(`Page ${page} received pageDataUpdate from service worker`, payload);
 
     // Update the request seed for the page with any new data that arrived
@@ -303,10 +312,9 @@ export async function createStore (storeType, page) {
     }
   });
 
-  if (installed) {
-    await waitForInitialStore;
-    updateSignal = null;
-  }
+  debug('Waiting for "database-data-update" message...');
+  await waitForInitialStore;
+  updateSignal = null;
 
   const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
   createdStores.set(storeType, connectedStore);

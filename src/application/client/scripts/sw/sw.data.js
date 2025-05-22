@@ -24,7 +24,7 @@ const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bund
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
-const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 20000 : 3000; // eslint-disable-line -- assigned at bundle time
+const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 3000 : 3000; // eslint-disable-line -- assigned at bundle time
 
 let blocked = false;
 let db;

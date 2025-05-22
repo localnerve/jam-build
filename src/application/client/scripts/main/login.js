@@ -23,7 +23,7 @@ const authRef = new Authorizer({
  * @returns {Boolean} true if access_token is active, false otherwise
  */
 function isActive () {
-  const login = JSON.parse(sessionStorage.getItem('login'));
+  const login = JSON.parse(sessionStorage.getItem('login') || null);
 
   if (login) {
     const endTime = new Date(login.startTime + (login.expires_in * 1000)).getTime();
@@ -52,15 +52,10 @@ function updateUI (hdr, hdrStatusText, profile) {
  */
 function getUserProfile () {
   if (isActive()) {
-    const profile = sessionStorage.getItem('user');
-
-    if (profile) {
-      return JSON.parse(profile);
-    }
-  } else {
-    sessionStorage.setItem('user', '');
+    return JSON.parse(sessionStorage.getItem('user') || null);
   }
-
+  
+  sessionStorage.setItem('user', '');
   return null;
 }
 
@@ -108,7 +103,7 @@ export default async function setup () {
       sessionStorage.setItem('login', '');
       hdrStatusText.innerHTML = '';
       hdr.classList.remove('logged-in');
-      window.location.href = '/';
+      window.App.exec('login-action-logout');
     }
   });
 
@@ -132,6 +127,7 @@ export default async function setup () {
 
       if (!profileErrors.length) {
         sessionStorage.setItem('user', JSON.stringify(profile));
+        window.App.exec('login-action-login');
         updateUI(hdr, hdrStatusText, profile);
       }
     }
