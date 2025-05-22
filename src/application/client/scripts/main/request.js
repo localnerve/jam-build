@@ -22,7 +22,7 @@ const debug = debugLib('request');
 export async function updatePageData (page, filter = {
   storeTypes: ['app']
 }) {
-  const seed = JSON.parse(localStorage.getItem(page));
+  const seed = JSON.parse(localStorage.getItem('seed'));
   const filteredSeed = filterSeed(page, seed, filter);
 
   if ('serviceWorker' in navigator && filteredSeed) {

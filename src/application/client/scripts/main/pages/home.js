@@ -124,8 +124,8 @@ export default async function setup (support) {
 
   // Test user store
   window.App.add('login-action-login', async () => {
-    const seed = JSON.parse(localStorage.getItem(page)) || undefined;
-    localStorage.setItem(page, JSON.stringify(pageSeed(page, seed, {
+    const seed = JSON.parse(localStorage.getItem('seed')) || undefined;
+    localStorage.setItem('seed', JSON.stringify(pageSeed(page, seed, {
       storeType: 'user',
       keys: []
     })));

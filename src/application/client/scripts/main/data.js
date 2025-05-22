@@ -332,9 +332,9 @@ export async function createStore (storeType, page) {
 
     // Update the request seed for the page with any new data that arrived
     // TODO: review the need to key seeds by page. shouldn't key by storeType?
-    const seed = JSON.parse(localStorage.getItem(page)) || undefined;
+    const seed = JSON.parse(localStorage.getItem('seed')) || undefined;
     localStorage.setItem(
-      page, JSON.stringify(pageSeed(page, seed, payload))
+      'seed', JSON.stringify(pageSeed(page, seed, payload))
     );
 
     // Update the store, sends onChange 'update'
