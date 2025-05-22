@@ -6,6 +6,7 @@
  */
 import { openDB } from 'idb';
 import debugLib from '@localnerve/debug';
+import { fastIsEqual } from '@localnerve/fast-is-equal';
 import { pageSeed } from './seed.js';
 
 const debug = debugLib('data');
@@ -13,6 +14,7 @@ const debug = debugLib('data');
 let db;
 let swActive;
 let listeners = [];
+const waiters = [];
 const store = {};
 const storeNames = new Map();
 const createdStores = new Map();
@@ -60,6 +62,30 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
     
     onChange('update', [storeType, docName, colName], value);
   }
+}
+
+/**
+ * Compare proposedProperties with existing properties on the keyPath.
+ * 
+ * @param {String} storeName - The storeName
+ * @param {String} keyPath - [document, collection] keyPath
+ * @param {Object} proposedProperties - The new, proposedProperties
+ * @returns {Boolean} true if the proposedProperties are different than existing, false otherwise
+ */
+async function isDifferent(storeName, keyPath, proposedProperties) {
+  let existing = { properties: { __alwaysDifferent__: true } };
+
+  try {
+    existing = await db.get(storeName, keyPath);
+  } catch (e) {
+    debug(`isDifferent could not get from ${storeName}, keyPath: ${keyPath}`, e);
+  }
+
+  const { properties: existingProperties } = existing;
+  const different = !fastIsEqual(existingProperties, proposedProperties);
+
+  debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
+  return different;
 }
 
 /**
@@ -116,25 +142,33 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
     case 'put':
       if (collection) { // put collection and/or properties
         debug(`putting collection ${collection}...`);
-        await db.put(storeName, {
-          document_name: document,
-          collection_name: collection,
-          properties: store[storeType][document][collection]
-        });
-        debug(`put collection ${collection}`);
-        result = true;
+        if (isDifferent(storeName, keyPath, store[storeType][document][collection])) {
+          await db.put(storeName, {
+            document_name: document,
+            collection_name: collection,
+            properties: store[storeType][document][collection]
+          });
+          debug(`put collection ${collection}`);
+          result = true;
+        }
       } else { // put whole document
         debug(`putting document '${document}'...`);
+        let changedOne = false;
         const doc = store[storeType][document];
         for (const coll of Object.keys(doc)) {
-          await db.put(storeName, {
-            document_name : document,
-            collection_name: coll,
-            properties: doc[coll] || {}
-          });
+          if (isDifferent(storeName, [document, coll], doc[coll] || {})) {
+            changedOne = true;
+            await db.put(storeName, {
+              document_name : document,
+              collection_name: coll,
+              properties: doc[coll] || {}
+            });
+          }
         }
-        debug(`put document '${document}'`);
-        result = true;
+        if (changedOne) {
+          debug(`put document '${document}'`);
+          result = true;
+        }
       }
       break;
     
@@ -264,7 +298,7 @@ export const storeEvents = {
 };
 
 /**
- * Creates the connected data store for the given storeType.
+ * Creates or retrieves the connected data store for the given storeType.
  * Sets up data service worker data update handling.
  * For a new store, this will block until 'database-data-update' message is sent.
  *
@@ -279,8 +313,7 @@ export async function createStore (storeType, page) {
 
   debug(`Creating store for ${storeType}...`);
 
-  let updateSignal = null;
-  const waitForInitialStore = new Promise(resolve => updateSignal = resolve);
+  const waiterForStore = new Promise(resolve => waiters.push(resolve));
 
   /**
    * Install the handler for pageDataUpdate network callbacks from the service worker
@@ -307,14 +340,12 @@ export async function createStore (storeType, page) {
     // Update the store, sends onChange 'update'
     await dataUpdate(payload);
 
-    if (typeof updateSignal === 'function') {
-      updateSignal();
-    }
+    const releaseWaiter = waiters.shift();
+    if (typeof releaseWaiter === 'function') releaseWaiter();
   });
 
   debug('Waiting for "database-data-update" message...');
-  await waitForInitialStore;
-  updateSignal = null;
+  await waiterForStore;
 
   const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
   createdStores.set(storeType, connectedStore);
