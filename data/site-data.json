@@ -49,6 +49,15 @@
       },
       "order": 2
     },
+    "login": {
+      "title": "Log In",
+      "type": "nav",
+      "name": "login",
+      "route": "#",
+      "label": "Log In",
+      "alt-label": "Log Out",
+      "order": 3
+    },
     "terms": {
       "title": "Terms and Conditions",
       "type": "legal",

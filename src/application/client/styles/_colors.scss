@@ -49,6 +49,9 @@ $color-red-button: #d04030;
 $color-red-button-border: #a81d11;
 $color-red-button-hi-dark: #b83;
 
+$color-blue-button: color.adjust($logo-blue, $lightness: -5%, $space: hsl);
+$color-blue-button-border: color.adjust($logo-blue, $lightness: -20%, $space: hsl);
+
 $color-nav-active-background: $text-color;
 $color-nav-active-text: $site-white;
 $color-nav-dark: $color-theme-three; // #2af;

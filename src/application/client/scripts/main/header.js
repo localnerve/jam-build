@@ -129,15 +129,17 @@ function setupNavCompact ({
     Array.from(navItems).forEach(item => {
       let selfTrigger = false;
       const navItem = item;
-      navItem.onclick = function (e) {
-        if (!selfTrigger) {
-          selfTrigger = true;
-          e.preventDefault();
-          e.stopPropagation();
-          this.firstElementChild.click();
-          selfTrigger = false;
-        }
-      };
+      if (item.className !== 'login') {
+        navItem.onclick = function (e) {
+          if (!selfTrigger) {
+            selfTrigger = true;
+            e.preventDefault();
+            e.stopPropagation();
+            this.firstElementChild.click();
+            selfTrigger = false;
+          }
+        };
+      }
     });
   }
 

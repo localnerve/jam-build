@@ -104,7 +104,7 @@ export async function createStyles (settings) {
         http_fonts_path: webFonts,
         data: {
           'nav-pages': Object.values(data.pages)
-            .filter(page => page.type === 'nav')
+            .filter(page => page.type === 'nav' && page.template)
             .map(page => page.name),
           images: data.images
         }

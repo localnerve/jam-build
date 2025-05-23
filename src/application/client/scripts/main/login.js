@@ -39,10 +39,12 @@ function isActive () {
 /**
  * Set the UI elements from the profile.
  */
-function updateUI (hdr, hdrStatusText, profile) {
-  const message = `Welcome, ${profile.email}`;
+function updateUI (hdrStatusText, loginButtons, profile) {
+  const message = profile ? `Welcome, ${profile.email}` : '';
   hdrStatusText.innerHTML = message;
-  hdr.classList.add('logged-in');
+  loginButtons.forEach(el => {
+    el.classList[profile ? 'add' : 'remove']('logged-in');
+  });
 }
 
 /**
@@ -64,7 +66,7 @@ function getUserProfile () {
  * 
  * @returns {Boolean} true if this is actively in PKCE login flow, false otherwise
  */
-function isLoggingIn () {
+function isLoginCallback () {
   const params = new URLSearchParams(window.location.search);
   const state = params.get('state'); 
 
@@ -81,33 +83,39 @@ function isLoggingIn () {
   return false;
 }
 
+async function loginHandler (hdrStatusText, loginButtons, event) {
+  event.preventDefault();
+
+  const loggedIn = sessionStorage.getItem('login');
+  if (!loggedIn) {
+    history.pushState(null, '', window.location.url); // without this, back button from login goes nowhere
+    await authRef.authorize({
+      response_type: 'code',
+      use_refresh_token: false
+    });
+  } else {
+    await authRef.logout();
+    sessionStorage.setItem('login', '');
+    updateUI(hdrStatusText, loginButtons);
+    window.App.exec('login-action-logout');
+  }
+}
+
 /**
  * Called every login setup.
  * Installs the login/logout button handler, updates the UI with login status.
  */
 export default async function setup () {
-  const loginButton = document.querySelector('#ln-login');
-  const hdr = document.querySelector('.ln-header');
   const hdrStatusText = document.querySelector('.ln-header .status p');
+  const loginButtons = Array.from(document.querySelectorAll('nav .login'));
 
-  // Install the login/logout handler
-  loginButton.addEventListener('click', async () => {
-    const loggedIn = sessionStorage.getItem('login');
-    if (!loggedIn) {
-      await authRef.authorize({
-        response_type: 'code',
-        use_refresh_token: false
-      });
-    } else {
-      await authRef.logout();
-      sessionStorage.setItem('login', '');
-      hdrStatusText.innerHTML = '';
-      hdr.classList.remove('logged-in');
-      window.App.exec('login-action-logout');
-    }
+  // Install the login/logout handlers
+  const boundLoginHander = loginHandler.bind(null, hdrStatusText, loginButtons);
+  loginButtons.forEach(el => {
+    el.addEventListener('click', boundLoginHander);
   });
 
-  if (isLoggingIn()) {
+  if (isLoginCallback()) {
     // Finish login
     const { data: login, errors: loginErrors } = await authRef.authorize({
       response_type: 'code',
@@ -128,13 +136,13 @@ export default async function setup () {
       if (!profileErrors.length) {
         sessionStorage.setItem('user', JSON.stringify(profile));
         window.App.exec('login-action-login');
-        updateUI(hdr, hdrStatusText, profile);
+        updateUI(hdrStatusText, loginButtons, profile);
       }
     }
   } else {
     const profile = getUserProfile();
     if (profile) {
-      updateUI(hdr, hdrStatusText, profile);
+      updateUI(hdrStatusText, loginButtons, profile);
     }
   }
 }

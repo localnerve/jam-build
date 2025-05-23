@@ -1,14 +1,16 @@
 <ul>
   {{#each siteData.pages}}
     {{#if (equals this.type 'nav')}}
-      <li class="{{#if (equals @key 'contact')}}contact{{/if}}">
+      <li class="{{@key}}">
         {{#if ../notab}}
           <a tabindex="-1" aria-label="{{this.label}}" class="{{#if (equals ../active @key)}}active{{/if}}" href="{{this.route}}">
-            {{this.label}}
+            <span class="label">{{this.label}}</span>
+            <span class="alt-label">{{this.alt-label}}</span>
           </a>
         {{else}}
           <a aria-label="{{this.label}}" class="{{#if (equals ../active @key)}}active{{/if}}" href="{{this.route}}">
-            {{this.label}}
+            <span class="label">{{this.label}}</span>
+            <span class="alt-label">{{this.alt-label}}</span>
           </a>
         {{/if}}
       </li>

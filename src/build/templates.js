@@ -220,20 +220,22 @@ async function createTemplates (
 
   const templates = [];
   for (const page of Object.values(siteData.pages)) {
-    templates.push({
-      name: page.name,
-      file: page.file,
-      template: wrapTemplate.bind(
-        null,
-        hb.compile(
-          String.raw`{{> header }}{{> ${page.template} }}{{> footer}}`
-        )
-      ),
-      // invariants
-      inlineCss: inlineCss.names,
-      content: content.names,
-      siteData
-    });
+    if (page.template) {
+      templates.push({
+        name: page.name,
+        file: page.file,
+        template: wrapTemplate.bind(
+          null,
+          hb.compile(
+            String.raw`{{> header }}{{> ${page.template} }}{{> footer}}`
+          )
+        ),
+        // invariants
+        inlineCss: inlineCss.names,
+        content: content.names,
+        siteData
+      });
+    }
   }
 
   if (args.dump) {
