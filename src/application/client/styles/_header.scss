@@ -110,8 +110,20 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
         margin-left: 2em;
       }
 
+      a {
+        display: flex;
+      }
+
       span {
-        display: none;
+        padding-top: 0.2rem;
+
+        @include m.breakpoint(medium) {
+          display: none;
+        }
+
+        @include m.min-width(56em) {
+          display: inline;
+        }
       }
     }
 
@@ -238,9 +250,11 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
     margin-top: 1rem;
   }
 
+  /*
   .icon.logo {
     display: none;
   }
+  */
 
   .menu {
     color: #bbb;
@@ -256,9 +270,11 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
     text-align: center;
   }
 
+  /*
   .ln-header .icon.logo {
     display: none;
   }
+  */
 
   .ln-header .icon.phone {
     display: flex;
