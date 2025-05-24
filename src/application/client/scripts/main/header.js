@@ -233,7 +233,9 @@ function getPageElements () {
  */
 export default function setup (support) {
   const elements = getPageElements();
-  installIntersectionObserver(elements, installResizeObserver.bind(null, support));
   setupNavCompact(elements);
   wrapNavAnchorClick(elements);
+  support.backgroundExec(() => Promise.resolve().then(() => 
+    installIntersectionObserver(elements, installResizeObserver.bind(null, support))
+  ), 100);
 }
