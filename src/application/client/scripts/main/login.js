@@ -112,6 +112,7 @@ export default async function setup () {
   // Install the login/logout handlers
   const boundLoginHander = loginHandler.bind(null, hdrStatusText, loginButtons);
   loginButtons.forEach(el => {
+    el.dataset.listener = true;
     el.addEventListener('click', boundLoginHander);
   });
 

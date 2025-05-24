@@ -129,7 +129,7 @@ function setupNavCompact ({
     Array.from(navItems).forEach(item => {
       let selfTrigger = false;
       const navItem = item;
-      if (item.className !== 'login') {
+      if (!navItem.dataset.listener) {
         navItem.onclick = function (e) {
           if (!selfTrigger) {
             selfTrigger = true;
