@@ -672,6 +672,8 @@ export async function installDatabase () {
   db = await openDB(dbname, schemaVersion, {
     upgrade(db, oldVersion, newVersion, transaction, event) {
 
+      //
+      // APP|USER STORES
       // upgrade main objectStores...
       for (const storeType of storeTypes) {
         const storeName = makeStoreName(storeType);
@@ -700,6 +702,8 @@ export async function installDatabase () {
         }
       }
 
+      //
+      // VERSION STORE
       // Upgrade version objectStore...
       const versionStoreName = makeStoreName(versionStoreType);
       if (!db.objectStoreNames.contains(versionStoreName)) {
@@ -719,6 +723,8 @@ export async function installDatabase () {
         }
       }
 
+      //
+      // BATCH STORE
       // Upgrade bachUpdate objectStore...
       const batchStoreName = makeStoreName(batchStoreType);
       if (!db.objectStoreNames.contains(batchStoreName)) {
