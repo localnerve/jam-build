@@ -14,20 +14,25 @@ import {
 
 test.describe('/api/data/app', () => {
   let baseUrl;
+  let version = '0';
 
   async function deleteHomeDocument (adminRequest, deleteCanFail = false) {
     try {
-      await deleteData(adminRequest, `${baseUrl}/home`, {
-        deleteDocument: true
+      await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
+        version = json.home.__version;
+      }, 200);
+
+      version = await deleteData(adminRequest, `${baseUrl}/home`, {
+        deleteDocument: true,
+        version
       });
     } catch (error) {
       if (!deleteCanFail) {
         throw error;
       }
     }
-    return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
-      expect(json.ok).not.toBeTruthy();
-    }, 404);
+  
+    return getData(adminRequest, `${baseUrl}/home`, 404);
   }
 
   test.beforeAll(() => {
@@ -43,7 +48,8 @@ test.describe('/api/data/app', () => {
   });
 
   test('post application home state and friends', async ({ adminRequest }) => {
-    return postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'state',
         properties: {
@@ -65,6 +71,7 @@ test.describe('/api/data/app', () => {
 
   test('mutation access to app denied to user role', async ({ userRequest }) => {
     await postData(userRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'badnews',
         properties: {
@@ -81,6 +88,7 @@ test.describe('/api/data/app', () => {
     });
 
     await deleteData(userRequest, `${baseUrl}/home/friends`, {
+      version,
       collections: [{
         collection: 'wrongButWontMatter',
         properties: ['property1', 'property2']
@@ -98,6 +106,7 @@ test.describe('/api/data/app', () => {
       await getData(requestor, baseUrl, (expect, json) => {
         expect(json).toStrictEqual({
           home: {
+            __version: expect.any(String),
             state: {
               property1: 'value1',
               property2: 'value2',
@@ -111,6 +120,7 @@ test.describe('/api/data/app', () => {
             }
           }
         });
+        version = json.home.__version;
       });
     }
   });
@@ -118,6 +128,7 @@ test.describe('/api/data/app', () => {
   test('get application home - all user types', async ({ adminRequest, userRequest, request }) => {
     const result = {
       home: {
+        __version: 'nope',
         state: {
           property1: 'value1',
           property2: 'value2',
@@ -144,6 +155,8 @@ test.describe('/api/data/app', () => {
 
     for (const requestor of requestors) {
       await getData(requestor.request, `${baseUrl}/home`, (expect, json) => {
+        version = json.home.__version;
+        requestor.result.home.__version = version;
         expect(json).toStrictEqual(requestor.result);
       });
     }
@@ -153,10 +166,12 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home?collections=state&collections=friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           state: expect.any(Object),
           friends: expect.any(Object)
         }
       });
+      version = json.home.__version;
     });
   });
 
@@ -164,9 +179,11 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home?collections=friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.any(Object)
         }
       });
+      version = json.home.__version;
     });
   });
 
@@ -174,9 +191,11 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home?collections=friends&collections=friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.any(Object)
         }
       });
+      version = json.home.__version;
     });
   });
 
@@ -184,9 +203,11 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home?collections=friends&collections=nonexistant&collections=`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.any(Object)
         }
       });
+      version = json.home.__version;
     });
   });
 
@@ -200,12 +221,14 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home/state`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           state: expect.objectContaining({
             property1: 'value1',
             property2: 'value2'
           })
         }
       });
+      version = json.home.__version;
     });
   });
 
@@ -225,13 +248,16 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property2: 'value55'
           })
         }
       });
+      version = json.home.__version;
     });
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: {
         collection: 'friends',
         properties: {
@@ -242,6 +268,7 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version,
           friends: {
             property1: 'value44',
             property2: 'value45',
@@ -256,13 +283,15 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version,
           friends: expect.objectContaining({
             property3: 'value46'
           })
         }
       });
     });
-    await postData(adminRequest, `${baseUrl}/home`, { // should have no effect
+    version = await postData(adminRequest, `${baseUrl}/home`, { // should have no effect
+      version,
       collections: {
         collection: 'friends',
         properties: {
@@ -274,6 +303,7 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version,
           friends: {
             property1: 'value44',
             property2: 'value45',
@@ -301,6 +331,7 @@ test.describe('/api/data/app', () => {
 
   test('bad post with bad data', async ({ adminRequest }) => {
     await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: {
         collection: 5
       }
@@ -315,6 +346,7 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: expect.any(String),
           friends: {
             property1: 'value44',
             property2: 'value45',
@@ -322,8 +354,10 @@ test.describe('/api/data/app', () => {
           }
         }
       });
+      version = json.home.__version;
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
+    version = await deleteData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{ // can be an array or one object
         collection: 'friends',
         properties: ['property4'] // not there
@@ -332,6 +366,7 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version,
           friends: {
             property1: 'value44',
             property2: 'value45',
@@ -346,13 +381,15 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property3: 'value46'
           })
         }
       });
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
+    version = await deleteData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: { // can be an array or one object
         collection: 'friends',
         properties: ['property3']
@@ -361,6 +398,7 @@ test.describe('/api/data/app', () => {
     return getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version,
           friends: expect.objectContaining({
             property1: 'value44',
             property2: 'value45'
@@ -369,6 +407,7 @@ test.describe('/api/data/app', () => {
       });
       expect(json).not.toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property3: 'value46'
           })
@@ -378,7 +417,8 @@ test.describe('/api/data/app', () => {
   });
 
   test('empty collections that exist should return 204', async ({ adminRequest }) => {
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'girls',
         properties: {
@@ -390,6 +430,7 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/girls`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version,
           girls: {
             property1: 'value1',
             property2: 'value2'
@@ -397,7 +438,8 @@ test.describe('/api/data/app', () => {
         }
       });
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
+    version = await deleteData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: {
         collection: 'girls',
         properties: ['property1', 'property2']
@@ -407,24 +449,29 @@ test.describe('/api/data/app', () => {
   });
 
   test('post empty collections, no property input', async ({ adminRequest }) => {
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'empty'
       }]
     });
     await getData(adminRequest, `${baseUrl}/home/empty`, 204);
-    await deleteData(adminRequest, `${baseUrl}/home/empty`);
+    version = await deleteData(adminRequest, `${baseUrl}/home/empty`, {
+      version
+    });
     await getData(adminRequest, `${baseUrl}/home/empty`, 404);
   });
 
   test('update empty collections', async ({ adminRequest }) => {
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'empty'
       }]
     });
     await getData(adminRequest, `${baseUrl}/home/empty`, 204);
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: {
         collection: 'empty',
         properties: {
@@ -443,11 +490,14 @@ test.describe('/api/data/app', () => {
         })
       });
     });
-    await deleteData(adminRequest, `${baseUrl}/home/empty`);
+    version = await deleteData(adminRequest, `${baseUrl}/home/empty`, {
+      version
+    });
   });
 
   test('delete multiple collections, no property input', async ({ adminRequest }) => {
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'other1',
         properties: {
@@ -476,7 +526,8 @@ test.describe('/api/data/app', () => {
         })
       });
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
+    version = await deleteData(adminRequest, `${baseUrl}/home`, {
+      version,
       collections: [{
         collection: 'other1'
       }, {
@@ -497,16 +548,21 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property1: 'value44'
           })
         }
       });
+      version = json.home.__version;
     });
-    await deleteData(adminRequest, `${baseUrl}/home/friends`);
+    version = await deleteData(adminRequest, `${baseUrl}/home/friends`, {
+      version
+    });
     await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version,
           state: expect.any(Object)
         }
       }));
@@ -520,6 +576,7 @@ test.describe('/api/data/app', () => {
     await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version,
           state: expect.any(Object)
         }
       }));

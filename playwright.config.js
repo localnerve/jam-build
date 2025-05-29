@@ -25,6 +25,10 @@ export default defineConfig({
     testMatch: 'api/**/*.test.js',
     dependencies: ['fixtures']
   }, {
+    name: 'api-debug',
+    testMatch: 'api/api.data.user.test.js',
+    dependencies: ['fixtures']
+  }, {
     name: 'pages',
     testMatch: 'pages/**/*.test.js',
     dependencies: ['fixtures']

@@ -9,6 +9,7 @@ const baseUrl = 'http://localhost:5000';
 
 test('post local application home test data', async ({ adminRequest }) => {
   return postData(adminRequest, `${baseUrl}/api/data/app/home`, {
+    version: 0,
     collections: [{
       collection: 'state',
       properties: {

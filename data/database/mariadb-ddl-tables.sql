@@ -15,6 +15,7 @@ USE jam_build;
 CREATE TABLE IF NOT EXISTS application_documents (
     document_id SERIAL PRIMARY KEY,
     document_name VARCHAR(255) NOT NULL UNIQUE,
+    document_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS user_documents (
     document_id SERIAL,
     user_id CHAR(36) NOT NULL,
     document_name VARCHAR(255) NOT NULL,
+    document_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, document_name),

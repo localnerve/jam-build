@@ -66,13 +66,16 @@ export function create (logger, options = {}, locals = {}) {
 
   // eslint-disable-next-line no-unused-vars
   api.use((err, req, res, next) => {
+    const versionError = /E_VERSION/.test(err?.message);
+
     const msg = {
-      status: err.status || err.statusCode || 500,
+      status: (versionError && 409) || err.status || err.statusCode || 500,
       message: err.sql ? err.code : err.message,
       ok: false,
+      versionError,
       timestamp: (new Date()).toISOString(),
       url: req.originalUrl,
-      type: err.type || err.name || 'unknown'
+      type: (versionError && 'version') || err.type || err.name || 'unknown'
     };
     debug(err);
     logger.error({...msg, ...{ err }});

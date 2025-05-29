@@ -45,7 +45,8 @@ export async function postData (request, url, data, {
   expectSuccess = true,
   expectResponse = true,
   assertStatus = 0,
-  expectResponseSuccess = true
+  expectResponseSuccess = true,
+  expectVersionError = false
 } = {}) {
   debug(`POST request for ${url}...`);
   const response = await request.post(url, {
@@ -73,8 +74,14 @@ export async function postData (request, url, data, {
       expect(json).toEqual(expect.objectContaining({
         message: 'Success'
       }));
+      expect(BigInt(json.newVersion)).toBeGreaterThan(0);
+      return json.newVersion;
     } else {
       expect(json.ok).not.toBeTruthy();
+
+      if (expectVersionError) {
+        expect(json.versionError).toBeTruthy();
+      }
     }
   }
 }
@@ -99,7 +106,8 @@ export async function deleteData (request, url, data, {
   expectSuccess = true,
   expectResponse = true,
   assertStatus = 0,
-  expectResponseSuccess = true
+  expectResponseSuccess = true,
+  expectVersionError = false
 } = {}) {
   debug(`DELETE request for ${url}...`);
   const response = await request.delete(url, {
@@ -127,8 +135,14 @@ export async function deleteData (request, url, data, {
       expect(json).toEqual(expect.objectContaining({
         message: 'Success'
       }));
+      expect(BigInt(json.newVersion)).toBeGreaterThanOrEqual(0);
+      return json.newVersion;
     } else {
       expect(json.ok).not.toBeTruthy();
+
+      if (expectVersionError) {
+        expect(json.versionError).toBeTruthy();
+      }
     }
   }
 }

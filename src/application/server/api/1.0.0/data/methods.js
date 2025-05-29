@@ -66,7 +66,9 @@ function transformAndValidateInput (inputDocument, inputCollections, mapCollecti
 function reduceDocumentResults (acc, curr) {
   let document = acc[curr.document_name];
   if (!document) {
-    document = acc[curr.document_name] = {};
+    document = acc[curr.document_name] = {
+      __version: `${curr.document_version}`
+    };
   }
   let collection = document[curr.collection_name];
   if (!collection) {
@@ -215,9 +217,9 @@ export async function getDocumentsCollectionsAndProperties (pool, methodName, pr
  */
 export async function setProperties (pool, methodName, procName, req, res) {
   const { document } = req.params;
-  const { collections } = req.body;
+  const { version, collections } = req.body;
 
-  debug(`${methodName} '${document}', collections: `, collections);
+  debug(`${methodName} '${document}' version: ${version}, collections: `, collections);
 
   const procedureCollections = transformAndValidateInput(
     document, collections, coll => ({
@@ -231,8 +233,8 @@ export async function setProperties (pool, methodName, procName, req, res) {
 
   debug('procedureCollections', procedureCollections);
 
-  const inputParams = [document, JSON.stringify(procedureCollections)];
-  const procParamArray = Array(inputParams.length).fill('?');
+  const inputParams = [document, version, JSON.stringify(procedureCollections)];
+  const procParamArray = Array(inputParams.length).fill('?').concat('@out_param');;
   if (/user/i.test(methodName)) {
     inputParams.unshift(req.user.id);
     procParamArray.unshift('?');
@@ -241,19 +243,32 @@ export async function setProperties (pool, methodName, procName, req, res) {
 
   debug(`Calling ${procName}${procParams} for ${document} with ${inputParams.length} params...`);
 
-  const result = await pool.query(
-    `CALL ${procName}${procParams}`,
-    inputParams
-  );
+  let conn;
+  try {
+    conn = await pool.getConnection();
 
-  debug('Sending success response...');
-  res.status(200).json({
-    message: 'Success',
-    ok: true,
-    timestamp: (new Date()).toISOString(),
-    affectedRows: result.affectedRows,
-    warningStatus: result.warningStatus
-  });
+    const result = await conn.query(
+      `CALL ${procName}${procParams}`,
+      inputParams
+    );
+
+    const [outParam] = await conn.query('SELECT @out_param AS result');
+    const newVersion = `${outParam.result}`; // BIGINT result is new document version, toString for JSON
+
+    debug('Sending success response...');
+    res.status(200).json({
+      message: 'Success',
+      ok: true,
+      newVersion,
+      timestamp: (new Date()).toISOString(),
+      affectedRows: result.affectedRows,
+      warningStatus: result.warningStatus
+    });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
 }
 
 /**
@@ -273,24 +288,37 @@ export async function setProperties (pool, methodName, procName, req, res) {
  * @param {Response} res - The expressjs Response object
  */
 async function deleteWithParams (pool, procName, inputParams, res) {
-  const procParamArray = Array(inputParams.length).fill('?');
+  const procParamArray = Array(inputParams.length).fill('?').concat('@out_param');;
   const procParams = `(${procParamArray.join(', ')})`;
 
   debug(`Calling ${procName}${procParams} with ${inputParams}...`);
 
-  const result = await pool.query(
-    `CALL ${procName}${procParams}`,
-    inputParams
-  );
+  let conn;
+  try {
+    conn = await pool.getConnection();
 
-  debug('Sending success response...');
-  res.status(200).json({
-    message: 'Success',
-    ok: true,
-    timestamp: (new Date()).toISOString(),
-    affectedRows: result.affectedRows,
-    warningStatus: result.warningStatus
-  });
+    const result = await conn.query(
+      `CALL ${procName}${procParams}`,
+      inputParams
+    );
+
+    const [outParam] = await conn.query('SELECT @out_param AS result');
+    const newVersion = `${outParam.result}`; // BIGINT result is new document version, toString for JSON
+
+    debug('Sending success response...');
+    res.status(200).json({
+      message: 'Success',
+      ok: true,
+      newVersion,
+      timestamp: (new Date()).toISOString(),
+      affectedRows: result.affectedRows,
+      warningStatus: result.warningStatus
+    });
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
 }
 
 /**
@@ -299,16 +327,17 @@ async function deleteWithParams (pool, procName, inputParams, res) {
  * @param {ConnectionPool} pool - The database connection pool
  * @param {String} methodName - The canonical name of this method
  * @param {String} procName - The name of the stored procedure to call
+ * @param {String} version - The version of the docment to delete
  * @param {Request} req - The expressjs Request object
  * @param {Response} res - The expressjs Response object
  * @returns {Promise} resolves to null on successful completion
  */
-async function deleteFullDocument (pool, methodName, procName, req, res) {
+async function deleteFullDocument (pool, methodName, procName, version, req, res) {
   const { document } = req.params;
 
   debug(`${methodName} '${document}'`);
 
-  const inputParams = [document];
+  const inputParams = [document, version];
   if (/user/i.test(methodName)) {
     inputParams.unshift(req.user.id);
   }
@@ -328,10 +357,11 @@ async function deleteFullDocument (pool, methodName, procName, req, res) {
  */
 export async function deleteCollection (pool, methodName, procName, req, res) {
   const { document, collection } = req.params;
+  const { version } = req.body;
 
   debug(`${methodName} '${document}', '${collection}'`);
 
-  const inputParams = [document, collection];
+  const inputParams = [document, version, collection];
   if (/user/i.test(methodName)) {
     inputParams.unshift(req.user.id);
   }
@@ -355,13 +385,13 @@ export async function deleteProperties (
   pool, methodName, procName, docMethodName, docProcName, req, res
 ) {
   const { document } = req.params;
-  const { collections, deleteDocument } = req.body;
+  const { collections, version, deleteDocument } = req.body;
 
-  debug(`${methodName} '${document}', deleteDocument: '${deleteDocument}'`, collections);
+  debug(`${methodName} '${document}', version: ${version}, deleteDocument: '${deleteDocument}'`, collections);
 
   if (deleteDocument) {
     debug('Calling deleteDocument on input flag');
-    return deleteFullDocument(pool, docMethodName, docProcName, req, res);
+    return deleteFullDocument(pool, docMethodName, docProcName, version, req, res);
   }
 
   const procedureCollections = transformAndValidateInput(
@@ -371,7 +401,7 @@ export async function deleteProperties (
     })
   );
 
-  const inputParams = [document, JSON.stringify(procedureCollections)];
+  const inputParams = [document, version, JSON.stringify(procedureCollections)];
   if (/user/i.test(methodName)) {
     inputParams.unshift(req.user.id);
   }

@@ -21,7 +21,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE
-        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM application_documents d
         JOIN application_documents_collections dc ON d.document_id = dc.document_id
         JOIN application_collections c ON dc.collection_id = c.collection_id
@@ -58,7 +58,7 @@ BEGIN
     ELSE
         -- Use FIND_IN_SET to filter collections based on the provided CSV string
         IF p_collections <> '' THEN
-            SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+            SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
             FROM application_documents d
             JOIN application_documents_collections dc ON d.document_id = dc.document_id
             JOIN application_collections c ON dc.collection_id = c.collection_id
@@ -68,7 +68,7 @@ BEGIN
               AND FIND_IN_SET(c.collection_name, p_collections);
         ELSE
             -- If no CSV string is provided, use the original query
-            SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+            SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
             FROM application_documents d
             JOIN application_documents_collections dc ON d.document_id = dc.document_id
             JOIN application_collections c ON dc.collection_id = c.collection_id
@@ -93,7 +93,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE
-        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM application_documents d
         JOIN application_documents_collections dc ON d.document_id = dc.document_id
         JOIN application_collections c ON dc.collection_id = c.collection_id
@@ -104,11 +104,16 @@ END;
 //
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertApplicationDocumentWithCollectionsAndProperties (
-    p_document_name VARCHAR(255),
-    p_data JSON
+    IN p_document_name VARCHAR(255),
+    IN p_document_version BIGINT UNSIGNED,
+    IN p_data JSON,
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_document_updated INT DEFAULT 0;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_collection_name VARCHAR(255);
     DECLARE v_property_id BIGINT UNSIGNED;
@@ -131,7 +136,20 @@ BEGIN
     -- Start a new transaction
     START TRANSACTION;
 
+    SET v_document_version = 0;
+
+    -- Serialize access to the transaction and check version
+    SELECT document_version INTO v_document_version
+    FROM application_documents 
+    WHERE document_name = p_document_name FOR UPDATE;
+
+    IF v_document_version <> p_document_version THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version and retry.';
+    END IF;
+
     SET v_document_id = NULL;
+    SET v_document_updated = 0;
 
     -- Insert or update document
     INSERT INTO application_documents (document_name)
@@ -143,6 +161,12 @@ BEGIN
 
     IF v_document_id IS NULL THEN
         SET v_message = CONCAT('Could not find document for INPUT document_name "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
+    END IF;
+
+    IF JSON_LENGTH(p_data) = 0 THEN
+        SET v_message = CONCAT('No p_data was supplied for the update for INPUT document_name "', p_document_name, '"');
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = v_message;
     END IF;
@@ -177,6 +201,8 @@ BEGIN
             -- Associate document with collection
             INSERT INTO application_documents_collections (document_id, collection_id)
             VALUES (v_document_id, v_collection_id);
+
+            SET v_document_updated = 1;
         END IF;
 
         -- Process properties for the current collection, can have 0 properties
@@ -213,6 +239,8 @@ BEGIN
                 -- Associate collection with property
                 INSERT INTO application_collections_properties (collection_id, property_id)
                 VALUES (v_collection_id, v_property_id);
+
+                SET v_document_updated = 1;
             ELSE
                 -- Check if the property_value is different to update
                 SELECT property_value INTO @current_property_value 
@@ -224,6 +252,8 @@ BEGIN
                     UPDATE application_properties
                     SET property_value = v_property_value
                     WHERE property_id = v_property_id;
+
+                    SET v_document_updated = 1;
                 END IF;
             END IF;
 
@@ -233,16 +263,38 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
+    -- Update the document version and return it
+    IF v_document_updated > 0 THEN
+        SET v_new_document_version = v_document_version + 1;
+    
+        UPDATE application_documents
+        SET document_version = v_new_document_version
+        WHERE document_id = v_document_id AND document_version = v_document_version;
+
+        IF ROW_COUNT() <= 0 THEN
+            SET v_message = CONCAT('E_VERSION - Failed to update document "', p_document_name, '" because of another transaction.');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
+        END IF;
+    ELSE
+        SET v_new_document_version = v_document_version;
+    END IF;
+
+    SET p_new_document_version = v_new_document_version;
+
     -- Commit the transaction
     COMMIT;
 END;
 //
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationDocument (
-    IN p_document_name VARCHAR(255)
+    IN p_document_name VARCHAR(255),
+    IN p_document_version BIGINT UNSIGNED,
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_message VARCHAR(255);
 
     -- Declare a handler for SQL exceptions
@@ -256,6 +308,18 @@ BEGIN
 
     -- Start a new transaction
     START TRANSACTION;
+
+    SET v_document_version = 0;
+
+    -- Serialize access to the transaction and check version
+    SELECT document_version INTO v_document_version
+    FROM application_documents 
+    WHERE document_name = p_document_name FOR UPDATE;
+
+    IF v_document_version <> p_document_version THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version and retry.';
+    END IF;
 
     SET v_document_id = NULL;
 
@@ -289,6 +353,8 @@ BEGIN
         SET MESSAGE_TEXT = v_message;
     END IF;
 
+    SET p_new_document_version = 0;
+
     -- Commit the transaction
     COMMIT;
 END;
@@ -296,10 +362,14 @@ END;
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationCollection (
     IN p_document_name VARCHAR(255),
-    IN p_collection_name VARCHAR(255)
+    IN p_document_version BIGINT UNSIGNED,
+    IN p_collection_name VARCHAR(255),
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_message VARCHAR(255);
 
@@ -317,6 +387,18 @@ BEGIN
     IF @in_transaction IS NULL THEN
         -- Start a new transaction
         START TRANSACTION;
+
+        SET v_document_version = 0;
+
+        -- Serialize access to the transaction and check version
+        SELECT document_version INTO v_document_version
+        FROM application_documents 
+        WHERE document_name = p_document_name FOR UPDATE;
+
+        IF v_document_version <> p_document_version THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version before continuing.';
+        END IF;
     END IF;
 
     SET v_document_id = NULL;
@@ -370,6 +452,20 @@ BEGIN
     END IF;
 
     IF @in_transaction IS NULL THEN
+        -- Update the document version and return the new version
+        SET v_new_document_version = v_document_version + 1;
+
+        UPDATE application_documents
+        SET document_version = v_new_document_version
+        WHERE document_id = v_document_id AND document_version = v_document_version;
+
+        IF ROW_COUNT() <= 0 THEN
+            SET v_message = CONCAT('E_VERSION - Failed to update document "', p_document_name, '" because of another transaction.');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
+        END IF;
+
+        SET p_new_document_version = v_new_document_version;
+
         -- Commit the transaction
         COMMIT;
     END IF;
@@ -378,10 +474,15 @@ END;
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationProperties (
     IN p_document_name VARCHAR(255),
-    IN p_collection_data JSON
+    IN p_document_version BIGINT UNSIGNED,
+    IN p_collection_data JSON,
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_document_updated INT DEFAULT 0;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_collection_name VARCHAR(255);
     DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_property_names JSON;
@@ -404,8 +505,27 @@ BEGIN
     -- Start a new transaction
     START TRANSACTION;
 
+    SET v_document_version = 0;
+
+    -- Serialize access to the transaction and check version
+    SELECT document_version INTO v_document_version
+    FROM application_documents 
+    WHERE document_name = p_document_name FOR UPDATE;
+
+    IF v_document_version <> p_document_version THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version before continuing.';
+    END IF;
+
     SET @in_transaction = 1;
     SET v_document_id = NULL;
+    SET v_document_updated = 0;
+
+    IF JSON_LENGTH(p_collection_data) = 0 THEN
+        SET v_message = CONCAT('No collection data was supplied for document "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
+    END IF;
 
     -- Get the document_id for the given document_name
     SELECT document_id INTO v_document_id FROM application_documents WHERE document_name = p_document_name;
@@ -434,7 +554,8 @@ BEGIN
             IF v_collection_id IS NOT NULL THEN
                 -- If property_names is empty, delete the whole collection
                 IF v_property_names IS NULL OR JSON_LENGTH(v_property_names) = 0 THEN
-                    CALL jam_build.DeleteApplicationCollection(p_document_name, v_collection_name);
+                    CALL jam_build.DeleteApplicationCollection(p_document_name, p_document_version, v_collection_name, @p_new_document_version);
+                    SET v_document_updated = 1;
                 ELSE
                     -- Delete specified properties for this collection
                     WHILE j < JSON_LENGTH(v_property_names) DO
@@ -457,6 +578,8 @@ BEGIN
                             -- Delete the property from the collection (CASCADE will handle deletions in application_collections_properties)
                             DELETE FROM application_collections_properties 
                             WHERE collection_id = v_collection_id AND property_id = v_property_id;
+
+                            SET v_document_updated = 1;
                         END IF;
 
                         SET j = j + 1;
@@ -490,6 +613,24 @@ BEGIN
         SET MESSAGE_TEXT = v_message;
     END IF;
 
+    -- Update the document version and return it
+    IF v_document_updated > 0 THEN
+        SET v_new_document_version = v_document_version + 1;
+    
+        UPDATE application_documents
+        SET document_version = v_new_document_version
+        WHERE document_id = v_document_id AND document_version = v_document_version;
+
+        IF ROW_COUNT() <= 0 THEN
+            SET v_message = CONCAT('E_VERSION - Failed to update document "', p_document_name, '" because of another transaction.');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
+        END IF;
+    ELSE
+        SET v_new_document_version = v_document_version;
+    END IF;
+
+    SET p_new_document_version = v_new_document_version;
+
     -- Commit the transaction
     COMMIT;
     SET @in_transaction = NULL;
@@ -514,7 +655,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE
-        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM user_documents d
         JOIN user_documents_collections dc ON d.document_id = dc.document_id
         JOIN user_collections c ON dc.collection_id = c.collection_id
@@ -552,7 +693,7 @@ BEGIN
     ELSE
         -- Use FIND_IN_SET to filter collections based on the provided CSV string
         IF p_collections <> '' THEN
-            SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+            SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
             FROM user_documents d
             JOIN user_documents_collections dc ON d.document_id = dc.document_id
             JOIN user_collections c ON dc.collection_id = c.collection_id
@@ -562,7 +703,7 @@ BEGIN
               AND FIND_IN_SET(c.collection_name, p_collections);
         ELSE
             -- If no CSV string is provided, use the original query
-            SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+            SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
             FROM user_documents d
             JOIN user_documents_collections dc ON d.document_id = dc.document_id
             JOIN user_collections c ON dc.collection_id = c.collection_id
@@ -588,7 +729,7 @@ BEGIN
     IF @temp_count <= 0 THEN
         SET p_notfound = 1;
     ELSE    
-        SELECT d.document_name, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
+        SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
         FROM user_documents d
         JOIN user_documents_collections dc ON d.document_id = dc.document_id
         JOIN user_collections c ON dc.collection_id = c.collection_id
@@ -600,12 +741,17 @@ END;
 //
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertUserDocumentWithCollectionsAndProperties (
-    p_user_id CHAR(36),
-    p_document_name VARCHAR(255),
-    p_data JSON
+    IN p_user_id CHAR(36),
+    IN p_document_name VARCHAR(255),
+    IN p_document_version BIGINT UNSIGNED,
+    IN p_data JSON,
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id INT;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_document_updated INT DEFAULT 0;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_collection_id INT;
     DECLARE v_collection_name VARCHAR(255);
     DECLARE v_property_id INT;
@@ -628,7 +774,20 @@ BEGIN
     -- Start a new transaction
     START TRANSACTION;
 
+    SET v_document_version = 0;
+
+    -- Serialize access to the transaction and check version
+    SELECT document_version INTO v_document_version
+    FROM user_documents 
+    WHERE user_id = p_user_id AND document_name = p_document_name FOR UPDATE;
+
+    IF v_document_version <> p_document_version THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version before continuing.';
+    END IF;
+
     SET v_document_id = NULL;
+    SET v_document_updated = 0;
 
     -- Insert or update document
     INSERT INTO user_documents (user_id, document_name)
@@ -640,6 +799,12 @@ BEGIN
 
     IF v_document_id IS NULL THEN
         SET v_message = CONCAT('Could not find document for INPUT document_name "', p_document_name, '" and user_id "', p_user_id, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
+    END IF;
+
+    IF JSON_LENGTH(p_data) = 0 THEN
+        SET v_message = CONCAT('No data supplied for collections and properties for document "', p_document_name, '" and user_id "', p_user_id, '"');
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = v_message;
     END IF;
@@ -674,6 +839,8 @@ BEGIN
             -- Associate document with collection
             INSERT INTO user_documents_collections (document_id, collection_id)
             VALUES (v_document_id, v_collection_id);
+
+            SET v_document_updated = 1;
         END IF;
 
         -- Process properties for the current collection, can have 0 properties
@@ -710,6 +877,8 @@ BEGIN
                 -- Associate collection with property if not already associated
                 INSERT INTO user_collections_properties (collection_id, property_id)
                 VALUES (v_collection_id, v_property_id);
+
+                SET v_document_updated = 1;
             ELSE
                 -- Check if the property_value is different to update
                 SELECT property_value INTO @current_property_value 
@@ -721,6 +890,8 @@ BEGIN
                     UPDATE user_properties
                     SET property_value = v_property_value
                     WHERE property_id = v_property_id;
+
+                    SET v_document_updated = 1;
                 END IF;
             END IF;
 
@@ -730,6 +901,24 @@ BEGIN
         SET i = i + 1;
     END WHILE;
 
+    -- Update the document version and return it
+    IF v_document_updated > 0 THEN
+        SET v_new_document_version = v_document_version + 1;
+    
+        UPDATE user_documents
+        SET document_version = v_new_document_version
+        WHERE document_id = v_document_id AND document_version = v_document_version;
+
+        IF ROW_COUNT() <= 0 THEN
+            SET v_message = CONCAT('E_VERSION - Failed to update document "', p_document_name, '" for user "', p_user_id, '" because of another transaction.');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
+        END IF;
+    ELSE
+        SET v_new_document_version = v_document_version;
+    END IF;
+
+    SET p_new_document_version = v_new_document_version;
+
     -- Commit the transaction if all operations are successful
     COMMIT;
 END;
@@ -737,10 +926,14 @@ END;
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserDocument (
     IN p_user_id CHAR(36),
-    IN p_document_name VARCHAR(255)
+    IN p_document_name VARCHAR(255),
+    IN p_document_version BIGINT UNSIGNED,
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_message VARCHAR(255);
 
     -- Declare a handler for SQL exceptions
@@ -754,6 +947,18 @@ BEGIN
 
     -- Start a new transaction
     START TRANSACTION;
+
+    SET v_document_version = 0;
+
+    -- Serialize access to the transaction and check version
+    SELECT document_version INTO v_document_version
+    FROM user_documents
+    WHERE user_id = p_user_id AND document_name = p_document_name FOR UPDATE;
+
+    IF v_document_version <> p_document_version THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version and retry.';
+    END IF;
 
     SET v_document_id = NULL;
 
@@ -787,6 +992,8 @@ BEGIN
         SET MESSAGE_TEXT = v_message;
     END IF;
 
+    SET p_new_document_version = 0;
+
     -- Commit the transaction
     COMMIT;
 END;
@@ -795,10 +1002,14 @@ END;
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserCollection (
     IN p_user_id CHAR(36),
     IN p_document_name VARCHAR(255),
-    IN p_collection_name VARCHAR(255)
+    IN p_document_version BIGINT UNSIGNED,
+    IN p_collection_name VARCHAR(255),
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_message VARCHAR(255);
 
@@ -816,6 +1027,18 @@ BEGIN
     IF @in_user_transaction IS NULL THEN
         -- Start a new transaction
         START TRANSACTION;
+
+        SET v_document_version = 0;
+
+        -- Serialize access to the transaction and check version
+        SELECT document_version INTO v_document_version
+        FROM user_documents 
+        WHERE user_id = p_user_id AND document_name = p_document_name FOR UPDATE;
+
+        IF v_document_version <> p_document_version THEN
+            SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version and retry.';
+        END IF;
     END IF;
 
     SET v_document_id = NULL;
@@ -869,6 +1092,20 @@ BEGIN
     END IF;
 
     IF @in_user_transaction IS NULL THEN
+        -- Update the document version and return the new version
+        SET v_new_document_version = v_document_version + 1;
+
+        UPDATE user_documents
+        SET document_version = v_new_document_version
+        WHERE document_id = v_document_id AND document_version = v_document_version;
+
+        IF ROW_COUNT() <= 0 THEN
+            SET v_message = CONCAT('E_VERSION - Failed to update document "', p_document_name, '" for user "', p_user_id, '" because of another transaction.');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
+        END IF;
+
+        SET p_new_document_version = v_new_document_version;
+
         -- Commit the transaction
         COMMIT;
     END IF;
@@ -878,10 +1115,15 @@ END;
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserProperties (
     IN p_user_id CHAR(36),
     IN p_document_name VARCHAR(255),
-    IN p_collection_data JSON
+    IN p_document_version BIGINT UNSIGNED,
+    IN p_collection_data JSON,
+    OUT p_new_document_version BIGINT UNSIGNED
 )
 BEGIN
     DECLARE v_document_id BIGINT UNSIGNED;
+    DECLARE v_document_version BIGINT UNSIGNED;
+    DECLARE v_document_updated INT DEFAULT 0;
+    DECLARE v_new_document_version BIGINT UNSIGNED;
     DECLARE v_collection_id BIGINT UNSIGNED;
     DECLARE v_collection_name VARCHAR(255);
     DECLARE v_property_name VARCHAR(255);
@@ -904,8 +1146,27 @@ BEGIN
     -- Start a new transaction
     START TRANSACTION;
     
+    SET v_document_version = 0;
+
+    -- Serialize access to the transaction and check version
+    SELECT document_version INTO v_document_version
+    FROM user_documents 
+    WHERE user_id = p_user_id AND document_name = p_document_name FOR UPDATE;
+
+    IF v_document_version <> p_document_version THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'E_VERSION - Refresh and reconcile with current version before continuing.';
+    END IF;
+
     SET @in_user_transaction = 1;
     SET v_document_id = NULL;
+    SET v_document_updated = 0;
+
+    IF JSON_LENGTH(p_collection_data) = 0 THEN
+        SET v_message = CONCAT('No collection data was supplied for document "', p_document_name, '"');
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = v_message;
+    END IF;
 
     -- Get the document_id for the given user_id and document_name
     SELECT document_id INTO v_document_id FROM user_documents WHERE user_id = p_user_id AND document_name = p_document_name;
@@ -934,7 +1195,8 @@ BEGIN
             IF v_collection_id IS NOT NULL THEN
                 -- if v_property_names is empty, then delete the whole collection
                 IF v_property_names IS NULL OR JSON_LENGTH(v_property_names) = 0 THEN
-                    CALL jam_build.DeleteUserCollection(p_document_name, v_collection_name);
+                    CALL jam_build.DeleteUserCollection(p_user_id, p_document_name, p_document_version, v_collection_name, NULL);
+                    SET v_document_updated = 1;
                 ELSE
                     -- Delete specified properties for this collection
                     WHILE j < JSON_LENGTH(v_property_names) DO
@@ -957,6 +1219,8 @@ BEGIN
                             -- Delete the property from the collection (CASCADE will handle deletions in user_collections_properties)
                             DELETE FROM user_collections_properties 
                             WHERE collection_id = v_collection_id AND property_id = v_property_id;
+
+                            SET v_document_updated = 1;
                         END IF;
 
                         SET j = j + 1;
@@ -989,6 +1253,24 @@ BEGIN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = v_message;
     END IF;
+
+    -- Update the document version and return it
+    IF v_document_updated > 0 THEN
+        SET v_new_document_version = v_document_version + 1;
+    
+        UPDATE user_documents
+        SET document_version = v_new_document_version
+        WHERE document_id = v_document_id AND document_version = v_document_version;
+
+        IF ROW_COUNT() <= 0 THEN
+            SET v_message = CONCAT('E_VERSION - Failed to update document "', p_document_name, '" for user "', p_user_id, '" because of another transaction.');
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
+        END IF;
+    ELSE
+        SET v_new_document_version = v_document_version;
+    END IF;
+
+    SET p_new_document_version = v_new_document_version;
 
     -- Commit the transaction
     COMMIT;

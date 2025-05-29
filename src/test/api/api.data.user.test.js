@@ -4,6 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import { request } from 'express';
 import { test } from '../fixtures.js';
 import {
   getData,
@@ -14,16 +15,30 @@ import {
 
 test.describe('/api/data/user', () => {
   let baseUrl;
+  const version = {
+    user: '0',
+    admin: '0'
+  };
 
-  async function deleteHomeDocument (userRequest, adminRequest) {
-    const requestors = [userRequest, adminRequest];
-    for (const requestor of requestors) {
-      await deleteData(requestor, `${baseUrl}/home`, {
-        deleteDocument: true
-      });
-      await getData(requestor, `${baseUrl}/home`, (expect, json) => {
-        expect(json.ok).not.toBeTruthy();
-      }, 404);
+  async function deleteHomeDocument (userRequest, adminRequest, canFail = false) {
+    const requestors = [[userRequest, 'user'], [adminRequest, 'admin']];
+    for (const [requestor, user] of requestors) {
+      try {
+        await getData(requestor, `${baseUrl}/home`, (expect, json) => {
+          version[user] = json.home.__version;
+        }, 200);
+
+        version[user] = await deleteData(requestor, `${baseUrl}/home`, {
+          version: version[user],
+          deleteDocument: true
+        });
+
+        await getData(requestor, `${baseUrl}/home`, 404);
+      } catch (e) {
+        if (!canFail) {
+          throw e;
+        }
+      }
     }
   }
 
@@ -31,12 +46,17 @@ test.describe('/api/data/user', () => {
     baseUrl = `${process.env.BASE_URL}/api/data/user`;
   });
 
+  test('clear home document, if required', async ({ userRequest, adminRequest }) => {
+    return deleteHomeDocument(userRequest, adminRequest, true);
+  });
+
   test('get non-existant route', async ({ userRequest }) => {
     return getData(userRequest, baseUrl, 404);
   });
 
-  test('post user user home state and friends', async ({ userRequest }) => {
-    return postData(userRequest, `${baseUrl}/home`, {
+  test('post user home state and friends', async ({ userRequest }) => {
+    version.user = await postData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
       collections: [{
         collection: 'state',
         properties: {
@@ -57,7 +77,8 @@ test.describe('/api/data/user', () => {
   });
 
   test('post admin user home state and friends', async ({ adminRequest }) => {
-    return postData(adminRequest, `${baseUrl}/home`, {
+    version.admin = await postData(adminRequest, `${baseUrl}/home`, {
+      version: version.admin,
       collections: [{
         collection: 'state',
         properties: {
@@ -78,7 +99,8 @@ test.describe('/api/data/user', () => {
   });
 
   test('post public mutation denied', async ({ request }) => {
-    return postData(request, `${baseUrl}/home`, {
+    await postData(request, `${baseUrl}/home`, {
+      version: version.user,
       collections: [{
         collection: 'state',
         properties: {
@@ -107,6 +129,7 @@ test.describe('/api/data/user', () => {
       request: adminRequest,
       result: {
         home: {
+          __version: version.admin,
           state: {
             property1: 'value5',
             property2: 'value6',
@@ -124,6 +147,7 @@ test.describe('/api/data/user', () => {
       request: userRequest,
       result: {
         home: {
+          __version: version.user,
           state: {
             property1: 'value1',
             property2: 'value2',
@@ -153,6 +177,7 @@ test.describe('/api/data/user', () => {
     return getData(userRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version.user,
           state: expect.objectContaining({
             property1: 'value1',
             property2: 'value2'
@@ -170,6 +195,7 @@ test.describe('/api/data/user', () => {
     return getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version.admin,
           state: expect.objectContaining({
             property1: 'value5',
             property2: 'value6'
@@ -196,6 +222,7 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/state`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version.user,
           state: expect.objectContaining({
             property1: 'value1',
             property2: 'value2'
@@ -206,6 +233,7 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/state`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version.admin,
           state: expect.objectContaining({
             property1: 'value5',
             property2: 'value6'
@@ -229,6 +257,7 @@ test.describe('/api/data/user', () => {
     return getData(userRequest, `${baseUrl}/home?collections=state&collections=friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version.user,
           state: expect.any(Object),
           friends: expect.any(Object)
         }
@@ -240,6 +269,7 @@ test.describe('/api/data/user', () => {
     return getData(userRequest, `${baseUrl}/home?collections=friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: version.user,
           friends: expect.any(Object)
         }
       });
@@ -250,6 +280,7 @@ test.describe('/api/data/user', () => {
     return getData(userRequest, `${baseUrl}/home?collections=friends&collections=friends`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.any(Object)
         }
       });
@@ -260,6 +291,7 @@ test.describe('/api/data/user', () => {
     return getData(userRequest, `${baseUrl}/home?collections=friends&collections=nonexistant&collections=`, (expect, json) => {
       expect(json).toEqual({
         home: {
+          __version: expect.any(String),
           friends: expect.any(Object)
         }
       });
@@ -270,13 +302,15 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property2: 'value55'
           })
         }
       }));
     });
-    await postData(userRequest, `${baseUrl}/home`, {
+    version.user = await postData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
       collections: {
         collection: 'friends',
         properties: {
@@ -287,6 +321,7 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version.user,
           friends: {
             property1: 'value44',
             property2: 'value45',
@@ -301,13 +336,15 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version.admin,
           friends: expect.objectContaining({
             property2: 'value75'
           })
         }
       }));
     });
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version.admin = await postData(adminRequest, `${baseUrl}/home`, {
+      version: version.admin,
       collections: {
         collection: 'friends',
         properties: {
@@ -318,6 +355,7 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version.admin,
           friends: {
             property1: 'value64',
             property2: 'value65',
@@ -350,6 +388,7 @@ test.describe('/api/data/user', () => {
 
   test('bad post with bad data', async ({ userRequest, adminRequest }) => {
     await postData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
       collections: {
         collection: 5
       }
@@ -359,6 +398,7 @@ test.describe('/api/data/user', () => {
       expectResponseSuccess: false
     });
     await postData(adminRequest, `${baseUrl}/home`, {
+      version: version.admin,
       collections: {
         collection: 5
       }
@@ -373,13 +413,15 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property3: 'value46'
           })
         }
       }));
     });
-    await deleteData(userRequest, `${baseUrl}/home`, {
+    version.user = await deleteData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
       collections: { // can be an array or one object
         collection: 'friends',
         properties: ['property3']
@@ -388,6 +430,7 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version.user,
           friends: {
             property1: 'value44',
             property2: 'value45'
@@ -396,6 +439,7 @@ test.describe('/api/data/user', () => {
       }));
       expect(json).not.toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property3: 'value46'
           })
@@ -408,13 +452,15 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property3: 'value66'
           })
         }
       }));
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
+    version.admin = await deleteData(adminRequest, `${baseUrl}/home`, {
+      version: version.admin,
       collections: { // can be an array or one object
         collection: 'friends',
         properties: ['property3']
@@ -423,6 +469,7 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version.admin,
           friends: expect.objectContaining({
             property1: 'value64',
             property2: 'value65'    
@@ -431,6 +478,7 @@ test.describe('/api/data/user', () => {
       }));
       expect(json).not.toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property3: 'value66'
           })
@@ -440,7 +488,8 @@ test.describe('/api/data/user', () => {
   });
 
   test('empty collections that exist should return 204, user', async ({ userRequest }) => {
-    await postData(userRequest, `${baseUrl}/home`, {
+    version.user = await postData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
       collections: [{
         collection: 'girls',
         properties: {
@@ -452,6 +501,7 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/girls`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version.user,
           girls: {
             property1: 'value1',
             property2: 'value2'
@@ -459,7 +509,8 @@ test.describe('/api/data/user', () => {
         }
       });
     });
-    await deleteData(userRequest, `${baseUrl}/home`, {
+    version.user = await deleteData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
       collections: {
         collection: 'girls',
         properties: ['property1', 'property2']
@@ -469,7 +520,8 @@ test.describe('/api/data/user', () => {
   });
 
   test('empty collections that exist should return 204, admin', async ({ adminRequest }) => {
-    await postData(adminRequest, `${baseUrl}/home`, {
+    version.admin = await postData(adminRequest, `${baseUrl}/home`, {
+      version: version.admin,
       collections: [{
         collection: 'girls',
         properties: {
@@ -481,6 +533,7 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/girls`, (expect, json) => {
       expect(json).toStrictEqual({
         home: {
+          __version: version.admin,
           girls: {
             property1: 'value11',
             property2: 'value12'
@@ -488,7 +541,8 @@ test.describe('/api/data/user', () => {
         }
       });
     });
-    await deleteData(adminRequest, `${baseUrl}/home`, {
+    version.admin = await deleteData(adminRequest, `${baseUrl}/home`, {
+      version: version.admin,
       collections: {
         collection: 'girls',
         properties: ['property1', 'property2']
@@ -501,16 +555,20 @@ test.describe('/api/data/user', () => {
     await getData(userRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property1: 'value44'
           })
         }
       }));
     });
-    await deleteData(userRequest, `${baseUrl}/home/friends`);
+    version.user = await deleteData(userRequest, `${baseUrl}/home/friends`, {
+      version: version.user
+    });
     await getData(userRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version.user,
           state: expect.any(Object)
         }
       }));
@@ -524,16 +582,20 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/friends`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: expect.any(String),
           friends: expect.objectContaining({
             property1: 'value64'
           })
         }
       }));
     });
-    await deleteData(adminRequest, `${baseUrl}/home/friends`);
+    version.admin = await deleteData(adminRequest, `${baseUrl}/home/friends`, {
+      version: version.admin
+    });
     await getData(adminRequest, `${baseUrl}/home`, (expect, json) => {
       expect(json).toEqual(expect.objectContaining({
         home: {
+          __version: version.admin,
           state: expect.any(Object)
         }
       }));
