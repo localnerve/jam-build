@@ -20,11 +20,13 @@ import { startTimer } from './sw.timer.js';
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
 const batchStoreType = 'batch';
+const versionStoreType = 'version';
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 3000 : 3000; // eslint-disable-line -- assigned at bundle time
+const conflictCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 3000 : 3000; // eslint-disable-line -- assigned at bundle time
 
 let blocked = false;
 let db;
@@ -76,11 +78,18 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
   let entry;
   while ((entry = await queue.shiftRequest())) {
     try {
-      if (entry.request.method === 'GET' && entry.metadata) {
-        asyncResponseHandler = async data => {
-          const { storeType } = entry.metadata;
-          await storeData(storeType, data);
-        };
+      if (entry.metadata) {
+        if (entry.request.method === 'GET') {
+          asyncResponseHandler = async data => {
+            const { storeType } = entry.metadata;
+            await storeData(storeType, data);
+          };
+        } else { // POST, DELETE
+          asyncResponseHandler = async data => {
+            const { storeType, document } = entry.metadata;
+            await storeMutationResult(storeType, document, data);
+          };
+        }
       }
       await dataAPICall(entry.request.clone(), {
         asyncResponseHandler,
@@ -139,44 +148,21 @@ async function getDB () {
 }
 
 /**
- * Make a network request to the remote data service.
- *
- * @param {Request} request - The request object
- * @param {Object} [options] - options to handle data and control replay failure behavior
- * @param {AsyncFunction} [options.asyncResponseHandler] - data response handler
- * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
- * @param {Boolean} [options.retry] - true if failures should be queued for replay
+ * Store put or delete successful mutation new version result.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} document - The document name
+ * @param {String} result - The mutation result payload
  */
-async function dataAPICall (request, {
-  asyncResponseHandler = null,
-  metadata = null,
-  retry = true
-} = {}) {
-  debug('dataAPICall ', request.url);
+async function storeMutationResult (storeType, document, result) {
+  const versionStoreName = makeStoreName(versionStoreType);
+  const db = await getDB();
 
-  let response = null;
-  try {
-    response = await fetch(request);
-    if (response.ok) {
-      if (typeof asyncResponseHandler === 'function') {
-        const data = await response.json();
-        await asyncResponseHandler(data);
-      }
-    } else {
-      throw new Error(`[${response.status}] ${request.method} ${request.url}`);
-    }
-  } catch (error) {
-    debug('dataAPICall failed', error.message);
-
-    if (canSync && retry && !response) {
-      queue.pushRequest({
-        request,
-        metadata
-      });
-    } else {
-      throw error;
-    }
-  }
+  await db.put(versionStoreName, {
+    storeType,
+    document,
+    version: result.newVersion
+  });
 }
 
 /**
@@ -188,12 +174,21 @@ async function dataAPICall (request, {
  */
 async function storeData (storeType, data) {
   const storeName = makeStoreName(storeType);
+  const versionStoreName = makeStoreName(versionStoreType);
   const keys = [];
   const db = await getDB();
 
   // Format and store the data
-  for (const [doc_name, col] of Object.entries(data)) {
-    for (const [col_name, props] of Object.entries(col)) {
+  for (const [doc_name, doc] of Object.entries(data)) {
+    // Store and strip the typed document version
+    await db.put(versionStoreName, {
+      storeType,
+      document: doc_name,
+      version: doc.__version
+    });
+    delete doc.__version;
+
+    for (const [col_name, props] of Object.entries(doc)) {
       keys.push([doc_name, col_name]);
       await db.put(storeName, {
         document_name: doc_name,
@@ -223,7 +218,11 @@ async function storeData (storeType, data) {
 async function loadData (storeType, document, collections = null) {
   const result = { collections: [] };
   const storeName = makeStoreName(storeType);
+  const versionStoreName = makeStoreName(versionStoreType);
   const db = await getDB();
+
+  const { version } = await db.get(versionStoreName, [storeType, document]);
+  result.version = version;
 
   if (!collections) {
     const idbResults = await db.getAllFromIndex(storeName, 'document', document);
@@ -248,6 +247,53 @@ async function loadData (storeType, document, collections = null) {
   }
 
   return result;
+}
+
+/**
+ * Make a network request to the remote data service.
+ *
+ * @param {Request} request - The request object
+ * @param {Object} [options] - options to handle data and control replay failure behavior
+ * @param {AsyncFunction} [options.asyncResponseHandler] - data response handler
+ * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
+ * @param {Boolean} [options.retry] - true if failures should be queued for replay
+ */
+async function dataAPICall (request, {
+  asyncResponseHandler = null,
+  metadata = null,
+  retry = true
+} = {}) {
+  debug('dataAPICall ', request.url);
+
+  let response = null;
+  try {
+    response = await fetch(request);
+    if (response.ok) {
+      if (typeof asyncResponseHandler === 'function') {
+        const data = await response.json();
+        await asyncResponseHandler(data);
+      }
+    } else {
+      if (request.method !== 'GET') {
+        const result = await response.json();
+        if (result.versionError) {
+          return versionConflict(metadata);
+        }
+      }
+      throw new Error(`[${response.status}] ${request.method} ${request.url}`);
+    }
+  } catch (error) {
+    debug('dataAPICall failed', error.message);
+
+    if (canSync && retry && !response) {
+      queue.pushRequest({
+        request,
+        metadata
+      });
+    } else {
+      throw error;
+    }
+  }
 }
 
 /**
@@ -319,13 +365,24 @@ export async function upsertData ({ storeType, document, collections = null }) {
     body: JSON.stringify(body)
   });
 
-  await dataAPICall(request);
+  await dataAPICall(request, {
+    asyncResponseHandler: async data => {
+      await storeMutationResult(storeType, document, data);
+    },
+    metadata: {
+      storeType,
+      document,
+      collections,
+      op: 'put'
+    }
+  });
 }
 
 /**
  * Synchronize local data deletions with the remote data service.
  * Formats data for the delete api methods if input is String|Array<String>.
  * If input is Object|Array<Object> this assumes the data is already formatted properly.
+ *   @see processBatchUpdates for formatting
  * 
  * @param {Object} payload - parameters
  * @param {String} payload.storeType - 'app' or 'user'
@@ -342,6 +399,7 @@ export async function deleteData ({ storeType, document, collections }) {
   const baseUrl = `/api/data/${storeType}`;
   let url = `${baseUrl}/${document}`;
 
+  // Prepare string collections
   if (typeof collections === 'string') {
     url += `/${collections}`;
     collections = false; // eslint-disable-line no-param-reassign
@@ -355,16 +413,37 @@ export async function deleteData ({ storeType, document, collections }) {
     }
   }
 
+  // Get version
+  const db = await getDB();
+  const versionStoreName = makeStoreName(versionStoreType);
+  const { version } = await db.get(versionStoreName, [storeType, document]);
+
+  // Prepare request body
+  const body = { version };
+  if (collections) {
+    body.collections = collections;
+  }
+
   const request = new Request(url, {
     method: 'DELETE',
     headers: {
       'X-Api-Version': apiVersion,
       'Content-Type': 'application/json'
     },
-    body: collections ? JSON.stringify({ collections }) : undefined
+    body: JSON.stringify(body)
   });
 
-  await dataAPICall(request);
+  await dataAPICall(request, {
+    asyncResponseHandler: async data => {
+      await storeMutationResult(storeType, document, data);
+    },
+    metadata: {
+      storeType,
+      document,
+      collections,
+      op: 'delete'
+    }
+  });
 }
 
 /**
@@ -567,13 +646,23 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   /* eslint-enable no-param-reassign */
 
   debug(`batchUpdate db.add ${storeType}:${document}:${collection}:${propertyName}:${op}`);
-  // console.log(`batchUpdate db.put ${storeType}:${document}:${collection}:${propertyName}:${op}`); // eslint-disable-line
 
   const db = await getDB();
   await db.add(makeStoreName(batchStoreType), {
     storeType, document, collection, propertyName, op
   });
 }
+
+/* eslint-disable */
+async function versionConflict ({ storeType, document, op, collections }) {
+  console.log('@@@ TODO: implement version conflict @@@', storeType, document, op, collections);
+
+  // ? make a versionConflict store ?
+  // 1. process conflicts - 
+  //   a. get storeType+doc to memory, read store to memory, merge local onto remote, update version, rewrite to store
+  //   b. add to batch processor
+}
+/* eslint-enable */
 
 /**
  * The service worker install lifecycle handler.
@@ -583,7 +672,7 @@ export async function installDatabase () {
   db = await openDB(dbname, schemaVersion, {
     upgrade(db, oldVersion, newVersion, transaction, event) {
 
-      // upgrade storeType objectStores...
+      // upgrade main objectStores...
       for (const storeType of storeTypes) {
         const storeName = makeStoreName(storeType);
         
@@ -608,6 +697,25 @@ export async function installDatabase () {
           if (db.objectStoreNames.contains(oldStoreName)) {
             db.deleteObjectStore(oldStoreName);
           }
+        }
+      }
+
+      // Upgrade version objectStore...
+      const versionStoreName = makeStoreName(versionStoreType);
+      if (!db.objectStoreNames.contains(versionStoreName)) {
+        db.createObjectStore(versionStoreName, {
+          keyPath: ['storeType', 'document']
+        });
+      }
+
+      // Do future migrations of version objectStore here...
+
+      // Cleanup all old objectStores after migration
+      // deleteObjectStore can only be called in a version event transaction (like here).
+      for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
+        let oldStoreName = makeStoreName(versionStoreType, oldVersion);
+        if (db.objectStoreNames.contains(oldStoreName)) {
+          db.deleteObjectStore(oldStoreName);
         }
       }
 
