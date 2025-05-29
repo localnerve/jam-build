@@ -4,7 +4,6 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { request } from 'express';
 import { test } from '../fixtures.js';
 import {
   getData,
