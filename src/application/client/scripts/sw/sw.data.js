@@ -785,7 +785,7 @@ async function processVersionConflicts () {
 
   // Update the version objectStore with the new versions for the docs
   const versionStoreName = makeStoreName(versionStoreType);
-  for (const storeType of versions) {
+  for (const storeType of Object.keys(versions)) {
     for (const [document, version] of Object.entries(versions[storeType])) {
       await db.put(versionStoreName, {
         storeType,
