@@ -677,15 +677,15 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
 /**
  * Read the versionConflict objectStore and process the version conflicts:
  * 
- * 1. Read the conflictStore for all the previously saved remote data, type, op, and collection info
+ * 1. Read the conflictStore for all the current version remote data saved with type, op, and collection info
  * 2. Build the remote data documents
  * 3. Build the corresponding local data documents
  * 4. Merge the local onto the remote
  * 5. Write the result back into the local data document store
  * 6. Update the versionStore with the new document version
- * 7. Delete all the used conflictStore records
+ * 7. Schedule batch updates for the new data
  * 8. Notify the client of the new data documents
- * 9. Schedule batch updates for the new up to date data
+ * 9. Delete all the used conflictStore records
  * 
  */
 async function processVersionConflicts () {
@@ -697,6 +697,8 @@ async function processVersionConflicts () {
     debug(`Version conflicts process skipped, no records found in the ${storeName}`);
     return;
   }
+
+  debug(`processVersionConflicts processing ${totalRecords} records...`);
 
   const conflictDocs = await db.transaction(storeName).store.index('document');
 
@@ -732,6 +734,8 @@ async function processVersionConflicts () {
     }
   }
 
+  debug('processVersionConflicts remoteData', remoteData);
+
   // Read the local counterparts of the remote data, assemble localData
   const localData = {};
   for (const storeType of Object.keys(remoteData)) {
@@ -752,6 +756,8 @@ async function processVersionConflicts () {
     }
   }
 
+  debug('processVersionConflicts localData', localData);
+
   // Merge the localData onto the remoteData to create newData
   const merge = createMerger({
     inplace: true,
@@ -760,7 +766,9 @@ async function processVersionConflicts () {
   });
   const newData = merge(remoteData, localData);
 
-  // Write the docs back to the local storeType stores, collect keys for notification
+  debug('processVersionConflicts newData', newData);
+
+  // Write the newData docs back to the local stores, collect notification message data
   const message = {};
   for (const storeType of Object.keys(newData)) {
     const storeName = makeStoreName(storeType);
@@ -783,6 +791,8 @@ async function processVersionConflicts () {
     }
   }
 
+  debug(`processVersionConflicts wrote ${message.app.keys.length} app records and ${message.user.keys.length} user records`);
+
   // Update the version objectStore with the new versions for the docs
   const versionStoreName = makeStoreName(versionStoreType);
   for (const storeType of Object.keys(versions)) {
@@ -795,34 +805,23 @@ async function processVersionConflicts () {
     }
   }
 
-  // Delete all the conflict records for the processed document
-  for (const storeType of Object.keys(remoteData)) {
-    for (const [doc_name, doc] of Object.entries(remoteData[storeType])) {
-      for (const [col_name,] of Object.entries(doc)) {
-        await db.delete(storeName, [storeType, doc_name, col_name]);
-      }
-    }
-  }
-
-  // Notify the app the data was updated
-  for (const [, payload] of Object.entries(message)) {
-    await sendMessage('database-data-update', payload);
-  }
+  debug('processVersionConflicts updated version store', versions);
 
   const isObj = thing => Object.prototype.toString.call(thing) === '[object Object]';
 
   // Queue the batch commands
   for (const storeType of Object.keys(batch)) {
     for (const [, payload] of Object.entries(batch[storeType])) {
-      if (Array.isArray(payload.collections)) {
+      if (Array.isArray(payload.collections) && payload.collections.length > 0) {
         if (payload.collections.every(i => typeof i === 'string')) {
           for (const collection of payload.collections) {
             batchUpdate({ ...payload, collection });
           }
         } else if (payload.collections.every(i => isObj(i))) {
           const params = [];
+
           for (const obj of payload.collections) {
-            if (obj.properties && obj.properties.length > 0) {
+            if (Array.isArray(obj.properties) && obj.properties.length > 0) {
               for (const prop of obj.properties) {
                 params.push({
                   ...payload,
@@ -837,10 +836,29 @@ async function processVersionConflicts () {
               });
             }
           }
+
           for (const param of params) {
             batchUpdate(param);
           }
         }
+      } else {
+        batchUpdate(payload); // storeType, document, op for a doc update
+      }
+    }
+  }
+
+  // Notify the app the data was updated
+  for (const [, payload] of Object.entries(message)) {
+    await sendMessage('database-data-update', payload);
+  }
+
+  debug('processVersionConflicts sent client messages', message);
+
+  // Delete all the conflict records for the processed document
+  for (const storeType of Object.keys(remoteData)) {
+    for (const [doc_name, doc] of Object.entries(remoteData[storeType])) {
+      for (const [col_name,] of Object.entries(doc)) {
+        await db.delete(storeName, [storeType, doc_name, col_name]);
       }
     }
   }
@@ -848,6 +866,8 @@ async function processVersionConflicts () {
 
 /**
  * Store the version conflict resolution data to the objectStore.
+ * Contains the current version and data for the document to be updated from the remote store,
+ * along with the requested modication data of storeType, op (the modification), and the collections array.
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} op - 'put' or 'delete'
@@ -867,7 +887,7 @@ async function storeVersionConflict (storeType, op, collections, data) {
     if (typeof BigInt(42) === 'bigint') {
       new_version = BigInt(newDocVersion);
     } else {
-      new_version = +newDocVersion;
+      new_version = +newDocVersion; // this ends badly
     }
 
     for (const [col_name, props] of Object.entries(doc)) {
