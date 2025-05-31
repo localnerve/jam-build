@@ -12,6 +12,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import querystring from 'node:querystring';
+import { createMerger } from 'smob';
 import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
@@ -21,12 +22,13 @@ const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
 const batchStoreType = 'batch';
 const versionStoreType = 'version';
+const conflictStoreType = 'conflict';
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 3000 : 3000; // eslint-disable-line -- assigned at bundle time
-const conflictCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 3000 : 3000; // eslint-disable-line -- assigned at bundle time
+const E_REPLAY = 0xf56f3634aca0;
 
 let blocked = false;
 let db;
@@ -81,7 +83,10 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
       if (entry.metadata) {
         if (entry.request.method === 'GET') {
           asyncResponseHandler = async data => {
-            const { storeType } = entry.metadata;
+            const { storeType, op, collections } = entry.metadata;
+            if (op) {
+              return storeVersionConflict(storeType, op, collections, data);
+            }
             await storeData(storeType, data);
           };
         } else { // POST, DELETE
@@ -101,6 +106,8 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
       throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
     }
   }
+
+  await processVersionConflicts();
 
   await processBatchUpdates();
 }
@@ -257,6 +264,7 @@ async function loadData (storeType, document, collections = null) {
  * @param {AsyncFunction} [options.asyncResponseHandler] - data response handler
  * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
  * @param {Boolean} [options.retry] - true if failures should be queued for replay
+ * @returns {Number} 0 on success or conflict resolution, E_REPLAY if queued for replay. Throws on error
  */
 async function dataAPICall (request, {
   asyncResponseHandler = null,
@@ -265,22 +273,32 @@ async function dataAPICall (request, {
 } = {}) {
   debug('dataAPICall ', request.url);
 
+  let result = 0;
   let response = null;
+
   try {
     response = await fetch(request);
+
     if (response.ok) {
       if (typeof asyncResponseHandler === 'function') {
         const data = await response.json();
         await asyncResponseHandler(data);
       }
     } else {
+      let handled = false;
+
       if (request.method !== 'GET') {
-        const result = await response.json();
-        if (result.versionError) {
-          return versionConflict(metadata);
+        const resp = await response.json();
+
+        if (resp.versionError) {
+          await versionConflict(metadata);
+          handled = true;
         }
       }
-      throw new Error(`[${response.status}] ${request.method} ${request.url}`);
+
+      if (!handled) {
+        throw new Error(`[${response.status}] ${request.method} ${request.url}`);
+      }
     }
   } catch (error) {
     debug('dataAPICall failed', error.message);
@@ -290,10 +308,13 @@ async function dataAPICall (request, {
         request,
         metadata
       });
+      result = E_REPLAY;
     } else {
       throw error;
     }
   }
+
+  return result;
 }
 
 /**
@@ -653,16 +674,249 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   });
 }
 
-/* eslint-disable */
-async function versionConflict ({ storeType, document, op, collections }) {
-  console.log('@@@ TODO: implement version conflict @@@', storeType, document, op, collections);
+/**
+ * Read the versionConflict objectStore and process the version conflicts:
+ * 
+ * 1. Read the conflictStore for all the previously saved remote data, type, op, and collection info
+ * 2. Build the remote data documents
+ * 3. Build the corresponding local data documents
+ * 4. Merge the local onto the remote
+ * 5. Write the result back into the local data document store
+ * 6. Update the versionStore with the new document version
+ * 7. Delete all the used conflictStore records
+ * 8. Notify the client of the new data documents
+ * 9. Schedule batch updates for the new up to date data
+ * 
+ */
+async function processVersionConflicts () {
+  const storeName = makeStoreName(conflictStoreType);
+  const db = await getDB();
+  const totalRecords = await db.count(storeName);
 
-  // ? make a versionConflict store ?
-  // 1. process conflicts - 
-  //   a. get storeType+doc to memory, read store to memory, merge local onto remote, update version, rewrite to store
-  //   b. add to batch processor
+  if (totalRecords === 0) {
+    debug(`Version conflicts process skipped, no records found in the ${storeName}`);
+    return;
+  }
+
+  const conflictDocs = await db.transaction(storeName).store.index('document');
+
+  // Read all conflict doc records, latest version first
+  // Set aside doc version, batch commands, and build the remote document objects.
+  const remoteData = {};
+  const versions = { app: {}, user: {} };
+  const batch = { app: { put: null, delete: null }, user: { put: null, delete: null } };
+  for await (const cursor of conflictDocs.iterate(null, 'prev')) { // latest version first
+    const {
+      new_version: version,
+      storeType,
+      document_name: doc,
+      collection_name: col,
+      properties: props,
+      op,
+      collections
+    } = cursor.value;
+
+    if (!versions[storeType][doc] || versions[storeType][doc] <= version) {
+      versions[storeType][doc] = version;
+      batch[storeType][op] = {
+        storeType,
+        document: doc,
+        op,
+        collections
+      };
+      remoteData[storeType] = remoteData[storeType] ?? {};
+      remoteData[storeType][doc] = remoteData[storeType][doc] ?? {};
+      remoteData[storeType][doc][col] = {
+        ...props
+      };
+    }
+  }
+
+  // Read the local counterparts of the remote data, assemble localData
+  const localData = {};
+  for (const storeType of Object.keys(remoteData)) {
+    const storeName = makeStoreName(storeType);
+    
+    for (const doc of Object.keys(remoteData[storeType])) {
+      const records = await db.getAllFromIndex(storeName, 'document', doc);
+      
+      for (const rec of records) {
+        localData[storeType] = localData[storeType] ?? {};
+        localData[storeType][rec.document_name] =
+          localData[storeType][rec.document_name] ?? {};
+        localData[storeType][rec.document_name][rec.collection_name] =
+          localData[storeType][rec.document_name][rec.collection_name] ?? {
+            ...rec.properties
+          };
+      }
+    }
+  }
+
+  // Merge the localData onto the remoteData to create newData
+  const merge = createMerger({
+    inplace: true,
+    priority: 'right',
+    arrayPriority: 'right'
+  });
+  const newData = merge(remoteData, localData);
+
+  // Write the docs back to the local storeType stores, collect keys for notification
+  const message = {};
+  for (const storeType of Object.keys(newData)) {
+    const storeName = makeStoreName(storeType);
+
+    message[storeType] = message[storeType] ?? { keys: [] };
+    message[storeType].dbname = dbname;
+    message[storeType].storeName = storeName;
+    message[storeType].storeType = storeType;
+
+    for (const [doc_name, doc] of Object.entries(newData[storeType])) {
+      for (const [col_name, props] of Object.entries(doc)) {
+        message[storeType].keys.push([doc_name, col_name]);
+
+        await db.put(storeName, {
+          document_name: doc_name,
+          collection_name: col_name,
+          properties: props
+        });
+      }
+    }
+  }
+
+  // Update the version objectStore with the new versions for the docs
+  const versionStoreName = makeStoreName(versionStoreType);
+  for (const storeType of versions) {
+    for (const [document, version] of Object.entries(versions[storeType])) {
+      await db.put(versionStoreName, {
+        storeType,
+        document,
+        version
+      });
+    }
+  }
+
+  // Delete all the conflict records for the processed document
+  for (const storeType of Object.keys(remoteData)) {
+    for (const [doc_name, doc] of Object.entries(remoteData[storeType])) {
+      for (const [col_name,] of Object.entries(doc)) {
+        await db.delete(storeName, [storeType, doc_name, col_name]);
+      }
+    }
+  }
+
+  // Notify the app the data was updated
+  for (const [, payload] of Object.entries(message)) {
+    await sendMessage('database-data-update', payload);
+  }
+
+  const isObj = thing => Object.prototype.toString.call(thing) === '[object Object]';
+
+  // Queue the batch commands
+  for (const storeType of Object.keys(batch)) {
+    for (const [, payload] of Object.entries(batch[storeType])) {
+      if (Array.isArray(payload.collections)) {
+        if (payload.collections.every(i => typeof i === 'string')) {
+          for (const collection of payload.collections) {
+            batchUpdate({ ...payload, collection });
+          }
+        } else if (payload.collections.every(i => isObj(i))) {
+          const params = [];
+          for (const obj of payload.collections) {
+            if (obj.properties && obj.properties.length > 0) {
+              for (const prop of obj.properties) {
+                params.push({
+                  ...payload,
+                  collection: obj.collection,
+                  propertyName: prop
+                });
+              }
+            } else {
+              params.push({
+                ...payload,
+                collection: obj.collection
+              });
+            }
+          }
+          for (const param of params) {
+            batchUpdate(param);
+          }
+        }
+      }
+    }
+  }
 }
-/* eslint-enable */
+
+/**
+ * Store the version conflict resolution data to the objectStore.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} op - 'put' or 'delete'
+ * @param {Array<String>|Array<Object>|String} collections - The network request collections
+ * @param {Object} data - The latest version of the remote document
+ */
+async function storeVersionConflict (storeType, op, collections, data) {
+  const db = await getDB();
+  const storeName = makeStoreName(conflictStoreType);
+
+  // Format and store the new version data
+  for (const [doc_name, doc] of Object.entries(data)) {
+    const newDocVersion = doc.__version;
+    delete doc.__version;
+
+    let new_version;
+    if (typeof BigInt(42) === 'bigint') {
+      new_version = BigInt(newDocVersion);
+    } else {
+      new_version = +newDocVersion;
+    }
+
+    for (const [col_name, props] of Object.entries(doc)) {
+      await db.put(storeName, {
+        storeType,
+        document_name: doc_name,
+        collection_name: col_name,
+        properties: props,
+        new_version,
+        op,
+        collections
+      });
+    }
+  }
+}
+
+/**
+ * Resolve a version conflict.
+ * Gets the remote document and starts the resolution process.
+ * 
+ * @param {Object} payload - The parameters
+ * @param {String} payload.storeType - 'user' or 'app'
+ * @param {String} payload.document - The document name
+ * @param {String} payload.op - 'put' or 'delete'
+ * @param {String|Array<String>|Array<Object>} payload.collections - The network request format of collections
+ */
+async function versionConflict ({ storeType, document, op, collections }) {
+  const url = `/api/data/${storeType}/${document}`;
+
+  const result = await dataAPICall(new Request(url, {
+    headers: {
+      'X-Api-Version': apiVersion,
+      'Content-Type': 'application/json'
+    }
+  }), {
+    asyncResponseHandler: async data => {
+      await storeVersionConflict(storeType, op, collections, data);
+    },
+    metadata: {
+      storeType,
+      op,
+      collections
+    }
+  });
+
+  if (result !== E_REPLAY) {
+    processVersionConflicts();
+  }
+}
 
 /**
  * The service worker install lifecycle handler.
@@ -718,6 +972,30 @@ export async function installDatabase () {
       // deleteObjectStore can only be called in a version event transaction (like here).
       for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
         let oldStoreName = makeStoreName(versionStoreType, oldVersion);
+        if (db.objectStoreNames.contains(oldStoreName)) {
+          db.deleteObjectStore(oldStoreName);
+        }
+      }
+
+      //
+      // CONFLICT STORE
+      // Upgrade conflict objectStore...
+      const conflictStoreName = makeStoreName(conflictStoreType);
+      if (!db.objectStoreNames.contains(conflictStoreName)) {
+        const store = db.createObjectStore(conflictStoreName, {
+          keyPath: ['storeType', 'document_name', 'collection_name']
+        });
+        store.createIndex('document', ['new_version', 'storeType', 'document_name', 'op'], {
+          unique: false
+        });
+      }
+
+      // Do future migrations of version objectStore here...
+
+      // Cleanup all old objectStores after migration
+      // deleteObjectStore can only be called in a version event transaction (like here).
+      for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
+        let oldStoreName = makeStoreName(conflictStoreType, oldVersion);
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }
