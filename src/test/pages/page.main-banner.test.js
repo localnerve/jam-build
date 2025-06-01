@@ -4,6 +4,8 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+/* eslint-disable playwright/expect-expect */
+
 import { test, expect } from '../fixtures.js';
 
 test.describe('main-banner tests', () => {

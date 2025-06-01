@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import compat from "eslint-plugin-compat";
+import playwright from 'eslint-plugin-playwright';
 import globals from 'globals';
 
 const commonRules = {
@@ -68,8 +69,9 @@ export default [{
   }
 }, {
   name: 'test',
+  ...playwright.configs['flat/recommended'],
   files: [
-    'src/test/**'
+    'src/test/**/*.test.js'
   ],
   languageOptions: {
     globals: {
@@ -77,6 +79,7 @@ export default [{
     }
   },
   rules: {
+    ...playwright.configs['flat/recommended'].rules,
     ...commonRules
   }
 }];

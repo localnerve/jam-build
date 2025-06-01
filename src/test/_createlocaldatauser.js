@@ -5,7 +5,7 @@
 import { test } from './fixtures.js';
 import { postData } from './api/api.js';
 
-const baseUrl = 'http://localhost:5000';
+const baseUrl = `http://localhost:${process.env.LOCALHOST_PORT}`;
 
 test('post local user home test data', async ({ userRequest }) => {
   return postData(userRequest, `${baseUrl}/api/data/user/home`, {

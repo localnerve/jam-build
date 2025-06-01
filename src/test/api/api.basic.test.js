@@ -7,4 +7,5 @@
 import { test } from '../fixtures.js';
 import { basicEndpointTests } from './endpoint.js';
 
+// eslint-disable-next-line playwright/valid-describe-callback
 test.describe('/api basic tests', basicEndpointTests('/api'));

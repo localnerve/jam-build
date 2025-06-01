@@ -13,7 +13,7 @@ export async function getData (request, url, testResponse = ()=>true, status = 2
   debug(`GET request for ${url}...`);
 
   if (typeof testResponse === 'number') {
-    status = testResponse; // eslint-disable-line no-param-reassign
+    status = testResponse;
   }
 
   const response = await request.get(url);
@@ -49,9 +49,17 @@ export async function postData (request, url, data, {
   expectVersionError = false
 } = {}) {
   debug(`POST request for ${url}...`);
+
   const response = await request.post(url, {
     data
   });
+
+  let json;
+  if (expectResponse) {
+    debug('POST parsing response as json...');
+    json = await response.json();
+    debug('POST response json: ', json);
+  }
 
   debug(`POST response code: ${response.status()}`);
   if (expectSuccess) {
@@ -65,10 +73,6 @@ export async function postData (request, url, data, {
   }
   
   if (expectResponse) {
-    debug('POST parsing response as json...');
-    const json = await response.json();
-    debug('POST response json: ', json);
-
     if (expectResponseSuccess) {
       expect(json.ok).toBeTruthy();
       expect(json).toEqual(expect.objectContaining({
@@ -78,7 +82,6 @@ export async function postData (request, url, data, {
       return json.newVersion;
     } else {
       expect(json.ok).not.toBeTruthy();
-
       if (expectVersionError) {
         expect(json.versionError).toBeTruthy();
       }
@@ -110,11 +113,18 @@ export async function deleteData (request, url, data, {
   expectVersionError = false
 } = {}) {
   debug(`DELETE request for ${url}...`);
+
   const response = await request.delete(url, {
     data
   });
 
-  debug(`DELETE response code: ${response.status()}`);
+  let json;
+  if (expectResponse) {
+    debug(`DELETE response code: ${response.status()}`);
+    json = await response.json();
+    debug('DELETE response json: ', json);
+  }
+
   if (expectSuccess) {
     expect(response.ok()).toBeTruthy();
   } else {
@@ -126,10 +136,6 @@ export async function deleteData (request, url, data, {
   }
 
   if (expectResponse) {
-    debug('DELETE parsing response as json...');
-    const json = await response.json();
-    debug('DELETE response json: ', json);
-
     if (expectResponseSuccess) {
       expect(json.ok).toBeTruthy();
       expect(json).toEqual(expect.objectContaining({
@@ -139,7 +145,6 @@ export async function deleteData (request, url, data, {
       return json.newVersion;
     } else {
       expect(json.ok).not.toBeTruthy();
-
       if (expectVersionError) {
         expect(json.versionError).toBeTruthy();
       }

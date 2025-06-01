@@ -15,6 +15,9 @@ export default defineConfig({
     name: "localdata",
     testMatch: /_createlocaldata(?:app|user)\.js/
   }, {
+    name: "deletelocaldata",
+    testMatch: /_deletelocaldata(?:app|user)\.js/
+  }, {
     name: "dummy",
     testMatch: /dummy\.test\.js/
   }, {
