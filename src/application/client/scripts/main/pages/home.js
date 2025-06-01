@@ -21,10 +21,10 @@ function testUserStore () {
   const { state, friends } = homeStore;
   debug('state: ', state);
 
-  state.newItem = 'hello there';
+  state.newItem = 'hello there, mr man';
   state.newItem2 = 'how you doin?';
-  state.newItem3 = 'the weather is nice';
-  state.property2 = 'Updated property2';
+  state.newItem3 = 'the weather is nice today';
+  state.property2 = 'Updated property2, chachacha';
 
   delete state.newItem2;
 
@@ -38,14 +38,14 @@ function testUserStore () {
   delete state.property4;
 
   homeStore.user = {
-    newProp1: 'newValue10',
-    newProp2: 'newValue20',
-    newProp3: 'newValue30',
+    newProp1: 'newValue100',
+    newProp2: 'newValue200',
+    newProp3: 'newValue300',
     newProp31: 'newValue31',
-    newProp4: 'newValue40'
+    newProp4: 'newValue400'
   };
 
-  delete homeStore.newCollection.newProp31;
+  delete homeStore.user.newProp31;
 }
 
 /*
