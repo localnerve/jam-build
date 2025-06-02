@@ -36,7 +36,7 @@ export async function getData (request, url, testResponse = ()=>true, status = 2
     debug('GET response json: ', json);
 
     if (typeof testResponse === 'function') {
-      testResponse(expect, json);
+      testResponse(json);
     }
   }
 }
@@ -102,7 +102,7 @@ export async function genericRequest (url, method, body = null, testResponse = (
 
   debug(`${method} response code : ${fetchResponse.status}`);
 
-  testResponse(expect, fetchResponse);
+  testResponse(fetchResponse);
 }
 
 export async function deleteData (request, url, data, {
