@@ -29,7 +29,7 @@ export default defineConfig({
     dependencies: ['fixtures']
   }, {
     name: 'api-debug',
-    testMatch: 'api/api.data.user.test.js',
+    testMatch: 'api/api.data.app.test.js',
     dependencies: ['fixtures']
   }, {
     name: 'pages',

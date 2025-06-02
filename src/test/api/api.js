@@ -136,7 +136,7 @@ export async function deleteData (request, url, data, {
   }
 
   if (expectResponse) {
-    if (expectResponseSuccess) {
+    if (expectResponseSuccess && !expectVersionError) {
       expect(json.ok).toBeTruthy();
       expect(json).toEqual(expect.objectContaining({
         message: 'Success'

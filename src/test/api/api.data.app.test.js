@@ -547,7 +547,7 @@ test.describe('/api/data/app', () => {
     }, 404);
   });
 
-  test('mutation conflict should cause version error', async ({ adminRequest: admin1, adminRequest: admin2 }) => {
+  test('update conflict should cause version error', async ({ adminRequest: admin1, adminRequest: admin2 }) => {
     let payload1, payload2;
     
     await getData(admin1, baseUrl, json => {
@@ -589,6 +589,44 @@ test.describe('/api/data/app', () => {
       assertStatus: 409,
       expectVersionError: true
     });
+  });
+
+  test('delete conflict should cause version error', async ({ adminRequest: admin1, adminRequest: admin2 }) => {
+    let payload1, payload2;
+    
+    await getData(admin1, baseUrl, json => {
+      payload1 = json;
+    });
+
+    await getData(admin2, baseUrl, json => {
+      payload2 = json;
+    });
+
+    const newState = {
+      item1: 'item1',
+      item2: 'item2',
+      item3: 'item3',
+      item4: 'item4'
+    };
+
+    const newVersion = await postData(admin2, `${baseUrl}/home`, {
+      version: payload2.home.__version,
+      collections: [{
+        collection: 'state',
+        properties: newState
+      }]
+    });
+
+    expect(newVersion).not.toEqual(payload1.home.__version);
+
+    await deleteData(admin1, `${baseUrl}/home/state`, {
+      version: payload1.home.__version
+    }, {
+      expectSuccess: false,
+      assertStatus: 409,
+      expectVersionError: true
+    });
+
   });
 
   test('delete the home document entirely', async ({ adminRequest }) => {
