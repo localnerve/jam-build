@@ -35,6 +35,15 @@
       },
       "order": 1
     },
+    "login": {
+      "title": "Log In",
+      "type": "nav",
+      "name": "login",
+      "route": "#",
+      "label": "Log In",
+      "alt-label": "Log Out",
+      "order": 2
+    },
     "contact": {
       "title": "Contact",
       "type": "nav",
@@ -47,15 +56,6 @@
         "changefreq": "monthly",
         "priority": 0.8
       },
-      "order": 2
-    },
-    "login": {
-      "title": "Log In",
-      "type": "nav",
-      "name": "login",
-      "route": "#",
-      "label": "Log In",
-      "alt-label": "Log Out",
       "order": 3
     },
     "terms": {

@@ -216,8 +216,9 @@
       a {
         @extend %menu-button;
 
-        border-color: c.$color-blue-button-border;
-        background : c.$color-blue-button;
+        color: var(--site-color);
+        border-color: var(--site-color);
+        background : var(--site-bg);
       }
     }
   }
