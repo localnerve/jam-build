@@ -25,6 +25,11 @@ test('post local user home test data', async ({ userRequest }) => {
         property2: 'value45',
         property3: 'value46'
       }
+    }, {
+      collection: 'content',
+      properties: {
+        intro: 'This is user dynamic content on the home page from the data service. It can be changed at any time by app admins or users. It can be any series of named objects and properties for any purpose, not just some text content like this. This data is only available per user after login.'
+      }
     }]
   });
 });

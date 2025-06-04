@@ -22,7 +22,7 @@ const authRef = new Authorizer({
  * 
  * @returns {Boolean} true if access_token is active, false otherwise
  */
-function isActive () {
+export function isLoginActive () {
   const login = JSON.parse(sessionStorage.getItem('login') || null);
 
   if (login) {
@@ -53,7 +53,7 @@ function updateUI (hdrStatusText, loginButtons, profile) {
  * @returns {Object} The user profile object, or null if not access_token not active
  */
 function getUserProfile () {
-  if (isActive()) {
+  if (isLoginActive()) {
     return JSON.parse(sessionStorage.getItem('user') || null);
   }
   

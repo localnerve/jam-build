@@ -8,12 +8,13 @@ import debugLib from '@localnerve/debug';
 import { storeEvents } from '../data.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
+import { isLoginActive } from '../login.js';
 
 const page = 'home';
 
 const debug = debugLib(page);
 
-let appStore;
+let appStore; // eslint-disable-line no-unused-vars
 let userStore;
 
 function testUserStore () {
@@ -70,6 +71,7 @@ function updateAppAfter () {
   newCollection.newProp4 = 'Updated Property4';
 }
 */
+/*
 async function testAppStore () {
   const homeStore = appStore[page];
   const { state, friends } = homeStore;
@@ -101,6 +103,28 @@ async function testAppStore () {
 
   delete homeStore.newCollection.newProp31;
 }
+*/
+
+/**
+ * Send the data out to the UI
+ * 
+ * @param {Object} payload - key, value
+ */
+function updatePage ({ key, value }) {
+  debug('updateContent: ', key, value);
+
+  let predicate = key.join('.');
+
+  for (const [name, content] of Object.entries(value)) {
+    const id = `${predicate}.${name}`;
+
+    debug(`Updating ${id}...`);
+    const el = document.getElementById(id);
+    if (el) {
+      el.innerText = content;
+    }
+  }
+}
 
 /**
  * Setup the home page.
@@ -110,14 +134,17 @@ async function testAppStore () {
 export default async function setup (support) {
   debug('setup...', support);
 
-  storeEvents.addEventListener(page, ({ key, value }) => {
-    debug(`@@@ ${page} changed: `, key, value);
-  });
+  storeEvents.addEventListener(['app', page, 'content'], updatePage);
+  storeEvents.addEventListener(['user', page, 'content'], updatePage);
 
   appStore = await getApplicationStore(page);
-  setTimeout(testAppStore, 100);
+  // setTimeout(testAppStore, 100);
   // setTimeout(updateAppAfter, 25000); // after the failures
   // setTimeout(wholeDocuments, 50000);
+
+  if (isLoginActive()) {
+    userStore = await getUserStore(page);
+  }
 
   // Test user store
   window.App.add('login-action-login', async () => {

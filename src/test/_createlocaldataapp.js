@@ -25,6 +25,11 @@ test('post local application home test data', async ({ adminRequest }) => {
         property2: 'value55',
         property3: 'value46'
       }
+    }, {
+      collection: 'content',
+      properties: {
+        intro: 'This is application level, shared dynamic content for the home page from the data service. It can be changed at any time by app admins. It can be any series of named objects and properties for any purpose, not just some text content like this. The application also provides private, per-user dynamic content with the same capabilities. Login to exercise that data flow.'
+      }
     }]
   });
 });

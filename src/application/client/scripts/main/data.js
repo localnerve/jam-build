@@ -287,15 +287,59 @@ function createHandler (path = []) {
 }
 
 /**
+ * Find a subarray in an array.
+ * 
+ * @param {Array} mainArray - The array to search
+ * @param {Array} subArray - The subarray to find
+ * @returns {Boolean} true if found, false otherwise
+ */
+function containsSubarray(mainArray, subArray) {
+  const n = mainArray?.length ?? -2;
+  const m = subArray?.length ?? -1;
+
+  // If subArray is longer than mainArray, or bad input, it can't be a subarray
+  if (m > n || m < 0) return false;
+
+  for (let i = 0; i <= n - m; i++) {
+    let match = true;
+    for (let j = 0; j < m; j++) {
+      if (mainArray[i + j] !== subArray[j]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return true;
+  }
+
+  return false;
+}
+
+/**
  * Allow clients to listen to changes
  */
 export const storeEvents = {
+  /**
+   * Add a data event listener.
+   * On any update or mutation, gets the key listened to and the new value.
+   * 
+   * @param {String|Array} listenKey - The key or complex key to listen for
+   * @param {Function} callback - Receives { key, value }
+   */
   addEventListener (listenKey, callback) {
+    const _listenKey = typeof listenKey === 'string' ? [listenKey] : listenKey;
+
     listeners.push(event => {
       const { key } = event;
-      if (key.includes(listenKey)) callback(event);
+
+      if (containsSubarray(key, _listenKey)) callback({
+        key: _listenKey, value: event.value
+      });
     });
   },
+
+  /**
+   * Removes the event listener, matched by function.
+   */
   removeEventListener (key, callback) {
     listeners = listeners.filter(i => i !== callback);
   }
