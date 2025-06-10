@@ -65,12 +65,26 @@
   
     p {
       font-size: 1.5em;
-      color: #{c.$site-white};;
+      color: #{c.$site-white};
     }
   }
 
-  .extra {
+  .invert {
     background: var(--site-color);
     color: var(--site-bg);
+  }
+
+  .all {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: flex-start;
+    justify-content: space-evenly;
+    gap: 1rem;
+    width: 100%;
+
+    article {
+      flex: 1 0;
+      min-width: 17.89em;
+    }
   }
 }

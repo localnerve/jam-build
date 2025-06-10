@@ -55,6 +55,7 @@ export async function createScripts (settings) {
       isMerge: true
     }),
     resolve({
+      browser: true,
       paths: [
         './node_modules'
       ]

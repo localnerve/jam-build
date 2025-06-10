@@ -29,3 +29,39 @@ export function getStyleNumber (style, ...props) {
     0
   );
 }
+
+/**
+ * Stringify a simple object (no circular refs considered).
+ * 
+ * @param {Object} obj - The object to JSON.stringify
+ * @returns {String} The stringified object
+ */
+/*
+export function stringifyObject (obj) {
+  if (typeof obj !== 'object' || obj === null) {
+    return JSON.stringify(obj);
+  }
+
+  // eslint-disable-next-line no-param-reassign
+  if (Object.prototype.toString.call(obj) === '[object RegExp]') obj = {
+    pattern: obj.source,
+    flags: obj.flags
+  };
+
+  const props = Object.keys(obj);
+
+  const values = props.map(key => {
+    let value = obj[key];
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      return `"${key}":${stringifyObject(value)}`;
+    } else {
+      if (typeof value === 'bigint') value = `${value}`;
+      if (typeof value === 'undefined') value = null;
+      if (typeof value === 'symbol') value = null;
+      return `"${key}":${JSON.stringify(value)}`;
+    }
+  });
+
+  return `{${values.join(',')}}`;
+}
+*/

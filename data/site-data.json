@@ -19,6 +19,7 @@
         "changefreq": "monthly",
         "priority": 1.0
       },
+      "external-css": "extra.css",
       "order": 0
     },
     "about": {

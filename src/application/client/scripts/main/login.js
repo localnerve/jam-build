@@ -39,12 +39,17 @@ export function isLoginActive () {
 /**
  * Set the UI elements from the profile.
  */
-function updateUI (hdrStatusText, loginButtons, profile) {
+function updateUI (hdrStatusText, loginButtons, main, profile) {
   const message = profile ? `Welcome, ${profile.email}` : '';
+  const loggedIn = 'logged-in';
+
   hdrStatusText.innerHTML = message;
+  
   loginButtons.forEach(el => {
-    el.classList[profile ? 'add' : 'remove']('logged-in');
+    el.classList[profile ? 'add' : 'remove'](loggedIn);
   });
+  
+  main.classList[profile ? 'add' : 'remove'](loggedIn);
 }
 
 /**
@@ -83,20 +88,25 @@ function isLoginCallback () {
   return false;
 }
 
-async function loginHandler (hdrStatusText, loginButtons, event) {
+async function loginHandler (hdrStatusText, loginButtons, main, event) {
   event.preventDefault();
 
   const loggedIn = sessionStorage.getItem('login');
+
   if (!loggedIn) {
     history.pushState(null, '', window.location.url); // without this, back button from login goes nowhere
+    
     await authRef.authorize({
       response_type: 'code',
       use_refresh_token: false
     });
   } else {
     await authRef.logout();
+    
     sessionStorage.setItem('login', '');
-    updateUI(hdrStatusText, loginButtons);
+    
+    updateUI(hdrStatusText, loginButtons, main);
+    
     window.App.exec('login-action-logout');
   }
 }
@@ -107,10 +117,11 @@ async function loginHandler (hdrStatusText, loginButtons, event) {
  */
 export default async function setup () {
   const hdrStatusText = document.querySelector('.ln-header .status p');
-  const loginButtons = Array.from(document.querySelectorAll('nav .login'));
+  const main = document.querySelector('main');
+  const loginButtons = Array.from(document.querySelectorAll('.login-button, nav .login'));
 
   // Install the login/logout handlers
-  const boundLoginHander = loginHandler.bind(null, hdrStatusText, loginButtons);
+  const boundLoginHander = loginHandler.bind(null, hdrStatusText, loginButtons, main);
   loginButtons.forEach(el => {
     el.dataset.listener = true;
     el.addEventListener('click', boundLoginHander);
@@ -137,13 +148,13 @@ export default async function setup () {
       if (!profileErrors.length) {
         sessionStorage.setItem('user', JSON.stringify(profile));
         window.App.exec('login-action-login');
-        updateUI(hdrStatusText, loginButtons, profile);
+        updateUI(hdrStatusText, loginButtons, main, profile);
       }
     }
   } else {
     const profile = getUserProfile();
     if (profile) {
-      updateUI(hdrStatusText, loginButtons, profile);
+      updateUI(hdrStatusText, loginButtons, main, profile);
     }
   }
 }

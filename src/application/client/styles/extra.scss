@@ -1,0 +1,60 @@
+/**
+ * extra external css specific for some pages for this demo
+ */
+
+@use 'mixins' as m;
+
+.dyn {
+  width: 100%;
+  min-height: 8em;
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.user-row {
+  display: none;
+  flex-flow: row wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  max-width: 100%;
+
+  article {
+    flex: 1 1 50%;
+    max-width: 100%;
+
+    @include m.min-width (684px) {
+      padding: 0 1em;
+    }
+    
+    h4 { text-align: center; }
+  }
+}
+
+.user-login {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: center;
+
+  button {
+    padding: 0.3em;
+    border-radius: 0.4em;
+    border-width: 1px;
+    border-style: solid;
+    color: var(--site-color);
+    border-color: var(--site-color);
+    background : var(--site-bg);
+  }
+}
+
+.logged-in {
+  .user-row {
+    display: flex;
+  }
+  
+  .user-login {
+    display: none;
+  }
+}

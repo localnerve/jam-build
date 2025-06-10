@@ -16,7 +16,7 @@
   {{! content for all pages that use this template }}
   {{#with (lookup content 'all')}}
   {{#each this}}
-  <section class="{{strip this 'all'}} {{this}}">
+  <section class="{{strip this}} {{this}}">
     {{> (lookup .. @key) ../..}}
   </section>
   {{/each}}
