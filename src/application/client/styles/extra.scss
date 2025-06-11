@@ -1,7 +1,7 @@
 /**
  * extra external css specific for some pages for this demo
  */
-
+@use 'colors' as c;
 @use 'mixins' as m;
 
 .dyn {
@@ -29,6 +29,32 @@
     }
     
     h4 { text-align: center; }
+  }
+}
+
+.user-state {
+  --duller-base: #{c.$site-white};
+  --eo-bg-color: var(--site-bg);
+  --eo-border-focused-color: var(--site-color);
+  --eo-border-defocused-color: color-mix(in srgb, var(--site-color), var(--duller-base) 80%);
+  --eo-item-selected-bg-color: var(--site-color);
+  --eo-item-selected-color: var(--site-bg);
+  --eo-icon-color: var(--site-bg);
+  --eo-add-new-icon-color: var(--site-color);
+  --eo-input-bg-color: color-mix(in srgb, var(--site-bg), var(--duller-base) 30%);
+  --eo-input-color: var(--site-color);
+  --eo-input-placeholder-color: color-mix(in srgb, var(--site-color), var(--duller-base) 50%);
+
+  @media (prefers-color-scheme: dark) {
+    --duller-base: gray;
+  }
+}
+
+.section.user.dyn {
+  padding: 0.5rem 0.25rem;
+
+  @include m.min-width (360px) {
+    padding: 0.5rem 1rem;
   }
 }
 
