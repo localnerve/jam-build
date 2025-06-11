@@ -6,7 +6,11 @@
  */
 import gulp from 'gulp';
 import gulpHtmlMin from 'gulp-html-minifier-terser';
-import { hashstream, removeCspMeta } from '@localnerve/csp-hashes';
+import { hashstream, removeCspMeta, createCspHash } from '@localnerve/csp-hashes';
+import { getEditableObjectCssText } from '@localnerve/editable-object';
+
+// web-component shadow styles
+const editableObjectCspHash = createCspHash(await getEditableObjectCssText());
 
 /**
  * Minify the html and handle CSP
@@ -28,12 +32,13 @@ export function minifyHtml (settings) {
       .pipe(hashstream({
         replace: true,
         callback: (p, hashes, s) => {
+          const cssHashes = hashes.style.all.concat(editableObjectCspHash).join(' ');
           return s.replace(
             /script-src ([^;]+)/,
             `script-src $1 ${hashes.script.all.join(' ')}`
           ).replace(
             /style-src ([^;]+)/,
-            `style-src $1 ${hashes.style.all.join(' ')}`
+            `style-src $1 ${cssHashes}`
           );
         }
       }))
