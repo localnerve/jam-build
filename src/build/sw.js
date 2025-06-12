@@ -87,7 +87,7 @@ export async function buildSwMain (settings) {
   const { swMainGenerated, dist, prod } = settings;
 
   const ssrCacheable = Object.values(siteData.pages)
-    .filter(page => page.type === 'nav')
+    .filter(page => page.type === 'nav' && page.route.includes('/'))
     .map(page => page.route);
 
   const ssrConfig = {
