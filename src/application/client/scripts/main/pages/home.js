@@ -122,6 +122,16 @@ async function testAppStore () {
 function updatePage ({ key, value: object }) {
   debug('updatePage: ', key, object);
 
+  // Thinking out loud in random comments...:
+  // This test is actually pretty ugly.
+  // I'm deciding if I should add 'op' filtering too (in addition to compound keys) to avoid this kind of crap leaking out into every handler.
+  // Otherwise, every single 'update', 'delete', or 'put' comes in here, but we really only want 'update'.
+  // There will be use cases (cross-component shared updates) who will want to keep up to date with every
+  // mutation, some that are only for certain keys, certain ops...
+  // The key passed in is not the complete key. In other words, if a client listens for [1,2,3] he gets [1,2,3] so he knows what to expect/parse.
+  // It's not the complete key, just the subkey (compound) that is a match that the client said he wanted. I could also provide the complete key...
+  // Maybe the solution should be similar for 'op'. You listen for 'op', you get 'op'.
+
   if (typeof object !== 'object' || object === null) {
     return;
   }
@@ -144,7 +154,12 @@ function updatePage ({ key, value: object }) {
 
     case 'state':
       debug(`Updating state ${predicate}`);
-      el = document.getElementById(predicate);
+      el = document.getElementById(predicate); // collecion IDs are storeType.document.collection
+
+      // Listen for updates coming off the web component, update the data store(s) on change.
+      // Once the store is updated, the changes are batched and combined for efficient updates on the worker backend, upsert/delete.
+      // For the 'state' collection, its all prop updates in the one collection.
+      // You can add and delete entire collections and even documents (a doc is a series of collection objects).
 
       el.addEventListener('change', e => {
         const { detail } = e;
@@ -161,11 +176,12 @@ function updatePage ({ key, value: object }) {
             delete store[storeType][doc][collection][prop];
             break;
           default:
-            debug('editable-object change unknown event');
+            debug('editable-object change - unknown event, check the code...');
             break;
         }
       });
 
+      // Give the data to the web component...
       el.object = object;
       break;
 
