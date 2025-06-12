@@ -90,11 +90,22 @@ export async function buildSwMain (settings) {
     .filter(page => page.type === 'nav' && page.route.includes('/'))
     .map(page => page.route);
 
+  // build the re, cacheable routes, followed by a qstring, but NOT with a state= param
+  // /^(?:\/|\/about\/?|\/contact\/?)(?:[?](?:&?(?!\bstate\b)[^=&?]+=[^&]*)+)?$/
+  let re = ssrCacheable.reduce((acc, cur, i) => {
+    let frag = `${acc}\\${cur}`;
+    if (cur !== '/') frag += '\\/?';
+    if (i < ssrCacheable.length - 1) {
+      frag += '|';
+    } else {
+      frag += ')';
+    }
+    return frag;
+  }, '(?:');
+  re += '(?:[?](?:&?(?!\\bstate\\b)[^=&?]+=[^&]*)+)?$';
+
   const ssrConfig = {
-    urlPattern: new RegExp(`${ssrCacheable.reduce((acc, cur) => {
-      const current = cur.slice(1);
-      return current ? `${acc}|${current}` : acc;
-    }, '\\/(?:')})\\/?(?:\\?.+)?$`),
+    urlPattern: new RegExp(re),
     handler: 'StaleWhileRevalidate',
     options: {
       cacheableResponse: {
