@@ -17,7 +17,7 @@ import {
 
 const debug = debugLib('test:globals');
 
-const appImageName = 'jam-build-test-1';
+const appImageName = 'jam-build-test';
 let appContainer = null;
 let authorizerContainer = null;
 let containerNetwork = null;
