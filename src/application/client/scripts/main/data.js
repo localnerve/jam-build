@@ -246,7 +246,7 @@ function queueMutation (op, key) {
 function onChange(op, key, value) {
   debug('onChange: ', op, key, value);
 
-  const event = { key, value };
+  const event = { op, key, value };
   for (const i of listeners) {
     i(event);
   }
@@ -322,18 +322,27 @@ export const storeEvents = {
    * Add a data event listener.
    * On any update or mutation, gets the key listened to and the new value.
    * 
+   * @param {String|Array} listenOps - The operation(s) to listen for
    * @param {String|Array} listenKey - The key or complex key to listen for
    * @param {Function} callback - Receives { key, value }
    */
-  addEventListener (listenKey, callback) {
+  addEventListener (listenOps, listenKey, callback) {
     const _listenKey = typeof listenKey === 'string' ? [listenKey] : listenKey;
+    const _listenOps = typeof listenOps === 'string' ? [listenOps] : listenOps;
 
     listeners.push(event => {
-      const { key } = event;
+      const { op, key, value } = event;
 
-      if (containsSubarray(key, _listenKey)) callback({
-        key: _listenKey, value: event.value
-      });
+      const hasKey = containsSubarray(key, _listenKey);
+      const hasOp = _listenOps.includes(op);
+
+      if (hasKey && hasOp) {
+        callback({
+          op,
+          key: _listenKey,
+          value
+        });
+      }
     });
   },
 

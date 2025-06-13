@@ -13,6 +13,23 @@
   justify-content: center;
 }
 
+.dyn header h4 {
+  margin-top: 0;
+}
+
+.dyn-content {
+  display: block;
+  margin: 1em 0;
+}
+
+.dyn-content .spinner {
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: center;
+  align-items: center;
+  max-height: 6em;
+}
+
 .user-row {
   display: none;
   flex-flow: row wrap;
@@ -39,6 +56,8 @@
   --eo-border-defocused-color: color-mix(in srgb, var(--site-color), var(--duller-base) 80%);
   --eo-item-selected-bg-color: var(--site-color);
   --eo-item-selected-color: var(--site-bg);
+  --eo-item-hover-border-color: var(--site-color);
+  --eo-item-hover-border-width: 2px;
   --eo-icon-color: var(--site-bg);
   --eo-add-new-icon-color: var(--site-color);
   --eo-input-bg-color: color-mix(in srgb, var(--site-bg), var(--duller-base) 30%);
