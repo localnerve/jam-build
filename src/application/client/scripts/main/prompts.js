@@ -132,7 +132,9 @@ function nextPrompt () {
   promptQueue.shift();
   if (promptQueue.length > 0) {
     setTimeout(() => {
-      showPrompt(promptQueue[0].prompt, promptQueue[0].handlerArgs);
+      if (promptQueue.length > 0) { // still good?
+        showPrompt(promptQueue[0].prompt, promptQueue[0].handlerArgs);
+      }
     }, 500);
   }
 }
