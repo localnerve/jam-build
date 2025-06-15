@@ -91,7 +91,7 @@ function isLoginCallback () {
 async function loginHandler (hdrStatusText, loginButtons, main, event) {
   event.preventDefault();
 
-  const loggedIn = sessionStorage.getItem('login');
+  const loggedIn = isLoginActive();
 
   if (!loggedIn) {
     history.pushState(null, '', window.location.url); // without this, back button from login goes nowhere
