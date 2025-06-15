@@ -25,6 +25,10 @@ body {
   --site-bg: #{c.$site-white};
   --site-link-focus: #{c.$link-focus-dark};
   --link-focus-light: #{c.$link-focus-light};
+  --spinner-size: 10em;
+  --spinner-ring-size: 1rem;
+  --spinner-speed: 1.5;
+  --spinner-color: #{c.$spinner-color};
 
   color: var(--site-color);
   fill: var(--site-fill);
@@ -36,6 +40,7 @@ body {
     --site-fill: #{c.$site-white};
     --site-bg: #{color.adjust(c.$site-black, $lightness: 5%, $space: hsl)};
     --site-link-focus: #{c.$link-focus-light};
+    --spinner-color: #{color.adjust(c.$site-white, $lightness: -10%, $space: hsl)};
   }
 
   @include m.min-width (320px) {

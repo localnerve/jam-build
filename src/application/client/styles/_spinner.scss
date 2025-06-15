@@ -4,137 +4,99 @@
 // Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
 // Private use for LocalNerve, LLC only. Unlicensed for any other use. 
 // -------------
-@use 'sass:math';
-@use 'sass:color';
 @use 'vars' as v;
-@use 'colors' as c;
 
-$spinner-offset: 187;
-$spinner-duration: 1.4s;
+@property --spinner-start-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
 
-.spinner-el {
-  display: none;
+@property --spinner-end-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 360deg;
+}
+
+/* fallback */
+@property --property-zero {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
 }
 
 .spinner {
-  .spinner-el {
-    display: block;
-    animation: spinner-rotator $spinner-duration linear infinite;
+  --sp-size: var(--spinner-size, 2em);
+  --sp-ring-size: var(--spinner-ring-size, calc(var(--sp-size) / 10));
+  --sp-duration: calc(2s / var(--spinner-speed, 1));
 
-    .path {
-      stroke-dasharray: $spinner-offset;
-      stroke-dashoffset: 0;
-      transform-origin: center;
-      animation:
-        spinner-dash $spinner-duration ease-in-out infinite, 
-        spinner-colors ($spinner-duration * 4) ease-in-out infinite;
-    }
-  }
+  box-sizing: border-box;
+  width: var(--sp-size);
+  height: var(--sp-size);
+  margin-inline: 1em;
+  border-radius: 100vmax;
+  background: 
+      conic-gradient(transparent 0deg, transparent var(--spinner-start-angle), var(--spinner-color) var(--spinner-start-angle), var(--spinner-color) var(--spinner-end-angle), transparent var(--spinner-end-angle));
+  mask-image: radial-gradient(transparent calc(var(--sp-size) / 2 - var(--sp-ring-size) - 1px), black calc(var(--sp-size) / 2 - var(--sp-ring-size)));
+  animation: spinner calc(var(--sp-duration) / 0.6) ease-in-out infinite, spin var(--sp-duration) linear infinite;
+  
+  /* remove border if @property is supported */
+  border: var(--property-zero, var(--sp-ring-size)) solid color-mix(in hsl, currentcolor 10%, transparent);
+  border-top: var(--property-zero, var(--sp-ring-size)) solid var(--spinner-color);
 }
 
-@keyframes spinner-rotator {
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes spinner {
   0% {
-    transform: rotate(0deg);
-  }
-  
-  100% {
-    transform: rotate(270deg);
-  }
-}
-
-@keyframes spinner-colors {
-	0% {
-    stroke: c.$logo-red-light-alt;
-  }
-  
-  16% {
-    stroke: rgb(
-      color.channel(c.$logo-red-light-alt, "red", $space: rgb),
-      color.channel(c.$logo-blue-light-alt, "green", $space: rgb),
-      color.channel(c.$logo-red-light-alt, "blue", $space: rgb)
-    )
-  }
-	
-  33% {
-    stroke: rgb(
-      color.channel(c.$logo-red-light-alt, "red", $space: rgb),
-      color.channel(c.$logo-blue-light-alt, "green", $space: rgb),
-      color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)
-    )
-  }
-	
-  50% {
-    stroke: c.$logo-blue-light-alt;
-  }
-	
-  66% {
-    stroke: rgb(
-      color.channel(c.$logo-blue-light-alt, "red", $space: rgb),
-      color.channel(c.$logo-red-light-alt, "green", $space: rgb),
-      color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)
-    )
-  }
-  
-  83% {
-    stroke: rgb(
-      color.channel(c.$logo-red-light-alt, "red", $space: rgb),
-      color.channel(c.$logo-red-light-alt, "green", $space: rgb),
-      color.channel(c.$logo-blue-light-alt, "blue", $space: rgb)
-    )
-  }
-}
-
-@keyframes spinner-dash {
-  0% {
-    stroke-dashoffset: $spinner-offset;
+    --spinner-start-angle: 0deg;
+    --spinner-end-angle: 10deg;
   }
 
   50% {
-    stroke-dashoffset: math.div($spinner-offset, 4);
-    transform: rotate(135deg);
+    --spinner-start-angle: 35deg;
+    --spinner-end-angle: 315deg;
   }
-  
+
   100% {
-    stroke-dashoffset: $spinner-offset;
-    transform: rotate(450deg);
+    --spinner-start-angle: 350deg;
+    --spinner-end-angle: 360deg;
   }
 }
 
 .page-spinner {
   display: none;
   position: fixed;
-  top: 0; right: 0; bottom: 0; left: 0; // stylelint-disable-line declaration-block-no-redundant-longhand-properties
+  flex-flow: column nowrap;
+  justify-content: center;
+  align-items: center;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: v.$z-index-spinner;
   background: rgb(34 34 34 / 50%);
 
+  --spinner-size: 14rem;
+  --spinner-ring-size: 1rem;
+
   .spinner {
-    width: 100%;
-    height: 350px;
     position: fixed;
     z-index: v.$z-index-spinner + 1;
-    top: 50%;
-    transform: translate(0, -50%);
-    display: flex;
-    flex-flow: row nowrap;
-    justify-content: center;
-    align-items: center;
   }
  
   &.show {
-    display: block;
+    display: flex;
   }
 
   &.backstop { // just be a blocking backstop
-    display: block;
+    display: flex;
 
     .spinner {
       display: none;
     }
   }
-}
-
-// safari zoom bug
-.safari-desktop .spinner-el .path {
-  // stylelint-disable-next-line declaration-property-value-keyword-no-deprecated
-  zoom: reset;
 }

@@ -10,6 +10,8 @@ $text-color: #002a52;
 $site-white: color.adjust(#fafafa, $lightness: -3%, $space: hsl);
 $site-black: #091E2B;
 
+$spinner-color: color.adjust($text-color, $lightness: 10%, $space: hsl);
+
 $logo-red: #ea4335; // #FF5722; // #e77927;
 // #ff9e64 red over #002a52
 $logo-red-light-alt: #ff9e64;

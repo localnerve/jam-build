@@ -11,6 +11,9 @@
   flex-flow: column nowrap;
   align-items: flex-start;
   justify-content: center;
+
+  --spinner-size: 6em;
+  --spinner-ring-size: 4px;
 }
 
 .dyn header h4 {
@@ -22,30 +25,16 @@
   margin: 1em 0;
 }
 
-.dyn-content .spinner {
-  display: flex;
-  flex-flow: row nowrap;
-  justify-content: center;
-  align-items: center;
-  max-height: 6em;
-}
-
 .user-row {
   display: none;
   flex-flow: row wrap;
   align-items: flex-start;
   justify-content: flex-start;
-  max-width: 100%;
 
   article {
-    flex: 1 1 50%;
-    max-width: 100%;
-
-    @include m.min-width (684px) {
-      padding: 0 1em;
-    }
-    
-    h4 { text-align: center; }
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 6em;
   }
 }
 
@@ -60,12 +49,15 @@
   --eo-item-hover-border-width: 2px;
   --eo-icon-color: var(--site-bg);
   --eo-add-new-icon-color: var(--site-color);
+  --eo-input-focus-outline-color: #0aa;
+  --eo-input-focus-outline-width: 2px;
   --eo-input-bg-color: color-mix(in srgb, var(--site-bg), var(--duller-base) 30%);
   --eo-input-color: var(--site-color);
   --eo-input-placeholder-color: color-mix(in srgb, var(--site-color), var(--duller-base) 50%);
 
   @media (prefers-color-scheme: dark) {
     --duller-base: gray;
+    --eo-input-focus-outline-color: lime;
   }
 }
 
