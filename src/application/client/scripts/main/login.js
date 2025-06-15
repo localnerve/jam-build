@@ -9,6 +9,9 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { Authorizer } from '@localnerve/authorizer-js';
+import debugLib from '@localnerve/debug';
+
+const debug = debugLib('login');
 
 const authRef = new Authorizer({
   authorizerURL: process.env.AUTHZ_URL, // eslint-disable-line no-undef -- defined at bundle time
@@ -29,6 +32,7 @@ export function isLoginActive () {
     const endTime = new Date(login.startTime + (login.expires_in * 1000)).getTime();
     const active = Date.now() - endTime;
     if (active < 0) {
+      debug('login expired');
       return true;
     }
   }
@@ -39,7 +43,7 @@ export function isLoginActive () {
 /**
  * Set the UI elements from the profile.
  */
-function updateUI (hdrStatusText, loginButtons, main, profile) {
+function updateUI (profile, { hdrStatusText, loginButtons, main }) {
   const message = profile ? `Welcome, ${profile.email}` : '';
   const loggedIn = 'logged-in';
 
@@ -64,6 +68,29 @@ function getUserProfile () {
   
   sessionStorage.setItem('user', '');
   return null;
+}
+
+/**
+ * Called after successful login for additional handling.
+ * 
+ * @param {Object} login - The login data returned from `authorize`
+ * @param {Object} uiElements - The ui elements for login processing
+ */
+async function processLogin (login, uiElements) {
+  sessionStorage.setItem('login', JSON.stringify({
+    startTime: Date.now(),
+    expires_in: login.expires_in
+  }));
+
+  const { data: profile, errors: profileErrors } = await authRef.getProfile({
+    Authorization: `Bearer ${login.access_token}`,
+  });
+
+  if (!profileErrors.length) {
+    sessionStorage.setItem('user', JSON.stringify(profile));
+    window.App.exec('login-action-login');
+    updateUI(profile, uiElements);
+  }
 }
 
 /**
@@ -96,16 +123,22 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
   if (!loggedIn) {
     history.pushState(null, '', window.location.url); // without this, back button from login goes nowhere
     
-    await authRef.authorize({
+    const { data: login, errors: loginErrors } = await authRef.authorize({
       response_type: 'code',
       use_refresh_token: false
     });
+
+    debug('loginHandler authorize response', login);
+
+    if (!loginErrors.length && login?.access_token) {
+      await processLogin(login, { hdrStatusText, loginButtons, main });
+    }
   } else {
     await authRef.logout();
     
     sessionStorage.setItem('login', '');
     
-    updateUI(hdrStatusText, loginButtons, main);
+    updateUI(null, { hdrStatusText, loginButtons, main });
     
     window.App.exec('login-action-logout');
   }
@@ -134,27 +167,13 @@ export default async function setup () {
       use_refresh_token: false
     });
     
-    // Save login, profile
     if (!loginErrors.length && login?.access_token) {
-      sessionStorage.setItem('login', JSON.stringify({
-        startTime: Date.now(),
-        expires_in: login.expires_in
-      }));
-
-      const { data: profile, errors: profileErrors } = await authRef.getProfile({
-        Authorization: `Bearer ${login.access_token}`,
-      });
-
-      if (!profileErrors.length) {
-        sessionStorage.setItem('user', JSON.stringify(profile));
-        window.App.exec('login-action-login');
-        updateUI(hdrStatusText, loginButtons, main, profile);
-      }
+      processLogin(login, { hdrStatusText, loginButtons, main });
     }
   } else {
     const profile = getUserProfile();
     if (profile) {
-      updateUI(hdrStatusText, loginButtons, main, profile);
+      updateUI(profile, { hdrStatusText, loginButtons, main });
     }
   }
 }
