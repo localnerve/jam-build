@@ -7,17 +7,17 @@
 .dyn {
   width: 100%;
   min-height: 8em;
+  display: block;
+  position: relative;
+  /*
   display: flex;
   flex-flow: column nowrap;
   align-items: flex-start;
   justify-content: center;
+  */
 
   --spinner-size: 6em;
   --spinner-ring-size: 4px;
-}
-
-.dyn header h4 {
-  margin-top: 0;
 }
 
 .dyn-content {
@@ -27,9 +27,11 @@
 
 .user-row {
   display: none;
+  /*
   flex-flow: row wrap;
   align-items: flex-start;
   justify-content: flex-start;
+  */
 
   article {
     flex: 1 1 auto;
@@ -61,14 +63,6 @@
   }
 }
 
-.section.user.dyn {
-  padding: 0.5rem 0.25rem;
-
-  @include m.min-width (360px) {
-    padding: 0.5rem 1rem;
-  }
-}
-
 .user-login {
   display: flex;
   flex-flow: row nowrap;
@@ -88,7 +82,7 @@
 
 .logged-in {
   .user-row {
-    display: flex;
+    display: block;
   }
   
   .user-login {
