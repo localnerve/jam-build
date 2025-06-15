@@ -131,7 +131,12 @@ function makeStoreName (storeType, version = schemaVersion) {
  */
 async function sendMessage (meta, payload) {
   if (self.clients) {
-    const clients = await self.clients.matchAll();
+    let clients = await self.clients.matchAll();
+
+    if (clients.length === 0) {
+      await self.clients.claim();
+      clients = await self.clients.matchAll();
+    }
 
     for (let i = 0; i < clients.length; i++) {
       clients[i].postMessage({
