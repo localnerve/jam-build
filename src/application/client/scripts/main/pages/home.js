@@ -10,7 +10,7 @@ import '@localnerve/editable-object';
 import { storeEvents } from '../data.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
-import { isLoginActive } from '../login.js';
+import { isLoginActive, getUserProfile } from '../login.js';
 
 const page = 'home';
 
@@ -85,6 +85,11 @@ function updatePage ({ key, value: object }) {
         }
       });
 
+      if (storeType === 'app') {
+        const profile = getUserProfile();
+        el.disableEdit = !(profile?.isAdmin);
+      }
+
       // Give the data to the web component...
       el.object = object;
       break;
@@ -104,6 +109,7 @@ export default async function setup (support) {
   debug('setup...', support);
 
   storeEvents.addEventListener('update', ['app', page, 'content'], updatePage);
+  storeEvents.addEventListener('update', ['app', page, 'state'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'state'], updatePage);
 

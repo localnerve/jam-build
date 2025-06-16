@@ -19,9 +19,15 @@
   margin: 1em 0;
 }
 
+.app-row {
+  display: block;
+}
+
 .user-row {
   display: none;
+}
 
+.user-row, .app-row {
   article {
     flex: 1 1 auto;
     width: 100%;
@@ -29,7 +35,7 @@
   }
 }
 
-.user-state {
+.user-state, .app-state {
   --duller-base: #{c.$site-white};
   --eo-bg-color: var(--site-bg);
   --eo-border-focused-color: var(--site-color);

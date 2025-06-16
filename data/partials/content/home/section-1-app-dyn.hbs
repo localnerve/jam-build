@@ -1,10 +1,21 @@
 <h3>Application Dynamic Content</h3>
 
-<article>
-  <header>
-    <h4>Application Text</h4>
-  </header>
-  <div class="dyn-content" id="app.home.content.intro">
-    <div class="spinner"></div>
-  </div>
-</article>
+<div class="app-row">
+  <p>User data can really be any series of property and value sets. They are mutable and only available to the user, for each user.</p>
+  <article>
+    <header>
+      <h4>Application Text</h4>
+    </header>
+    <div class="dyn-content" id="app.home.content.intro">
+      <div class="spinner"></div>
+    </div>
+  </article>
+  <article>
+    <header>
+      <h4>Application Properties</h4>
+    </header>
+    <editable-object class="app-state" id="app.home.state" disable-edit="true">
+      <div slot="loading" class="spinner"></div>
+    </editable-object>
+  </article>
+</div>

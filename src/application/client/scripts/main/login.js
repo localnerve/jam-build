@@ -41,6 +41,20 @@ export function isLoginActive () {
 }
 
 /**
+ * Get the user profile from sessionStorage.
+ * 
+ * @returns {Object} The user profile object, or null if not access_token not active
+ */
+export function getUserProfile () {
+  if (isLoginActive()) {
+    return JSON.parse(sessionStorage.getItem('user') || null);
+  }
+  
+  sessionStorage.setItem('user', '');
+  return null;
+}
+
+/**
  * Set the UI elements from the profile.
  */
 function updateUI (profile, { hdrStatusText, loginButtons, main }) {
@@ -54,20 +68,6 @@ function updateUI (profile, { hdrStatusText, loginButtons, main }) {
   });
   
   main.classList[profile ? 'add' : 'remove'](loggedIn);
-}
-
-/**
- * Get the user profile from sessionStorage.
- * 
- * @returns {Object} The user profile object, or null if not access_token not active
- */
-function getUserProfile () {
-  if (isLoginActive()) {
-    return JSON.parse(sessionStorage.getItem('user') || null);
-  }
-  
-  sessionStorage.setItem('user', '');
-  return null;
 }
 
 /**
@@ -88,7 +88,8 @@ async function processLogin (login, uiElements) {
 
   if (!profileErrors.length) {
     sessionStorage.setItem('user', JSON.stringify({
-      email: profile.email
+      email: profile.email,
+      isAdmin: profile.roles.includes('admin')
     }));
     window.App.exec('login-action-login');
     updateUI(profile, uiElements);
