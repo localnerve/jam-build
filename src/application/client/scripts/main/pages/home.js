@@ -107,11 +107,16 @@ export default async function setup (support) {
   storeEvents.addEventListener('update', ['user', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'state'], updatePage);
 
-  store.app = await getApplicationStore(page);
-
-  if (isLoginActive()) {
-    store.user = await getUserStore(page);
-  }
+  await Promise.all([
+    (async () => {
+      store.app = await getApplicationStore(page);
+    })(),
+    (async () => {
+      if (isLoginActive()) {
+        store.user = await getUserStore(page);
+      }    
+    })()
+  ]);
 
   window.App.add('login-action-login', async () => {
     store.user = await getUserStore(page);
