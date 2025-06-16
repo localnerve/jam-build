@@ -1,7 +1,7 @@
 <h3>Application Dynamic Content</h3>
 
 <div class="app-row">
-  <p>User data can really be any series of property and value sets. They are mutable and only available to the user, for each user.</p>
+  <p>Application data can be any series of documents, collections, and properties. They are available to all application users, but only editable by users with an admin role.</p>
   <article>
     <header>
       <h4>Application Text</h4>
@@ -14,6 +14,7 @@
     <header>
       <h4>Application Properties</h4>
     </header>
+    <p>Here is an example application collection. All users, even public users, can see this dynamic data. If you are logged in with an admin role, you can edit it.</p>
     <editable-object class="app-state" id="app.home.state" disable-edit="true">
       <div slot="loading" class="spinner"></div>
     </editable-object>
