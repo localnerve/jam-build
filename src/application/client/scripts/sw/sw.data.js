@@ -580,7 +580,7 @@ async function processBatchUpdates () {
             properties = { set(){}, get(){}, hasProps: false };
           }
         }
-        output[item.op].push({
+        output[item.op].unshift({ // add to head so newest will be last
           storeType: item.storeType,
           document: item.document,
           collections: item.collection ? [item.collection] : [],
