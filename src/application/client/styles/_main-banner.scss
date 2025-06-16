@@ -74,6 +74,8 @@
     color: var(--site-bg);
   }
 
+  // flexbox-gap
+  // stylelint-disable-next-line plugin/no-unsupported-browser-features
   .all {
     display: flex;
     flex-flow: row wrap;

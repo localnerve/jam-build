@@ -33,10 +33,12 @@
   box-sizing: border-box;
   width: var(--sp-size);
   height: var(--sp-size);
+  // stylelint-disable-next-line plugin/no-unsupported-browser-features
   margin-inline: 1em;
   border-radius: 100vmax;
   background: 
       conic-gradient(transparent 0deg, transparent var(--spinner-start-angle), var(--spinner-color) var(--spinner-start-angle), var(--spinner-color) var(--spinner-end-angle), transparent var(--spinner-end-angle));
+  // stylelint-disable-next-line plugin/no-unsupported-browser-features
   mask-image: radial-gradient(transparent calc(var(--sp-size) / 2 - var(--sp-ring-size) - 1px), black calc(var(--sp-size) / 2 - var(--sp-ring-size)));
   animation: spinner calc(var(--sp-duration) / 0.6) ease-in-out infinite, spin var(--sp-duration) linear infinite;
   
@@ -76,7 +78,7 @@
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 0; // stylelint-disable-line declaration-block-no-redundant-longhand-properties
   z-index: v.$z-index-spinner;
   background: rgb(34 34 34 / 50%);
 
