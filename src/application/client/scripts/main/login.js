@@ -32,7 +32,7 @@ export function isLoginActive () {
     const endTime = new Date(login.startTime + (login.expires_in * 1000)).getTime();
     const active = Date.now() - endTime;
     if (active < 0) {
-      debug('login expired');
+      debug('login active');
       return true;
     }
   }
@@ -87,7 +87,9 @@ async function processLogin (login, uiElements) {
   });
 
   if (!profileErrors.length) {
-    sessionStorage.setItem('user', JSON.stringify(profile));
+    sessionStorage.setItem('user', JSON.stringify({
+      email: profile.email
+    }));
     window.App.exec('login-action-login');
     updateUI(profile, uiElements);
   }
@@ -137,6 +139,7 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
     await authRef.logout();
     
     sessionStorage.setItem('login', '');
+    sessionStorage.setItem('user', '');
     
     updateUI(null, { hdrStatusText, loginButtons, main });
     
