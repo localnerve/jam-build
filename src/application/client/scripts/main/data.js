@@ -383,20 +383,34 @@ export async function createStore (storeType, page) {
    * @param {String} payload.storeName - The full store name
    * @param {String} payload.storeType - 'app' or 'user'
    * @param {Array} payload.keys - An array of the collections that were updated
+   * @param {Boolean} [payload.local] - Local db, no new data. Only uses local if no objectStore has been created
+   * @param {String} [payload.message] - If present, sends message to the UI
    */
   window.App.add('pageDataUpdate', async payload => {
     debug(`Page ${page} received pageDataUpdate from service worker`, payload);
 
     // Update the request seed for the page with any new data that arrived
-    // TODO: review the need to key seeds by page. shouldn't key by storeType?
     const seed = JSON.parse(localStorage.getItem('seed')) || undefined;
     localStorage.setItem(
       'seed', JSON.stringify(pageSeed(page, seed, payload))
     );
 
-    // Update the store, sends onChange 'update'
-    await dataUpdate(payload);
+    if (!payload.local || (payload.local && !createdStores.has(payload.storeType))) {
+      // Update the store, sends onChange 'update'
+      await dataUpdate(payload);
+    }
 
+    // Queue any outgoing user message
+    if (payload.message) {
+      setTimeout(window.App.exec.bind(window.App, 'pageGeneralMessage', {
+        args: {
+          message: payload.message,
+          duration: 1500
+        }
+      }), 17);
+    }
+
+    // Release any waiter
     const releaseWaiter = waiters.shift();
     if (typeof releaseWaiter === 'function') releaseWaiter();
   });

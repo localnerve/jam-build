@@ -10,7 +10,7 @@
 @use 'mixins' as m;
 
 .pp-update, .pp-install, .pp-homescreen,
-.pp-welcome, .pp-updated {
+.pp-welcome, .pp-updated, .pp-message {
   display: none;
   flex-flow: column nowrap;
   justify-content: space-around;
@@ -61,6 +61,12 @@
 
     &.welcome {
       .pp-welcome {
+        display: flex;
+      }
+    }
+
+    &.message {
+      .pp-message {
         display: flex;
       }
     }

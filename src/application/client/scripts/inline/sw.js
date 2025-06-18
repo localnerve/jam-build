@@ -30,7 +30,7 @@
         window.App.exec('pageUpdatePrompt');
         break;
       case 'database-update-required':
-        window.App.exec('pageSwMessage', {
+        window.App.exec('pageReloadOnUpdate', {
           args: {
             isUpdate: true,
             duration: 1000

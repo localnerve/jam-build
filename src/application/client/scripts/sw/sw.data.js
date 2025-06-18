@@ -62,6 +62,10 @@ export function setupBackgroundRequests (syncSupport) {
     debug(`Couldn't create Workbox Background Sync Queue ${e.name}`);
     canSync = false;
   }
+
+  if (canSync && !syncSupport && queue) {
+    replayQueueRequestsWithDataAPI({ queue }); // replay now if no sync
+  }
 }
 
 /**
@@ -178,6 +182,41 @@ async function storeMutationResult (storeType, document, result) {
 }
 
 /**
+ * Send data message to the app for the localData.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} document - The document name
+ * @param {String|Array<String>} [collections] - collection name(s) to get
+ * @param {String} [message] - A user message
+ */
+async function localData (storeType, document, collections = null, message = '') {
+  const storeName = makeStoreName(storeType);
+  const db = await getDB();
+  const keys = [];
+
+  if (collections) {
+    const colls = typeof collections === 'string' ? [collections] : collections;
+    for (const collection of colls) {
+      keys.push([document, collection]);
+    }
+  } else {
+    const idbResults = await db.getAllFromIndex(storeName, 'document', document);
+    for (const idbResult of idbResults) {
+      keys.push([document, idbResult.collection_name]);
+    }
+  }
+
+  await sendMessage('database-data-update', {
+    dbname,
+    storeName,
+    storeType,
+    keys,
+    local: true,
+    message
+  });
+}
+
+/**
  * Store data in the jam_build database.
  * Re-formats data from the network to the idb objectStore format.
  *
@@ -273,6 +312,7 @@ async function loadData (storeType, document, collections = null) {
  */
 async function dataAPICall (request, {
   asyncResponseHandler = null,
+  staleResponse = null,
   metadata = null,
   retry = true
 } = {}) {
@@ -282,7 +322,7 @@ async function dataAPICall (request, {
   let response = null;
 
   try {
-    response = await fetch(request);
+    response = await fetch(request.clone());
 
     if (response.ok) {
       if (typeof asyncResponseHandler === 'function') {
@@ -299,6 +339,11 @@ async function dataAPICall (request, {
           await versionConflict(metadata);
           handled = true;
         }
+      } else {
+        if (staleResponse) {
+          await staleResponse('An older copy of the data is being shown');
+          handled = true;
+        }
       }
 
       if (!handled) {
@@ -308,13 +353,23 @@ async function dataAPICall (request, {
   } catch (error) {
     debug('dataAPICall failed', error.message);
 
+    let handled = false;
+
+    if (request.method === 'GET' && staleResponse) {
+      await staleResponse('An older copy of the data is being shown');
+      handled = true;
+    }
+
     if (canSync && retry && !response) {
       queue.pushRequest({
         request,
         metadata
       });
+      handled = true;
       result = E_REPLAY;
-    } else {
+    }
+
+    if (!handled) {
       throw error;
     }
   }
@@ -356,6 +411,7 @@ export async function refreshData ({ storeType, document, collections }) {
     asyncResponseHandler: async data => {
       await storeData(storeType, data);
     },
+    staleResponse: localData.bind(null, storeType, document, collections),
     metadata: {
       storeType
     }

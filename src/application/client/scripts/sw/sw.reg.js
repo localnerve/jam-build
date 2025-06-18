@@ -11,7 +11,7 @@
 import { Workbox } from 'workbox-window';
 
 function handleAfterInstall (event) {
-  window.App.exec('pageSwMessage', {
+  window.App.exec('pageReloadOnUpdate', {
     args: {
       isUpdate: event.isUpdate,
       duration: 1500
