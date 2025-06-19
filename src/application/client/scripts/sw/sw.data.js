@@ -1009,7 +1009,7 @@ async function versionConflict ({ storeType, document, op, collections }) {
   });
 
   if (result !== E_REPLAY) {
-    processVersionConflicts();
+    await processVersionConflicts();
   }
 }
 
