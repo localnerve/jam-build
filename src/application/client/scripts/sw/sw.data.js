@@ -100,8 +100,9 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
           };
         }
       }
-      await dataAPICall(entry.request.clone(), {
+      await dataAPICall(entry.request, {
         asyncResponseHandler,
+        metadata: entry.metadata,
         retry: false
       });
     } catch {
@@ -212,7 +213,10 @@ async function localData (storeType, document, collections = null, message = '')
     storeType,
     keys,
     local: true,
-    message
+    message: {
+      text: message,
+      class: 'info'
+    }
   });
 }
 
@@ -759,9 +763,11 @@ async function processVersionConflicts () {
     return;
   }
 
-  debug(`processVersionConflicts processing ${totalRecords} records...`);
+  debug(`processVersionConflicts processing ${totalRecords} records from ${storeName}...`);
 
-  const conflictDocs = await db.transaction(storeName).store.index('document');
+  const conflictDocs = await db.transaction(storeName).store.index('version');
+
+  debug('conflictDocs version index records: ', await conflictDocs.count());
 
   // Read all conflict doc records, latest version first
   // Set aside doc version, batch commands, and build the remote document objects.
@@ -770,7 +776,7 @@ async function processVersionConflicts () {
   const batch = { app: { put: null, delete: null }, user: { put: null, delete: null } };
   for await (const cursor of conflictDocs.iterate(null, 'prev')) { // latest version first
     const {
-      new_version: version,
+      new_version,
       storeType,
       document_name: doc,
       collection_name: col,
@@ -778,6 +784,9 @@ async function processVersionConflicts () {
       op,
       collections
     } = cursor.value;
+
+    // eslint-disable-next-line compat/compat
+    const version = typeof BigInt(42) === 'bigint' ? BigInt(new_version) : +new_version; 
 
     if (!versions[storeType][doc] || versions[storeType][doc] <= version) {
       versions[storeType][doc] = version;
@@ -852,7 +861,7 @@ async function processVersionConflicts () {
     }
   }
 
-  debug(`processVersionConflicts wrote ${message.app.keys.length} app records and ${message.user.keys.length} user records`);
+  debug(`processVersionConflicts wrote ${message.app?.keys.length} app records and ${message.user?.keys.length} user records`);
 
   // Update the version objectStore with the new versions for the docs
   const versionStoreName = makeStoreName(versionStoreType);
@@ -861,7 +870,7 @@ async function processVersionConflicts () {
       await db.put(versionStoreName, {
         storeType,
         document,
-        version
+        version: `${version}`
       });
     }
   }
@@ -873,6 +882,8 @@ async function processVersionConflicts () {
   // Queue the batch commands
   for (const storeType of Object.keys(batch)) {
     for (const [, payload] of Object.entries(batch[storeType])) {
+      if (!payload) break;
+
       if (Array.isArray(payload.collections) && payload.collections.length > 0) {
         if (payload.collections.every(i => typeof i === 'string')) {
           for (const collection of payload.collections) {
@@ -910,7 +921,13 @@ async function processVersionConflicts () {
 
   // Notify the app the data was updated
   for (const [, payload] of Object.entries(message)) {
-    await sendMessage('database-data-update', payload);
+    await sendMessage('database-data-update', {
+      ...payload,
+      message: {
+        text: 'The data was synchronized with the latest version',
+        class: 'info'
+      }
+    });
   }
 
   debug('processVersionConflicts sent client messages', message);
@@ -944,12 +961,8 @@ async function storeVersionConflict (storeType, op, collections, data) {
     const newDocVersion = doc.__version;
     delete doc.__version;
 
-    let new_version;
-    if (typeof BigInt(42) === 'bigint') {
-      new_version = BigInt(newDocVersion);
-    } else {
-      new_version = +newDocVersion; // this ends badly
-    }
+    // Make a sortable BigInt version string, 15 digits max left pad 0
+    const new_version = newDocVersion.padStart(15, '0');
 
     for (const [col_name, props] of Object.entries(doc)) {
       await db.put(storeName, {
@@ -1066,7 +1079,7 @@ export async function installDatabase () {
         const store = db.createObjectStore(conflictStoreName, {
           keyPath: ['storeType', 'document_name', 'collection_name']
         });
-        store.createIndex('document', ['new_version', 'storeType', 'document_name', 'op'], {
+        store.createIndex('version', ['new_version', 'storeType', 'document_name', 'op'], {
           unique: false
         });
       }

@@ -384,7 +384,9 @@ export async function createStore (storeType, page) {
    * @param {String} payload.storeType - 'app' or 'user'
    * @param {Array} payload.keys - An array of the collections that were updated
    * @param {Boolean} [payload.local] - Local db, no new data. Only uses local if no objectStore has been created
-   * @param {String} [payload.message] - If present, sends message to the UI
+   * @param {Object} [payload.message] - If present, sends message to the UI
+   * @param {String} [payload.message.text] - The text of the message
+   * @param {String} [payload.message.class] - The presentation class
    */
   window.App.add('pageDataUpdate', async payload => {
     debug(`Page ${page} received pageDataUpdate from service worker`, payload);
@@ -404,7 +406,8 @@ export async function createStore (storeType, page) {
     if (payload.message) {
       setTimeout(window.App.exec.bind(window.App, 'pageGeneralMessage', {
         args: {
-          message: payload.message,
+          message: payload.message.text,
+          class: payload.message.class,
           duration: 1500
         }
       }), 17);
