@@ -183,7 +183,7 @@ async function storeMutationResult (storeType, document, result) {
 }
 
 /**
- * Send data message to the app for the localData.
+ * Send data message to the app for the (stale) localData.
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document name
@@ -223,6 +223,7 @@ async function localData (storeType, document, collections = null, message = '')
 /**
  * Store data in the jam_build database.
  * Re-formats data from the network to the idb objectStore format.
+ * Sends message to the app for new data.
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {Object} data - The remote data to store
@@ -263,7 +264,7 @@ async function storeData (storeType, data) {
 }
 
 /**
- * Load data from an objectStore by document name or document and collection name(s).
+ * Load data from local objectStores by document name or document and possible collection name(s).
  * Format them for upsert to the remote data service.
  *
  * @param {String} storeType - 'app' or 'user'
@@ -345,7 +346,7 @@ async function dataAPICall (request, {
         }
       } else {
         if (staleResponse) {
-          await staleResponse('An older copy of the data is being shown');
+          await staleResponse('A local copy of the data is being shown');
           handled = true;
         }
       }
@@ -360,7 +361,7 @@ async function dataAPICall (request, {
     let handled = false;
 
     if (request.method === 'GET' && staleResponse) {
-      await staleResponse('An older copy of the data is being shown');
+      await staleResponse('A local copy of the data is being shown');
       handled = true;
     }
 
