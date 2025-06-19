@@ -67,13 +67,18 @@ function updateAction () {
  * 
  * @param {HTMLElement} element - The page element to hold the message
  * @param {Object} args - The incoming handler arguments
- * @param {String} args.message - The message
+ * @param {Object} args - The message Object
+ * @param {String} args.message - The message text
+ * @param {String} args.class - The presentation class
  */
 function generalMessageAction (element, args) {
-  const { message } = args;
-
-  if (message) {
-    element.innerText = message;
+  if (args.message) {
+    const classes = element.classList.values();
+    for (const className of classes) {
+      element.classList.remove(className);
+    }
+    element.classList.add(args.class);
+    element.innerText = args.message;
   }
 }
 
