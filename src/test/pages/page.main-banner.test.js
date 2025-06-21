@@ -7,11 +7,27 @@
 /* eslint-disable playwright/expect-expect */
 
 import { test, expect } from '../fixtures.js';
+import { startJS, stopJS, createMap, createReport } from '../coverage.js';
 
 test.describe('main-banner tests', () => {
   let baseUrl;
+  let map;
+
   test.beforeAll(() => {
     baseUrl = process.env.BASE_URL;
+    map = createMap();
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await startJS(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await stopJS(page, map);
+  });
+
+  test.afterAll(async ({}, testInfo) => {
+    await createReport(map, testInfo);
   });
 
   async function checkMarkup (page, url, name, hasAll = true, customTest = async () => true) {
