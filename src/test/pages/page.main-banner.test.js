@@ -26,6 +26,7 @@ test.describe('main-banner tests', () => {
     await stopJS(page, map);
   });
 
+  // eslint-disable-next-line no-empty-pattern
   test.afterAll(async ({}, testInfo) => {
     await createReport(map, testInfo);
   });
