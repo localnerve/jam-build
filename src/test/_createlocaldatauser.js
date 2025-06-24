@@ -3,13 +3,23 @@
  */
 
 import { test } from './fixtures.js';
-import { postData } from './api/api.js';
+import { getData, postData } from './api/api.js';
 
 const baseUrl = `http://localhost:${process.env.LOCALHOST_PORT}`;
 
 test('post local user home test data', async ({ userRequest }) => {
-  return postData(userRequest, `${baseUrl}/api/data/user/home`, {
-    version: 0,
+  let version = 0;
+
+  try {
+    await getData(userRequest, `${baseUrl}/api/data/user/home`, json => {
+      version = json.home.__version
+    });
+  } catch (e) {
+    console.warn('no existing user home data');
+  }
+
+  await postData(userRequest, `${baseUrl}/api/data/user/home`, {
+    version,
     collections: [{
       collection: 'state',
       properties: {
