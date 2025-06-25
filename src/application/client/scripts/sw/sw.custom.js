@@ -34,8 +34,10 @@ function updateRuntimeCache () {
 }
 
 function sendResponse (event, response) {
+  debug('Sending response: ', event, response);
+
   let result;
-  const respondTo = event.source || (event.ports && event.ports[0]);
+  const respondTo = (event.ports?.length > 0 && event.ports[0]) || event.source;
 
   if (respondTo) {
     respondTo.postMessage(response);
@@ -79,6 +81,8 @@ self.addEventListener('message', event => {
   const backgroundSyncSupportTest = 'ln-background-sync-support-test';
   const waitOrPassThru = 'waitUntil' in event ? event.waitUntil.bind(event): val => val;
   const sendReply = sendResponse.bind(null, event);
+
+  debug('Message event handler called:', event);
 
   switch (action) {
     case backgroundSyncSupportTest:
@@ -147,6 +151,16 @@ self.addEventListener('message', event => {
       );
       break;
 
+    case '__coverage__':
+      debug('__coverage__ message');
+      waitOrPassThru(
+        sendReply({
+          action: '__coverage__',
+          result: self.__coverage__
+        })
+      );
+      break;
+  
     default:
       break;
   }

@@ -34,7 +34,8 @@ export default [{
     'dist/**',
     'overrides/**',
     'docs/**',
-    'coverage/**'
+    'coverage/**',
+    'test-results/**'
   ]
 }, {
   name: 'app-client',

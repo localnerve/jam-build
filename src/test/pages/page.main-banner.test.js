@@ -59,8 +59,16 @@ test.describe('main-banner tests', () => {
     await customTest(page);
   }
 
+  async function checkServiceWorker (page) {
+    const swURL = await page.evaluate(async () => {
+      const registration = await navigator.serviceWorker.ready;
+      return registration.active?.scriptURL;
+    });
+    expect(swURL).toBe(`${baseUrl}/sw.main.js`);
+  }
+
   test('public home page', async ({ page }) => {
-    await checkMarkup(page, baseUrl, 'home');
+    await checkMarkup(page, baseUrl, 'home', true, checkServiceWorker);
   });
 
   test('public about page', async ({ page }) => {

@@ -53,6 +53,7 @@ export async function createAppContainer (authorizerContainer, containerNetwork,
         UID: `${userInfo.uid}`,
         GID: `${userInfo.gid}`,
         TARGETARCH: `${os.arch()}`,
+        DEV_BUILD: '1',
         AUTHZ_URL: `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
         AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID
       })

@@ -14,6 +14,7 @@ import dynamicImportVariables from '@rollup/plugin-dynamic-import-vars';
 import pluginOutputManifest from 'rollup-plugin-output-manifest';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
 import { visualizer } from 'rollup-plugin-visualizer';
+import istanbul from 'rollup-plugin-istanbul';
 import { loadSiteData } from './data.js';
 import pkg from '../../package.json' with { type: 'json' };
 
@@ -37,7 +38,7 @@ const { default: outputManifest } = pluginOutputManifest;
 export async function createScripts (settings) {
   const {
     rollupInput, rollupOutput, prod, jsManifestFilename, name,
-    replacements = {}, dataDir, webScripts, nodeIncludes
+    replacements = {}, dataDir, webScripts, nodeIncludes, istanbulOptions
   } = settings;
   const appVersion = pkg.version;
   
@@ -62,9 +63,9 @@ export async function createScripts (settings) {
     }),
     replace({
       'process.env.NODE_ENV': prod ? 
-        JSON.stringify('production') : JSON.stringify('development'),
+        JSON.stringify('production').replaceAll('"', '\'') : JSON.stringify('development').replaceAll('"', '\''),
       preventAssignment: true,
-      APP_VERSION: JSON.stringify(appVersion),
+      APP_VERSION: JSON.stringify(appVersion).replaceAll('"', '\''),
       ...replacements
     })
   ];
@@ -82,6 +83,10 @@ export async function createScripts (settings) {
     rollupInput.plugins.push(nodePolyfills({
       include: nodeIncludes
     }));
+  }
+
+  if (istanbulOptions) {
+    rollupInput.plugins.push(istanbul(istanbulOptions));
   }
 
   if (prod) {

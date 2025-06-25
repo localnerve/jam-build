@@ -57,5 +57,51 @@ export async function stopJS (page, map) {
     const newMap = libCoverage.createCoverageMap(converter.toIstanbul());
     map.merge(newMap);
   }
+
+  let swCoverage = await getSwCoverage(page);
+  if (!process.env.LOCALHOST_PORT) {
+    // Not local, so remap swCoverage baseDir by removing /home/node/app from testcontainer home
+    const remoteRoot = '/home/node/app';
+    const localRoot = '.';
+    const remappedData = {};
+    Object.keys(swCoverage).forEach(key => {
+      const newKey = key.replace(remoteRoot, localRoot);
+      remappedData[newKey] = { ...swCoverage[key], ...{
+        path: swCoverage[key].path.replace(remoteRoot, localRoot)
+      }};
+    });
+    swCoverage = remappedData;
+  }
+  const newSwMap = libCoverage.createCoverageMap(swCoverage);
+  map.merge(newSwMap);
 }
 
+async function getSwCoverage (page) {
+  await page.addScriptTag({
+    content: 'async function __send_message_to_sw (msg) { \
+      const registration = await navigator.serviceWorker.ready; \
+      \
+      return new Promise((resolve, reject) => { \
+        const msg_chan = new MessageChannel(); \
+        \
+        msg_chan.port1.onmessage = event => { \
+          if (event.data.error) { \
+            reject(event.data.error); \
+          } else { \
+            resolve(event.data); \
+          } \
+        }; \
+        \
+        registration.active.postMessage(msg, [msg_chan.port2]); \
+      }); \
+    };'
+  });
+
+  const coverage = await page.evaluate(async () => {
+    const { action, result } = await __send_message_to_sw({ action: '__coverage__' });
+    if (action === '__coverage__') return result;
+    throw new Error('Got unexpected message, needed __coverage__');
+  });
+
+  return coverage;
+}

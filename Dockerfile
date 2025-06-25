@@ -4,6 +4,7 @@ ARG UID=1000
 ARG GID=1000
 ARG AUTHZ_URL=localhost:9010
 ARG AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64
+ARG DEV_BUILD=0
 ARG TARGETARCH
 
 USER root
@@ -25,7 +26,13 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 else \
   npm install; \
 fi
-RUN AUTHZ_URL=$AUTHZ_URL AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID npm run build
+RUN if [ "$DEV_BUILD" = "0" ]; then \
+  echo "Production build"; \
+  AUTHZ_URL=$AUTHZ_URL AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID npm run build; \
+else \
+  echo "Coverage/development build"; \
+  SW_INSTRUMENT=1 AUTHZ_URL=$AUTHZ_URL AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID npm run build:dev; \
+fi
 
 EXPOSE 5000
 

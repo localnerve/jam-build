@@ -1,6 +1,8 @@
 /**
  * Build the service worker.
  * 
+ * process.env.SW_INSTRUMENT will cause the sw.custom bundle to be instrumented for coverage.
+ * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
@@ -46,6 +48,19 @@ async function generateSWCustom (settings, replacements) {
     nodeIncludes: [
       'src/application/client/scripts/sw/**'
     ],
+    istanbulOptions: process.env.SW_INSTRUMENT ? {
+      include: [
+        'src/application/client/scripts/sw/**'
+      ],
+      instrumenterConfig: {
+        esModules: true,
+        compact: true,
+        produceSourceMap: true,
+        autoWrap: true,
+        preserveComments: true,
+        coverageGlobalScope: 'self'
+      }
+    } : false,
     rollupInput: {
       input: {
         [swCustomName]: swCustomFileSrc
@@ -135,11 +150,11 @@ export async function buildSwMain (settings) {
   };
 
   const publicSwCustomPath = await generateSWCustom(settings, {
-    SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable),
-    CACHE_PREFIX: JSON.stringify(cachePrefix),
-    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp()),
-    API_VERSION: JSON.stringify(settings.apiVersion),
-    SCHEMA_VERSION: JSON.stringify(settings.schemaVersion)
+    SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable).replaceAll('"', '\''),
+    CACHE_PREFIX: JSON.stringify(cachePrefix).replaceAll('"', '\''),
+    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp()).replaceAll('"', '\''),
+    API_VERSION: JSON.stringify(settings.apiVersion).replaceAll('"', '\''),
+    SCHEMA_VERSION: JSON.stringify(settings.schemaVersion).replaceAll('"', '\'')
   });
   
   return generateSW({
