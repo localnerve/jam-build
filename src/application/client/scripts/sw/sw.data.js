@@ -70,8 +70,8 @@ export function setupBackgroundRequests (syncSupport) {
 
 /**
  * Substitute for stock workbox Queue.replayRequests.
- * Updates local data for GETs and sends notifications to the app.
- * Processes any left over batchUpdates.
+ * Synchonrizes local/remote data, sends notifications to the app.
+ * Processes any left over versionConflicts and batchUpdates.
  */
 async function replayQueueRequestsWithDataAPI ({ queue }) {
   debug('Replaying queue requests...', queue);
@@ -80,41 +80,75 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
     throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
   }
 
-  let asyncResponseHandler = null;
+  const getRequests = [];
+  const getResponseHandler = async (metadata, data) => {
+    const { storeType, op, collections } = metadata;
+    if (op === 'put' || op === 'delete') {
+      return storeVersionConflict(storeType, op, collections, data);
+    }
+    await storeData(storeType, data);
+  };
+  const mutationResponseHandler = async (metadata, data) => {
+    const { storeType, document } = metadata;
+    await storeMutationResult(storeType, document, data);
+  };
+
+  // Service mutation requests in fifo order, defer true GETs
   let entry;
   while ((entry = await queue.shiftRequest())) {
     try {
-      if (entry.metadata) {
-        if (entry.request.method === 'GET') {
-          asyncResponseHandler = async data => {
-            const { storeType, op, collections } = entry.metadata;
-            if (op) {
-              return storeVersionConflict(storeType, op, collections, data);
-            }
-            await storeData(storeType, data);
-          };
-        } else { // POST, DELETE
-          asyncResponseHandler = async data => {
-            const { storeType, document } = entry.metadata;
-            await storeMutationResult(storeType, document, data);
-          };
-        }
+      const meta = entry.metadata;
+      const method = entry.request.method;
+      if (method === 'GET' && meta.op === 'get') {
+        getRequests.push(entry);
+      } else {
+        await dataAPICall(entry.request, {
+          asyncResponseHandler: method === 'GET' ?
+            getResponseHandler.bind(null, meta) : mutationResponseHandler.bind(null, meta),
+          metadata: meta,
+          retry: false
+        });
       }
-      await dataAPICall(entry.request, {
-        asyncResponseHandler,
-        metadata: entry.metadata,
-        retry: false
-      });
     } catch {
-      debug('Failed to replay request: ', entry.request.url);
+      debug('Failed to replay mutation request: ', entry.request.url);
       await queue.unshiftRequest(entry);
+      for (const get of getRequests) await queue.pushRequest(get);
       throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
     }
-  }
+  } // while - mutation requests
 
   await processVersionConflicts();
 
   await processBatchUpdates();
+
+  let reqKey;
+  const completed = {};
+  // Service ordinary GET requests, discard repeats
+  for (const getEntry of getRequests) {
+    try {
+      const meta = getEntry.metadata;
+      reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
+      if (completed[reqKey]) {
+        continue;
+      }
+      await dataAPICall(getEntry.request, {
+        asyncResponseHandler: getResponseHandler.bind(null, meta),
+        metadata: meta,
+        retry: false
+      });
+      completed[reqKey] = true;
+    } catch {
+      debug('Failed to replay get request: ', getEntry.request.url);
+      for (const get of getRequests) {
+        const meta = getEntry.metadata;
+        reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
+        if (!completed[reqKey]) {
+          await queue.pushRequest(get);
+        }
+      }
+      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+    }
+  } // for - get requests
 }
 
 /**
@@ -183,7 +217,8 @@ async function storeMutationResult (storeType, document, result) {
 }
 
 /**
- * Send data message to the app for the (stale) localData.
+ * Read data from local objectstores and send to the app.
+ * localData is the fallback (stale) data in a Network First strategy.
  * 
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document name
@@ -221,9 +256,9 @@ async function localData (storeType, document, collections = null, message = '')
 }
 
 /**
- * Store data in the jam_build database.
+ * Store data from the remote data service in the local object stores.
  * Re-formats data from the network to the idb objectStore format.
- * Sends message to the app for new data.
+ * Sends message to the app with the new data.
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {Object} data - The remote data to store
@@ -265,7 +300,7 @@ async function storeData (storeType, data) {
 
 /**
  * Load data from local objectStores by document name or document and possible collection name(s).
- * Format them for upsert to the remote data service.
+ * Format the local data for *upsert* to the remote data service.
  *
  * @param {String} storeType - 'app' or 'user'
  * @param {String} document - The document name
@@ -311,6 +346,7 @@ async function loadData (storeType, document, collections = null) {
  * @param {Request} request - The request object
  * @param {Object} [options] - options to handle data and control replay failure behavior
  * @param {AsyncFunction} [options.asyncResponseHandler] - data response handler
+ * @param {AsyncFunction} [options.staleResponse] - stale response handler
  * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
  * @param {Boolean} [options.retry] - true if failures should be queued for replay
  * @returns {Number} 0 on success or conflict resolution, E_REPLAY if queued for replay. Throws on error
@@ -346,7 +382,7 @@ async function dataAPICall (request, {
         }
       } else {
         if (staleResponse) {
-          await staleResponse('A local copy of the data is being shown');
+          await staleResponse();
           handled = true;
         }
       }
@@ -361,7 +397,7 @@ async function dataAPICall (request, {
     let handled = false;
 
     if (request.method === 'GET' && staleResponse) {
-      await staleResponse('A local copy of the data is being shown');
+      await staleResponse();
       handled = true;
     }
 
@@ -416,9 +452,15 @@ export async function refreshData ({ storeType, document, collections }) {
     asyncResponseHandler: async data => {
       await storeData(storeType, data);
     },
-    staleResponse: localData.bind(null, storeType, document, collections),
+    staleResponse: localData.bind(
+      null, storeType, document, collections,
+      'A local copy of the data is being shown'
+    ),
     metadata: {
-      storeType
+      storeType,
+      document,
+      collections,
+      op : 'get'
     }
   });
 }
