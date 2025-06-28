@@ -14,8 +14,6 @@ import {
   installDatabase,
   activateDatabase,
   refreshData,
-  upsertData,
-  deleteData,
   batchUpdate,
   setupBackgroundRequests
 } from './sw.data.js';
@@ -127,20 +125,6 @@ self.addEventListener('message', event => {
       debug('refresh-data message');
       waitOrPassThru(
         refreshData(payload)
-      );
-      break;
-
-    case 'put-data':
-      debug('put-data message');
-      waitOrPassThru(
-        upsertData(payload)
-      );
-      break;
-
-    case 'delete-data':
-      debug('delete-data message');
-      waitOrPassThru(
-        deleteData(payload)
       );
       break;
 

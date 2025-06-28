@@ -8,6 +8,13 @@
  *   SCHEMA_VERSION - The schema version corresponding to this app version.
  *   process.env.NODE_ENV - 'production' or not
  *
+ * exports:
+ *   setupBackgroundRequests - Setup offline request queue, sync event processing
+ *   refreshData - Get the latest data from the remote data service
+ *   batchUpdate - Make a mutation to the remote data service
+ *   installDatabase - Sw install event handler
+ *   activateDatabase - Sw activate event handler
+ * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
@@ -225,7 +232,8 @@ async function storeMutationResult (storeType, document, result) {
  * @param {String|Array<String>} [collections] - collection name(s) to get
  * @param {String} [message] - A user message
  */
-async function localData (storeType, document, collections = null, message = '') {
+async function localData (storeType, document, collections = null,
+  message = 'A local copy of the data is being shown') {
   const storeName = makeStoreName(storeType);
   const db = await getDB();
   const keys = [];
@@ -341,6 +349,44 @@ async function loadData (storeType, document, collections = null) {
 }
 
 /**
+ * Check request queue, batch queue, and conflict queue for pending updates.
+ * 
+ * @returns {Promise<Boolean>} returns true if pending updates found, false otherwise
+ */
+async function hasPendingUpdates () {
+  let result = false;
+
+  const requests = await queue?.getAll();
+  if (requests) {
+    for (const request of requests) {
+      if (request.metadata?.op && request.metadata.op !== 'get') {
+        result = true;
+        break;
+      }
+    }
+  }
+
+  let db;
+  if (!result) {
+    db = await getDB();
+  }
+
+  if (!result) {
+    const batchStore = makeStoreName(batchStoreType);
+    const hasUpdates = await db.count(batchStore);
+    result = hasUpdates > 0;
+  }
+
+  if (!result) {
+    const conflictStore = makeStoreName(conflictStoreType);
+    const hasConflicts = await db.count(conflictStore);
+    result = hasConflicts > 0;
+  }
+
+  return result;
+}
+
+/**
  * Make a network request to the remote data service.
  *
  * @param {Request} request - The request object
@@ -420,6 +466,7 @@ async function dataAPICall (request, {
 
 /**
  * Refresh the local store copy with remote data.
+ * If there are outgoing pending updates, return stale local data instead.
  *
  * @param {Object} payload - payload parameters
  * @param {String} payload.storeType - 'app' or 'user'
@@ -428,6 +475,11 @@ async function dataAPICall (request, {
  */
 export async function refreshData ({ storeType, document, collections }) {
   debug(`refreshData, ${storeType}:${document}`, collections);
+
+  const hasUpdates = await hasPendingUpdates();
+  if (hasUpdates) {
+    return localData(storeType, document, collections);
+  }
 
   const baseUrl = `/api/data/${storeType}`;
   const path = document ? `/${document}${
@@ -452,10 +504,7 @@ export async function refreshData ({ storeType, document, collections }) {
     asyncResponseHandler: async data => {
       await storeData(storeType, data);
     },
-    staleResponse: localData.bind(
-      null, storeType, document, collections,
-      'A local copy of the data is being shown'
-    ),
+    staleResponse: localData.bind(null, storeType, document, collections),
     metadata: {
       storeType,
       document,
@@ -473,7 +522,7 @@ export async function refreshData ({ storeType, document, collections }) {
  * @param {String} payload.document - The document to which the update applies
  * @param {Array<String>} [payload.collections] - The collections to upsert, omit for all
  */
-export async function upsertData ({ storeType, document, collections = null }) {
+async function upsertData ({ storeType, document, collections = null }) {
   debug(`upsertData, ${storeType}:${document}`, collections);
 
   if (!storeType || !document) {
@@ -518,7 +567,7 @@ export async function upsertData ({ storeType, document, collections = null }) {
  * @param {String} payload.document - The document to which the delete applies
  * @param {String|Array<String>|Object|Array<Object>} [payload.collections] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
  */
-export async function deleteData ({ storeType, document, collections }) {
+async function deleteData ({ storeType, document, collections }) {
   debug(`deleteData, ${storeType}:${document}`, collections);
   
   if (!storeType || !document) {
