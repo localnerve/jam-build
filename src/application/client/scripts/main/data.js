@@ -14,7 +14,7 @@ const debug = debugLib('data');
 let db;
 let swActive;
 let listeners = [];
-const waiters = [];
+const waiters = {};
 const store = {};
 const storeNames = new Map();
 const createdStores = new Map();
@@ -370,7 +370,7 @@ export async function createStore (storeType, page) {
 
   debug(`Creating store for ${storeType}...`);
 
-  const waiterForStore = new Promise(resolve => waiters.push(resolve));
+  const waiterForStore = new Promise(resolve => waiters[storeType] = resolve);
 
   /**
    * Install the handler for pageDataUpdate network callbacks from the service worker
@@ -411,8 +411,8 @@ export async function createStore (storeType, page) {
       }), 17);
     }
 
-    // Release the next waiter
-    const releaseWaiter = waiters.shift();
+    // Release storeType waiter
+    const releaseWaiter = waiters[payload.storeType];
     if (typeof releaseWaiter === 'function') releaseWaiter();
   });
 
