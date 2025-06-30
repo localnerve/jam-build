@@ -466,7 +466,8 @@ async function dataAPICall (request, {
 
 /**
  * Refresh the local store copy with remote data.
- * If there are outgoing pending updates, return stale local data instead.
+ * If there are outgoing pending updates, return local data instead.
+ * If there is a network issue, return local data instead.
  *
  * @param {Object} payload - payload parameters
  * @param {String} payload.storeType - 'app' or 'user'
