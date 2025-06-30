@@ -397,10 +397,8 @@ export async function createStore (storeType, page) {
       'seed', JSON.stringify(pageSeed(page, seed, payload))
     );
 
-    if (!payload.local || (payload.local && !createdStores.has(payload.storeType))) {
-      // Update the store, sends onChange 'update'
-      await dataUpdate(payload);
-    }
+    // Update the store, sends onChange 'update'
+    await dataUpdate(payload);
 
     // Queue any outgoing user message
     if (payload.message) {
@@ -413,7 +411,7 @@ export async function createStore (storeType, page) {
       }), 17);
     }
 
-    // Release any waiter
+    // Release the next waiter
     const releaseWaiter = waiters.shift();
     if (typeof releaseWaiter === 'function') releaseWaiter();
   });
@@ -421,8 +419,13 @@ export async function createStore (storeType, page) {
   debug('Waiting for "database-data-update" message...');
   await waiterForStore;
 
-  const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
-  createdStores.set(storeType, connectedStore);
+  if (store[storeType]) {
+    const connectedStore = new Proxy(store[storeType], createHandler([storeType]));
+    createdStores.set(storeType, connectedStore);
+    return connectedStore;
+  }
 
-  return connectedStore;
+  console.warn(`store ${storeType} was NOT populated after the wait`); // eslint-disable-line
+  debug(`store '${storeType}' was NOT populated after the wait`);
+  return null;
 }
