@@ -13,6 +13,7 @@ import createSupport from './support.js';
 import setupHeader from './header.js';
 import setupPrompts from './prompts.js';
 import setupLogin from './login.js';
+import setupHeartbeat from './heartbeat.js';
 
 /**
  * Update all current year elements in the page with the current full year.
@@ -42,6 +43,8 @@ function updateVersion (support) {
             versionEl.innerText = version;
             resolve();
           }
+        }, {
+          once: true
         });
         reg.active.postMessage({ action: 'version' });
       });
@@ -91,6 +94,7 @@ async function setup () {
 
   setupPrompts(support);
   setupLogin(support);
+  setupHeartbeat(support);
   updateCurrentYear();
 
   return Promise.all([
