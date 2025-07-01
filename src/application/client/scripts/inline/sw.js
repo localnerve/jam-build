@@ -29,6 +29,7 @@
       case 'workbox-broadcast-update':
         window.App.exec('pageUpdatePrompt');
         break;
+
       case 'database-update-required':
         window.App.exec('pageReloadOnUpdate', {
           args: {
@@ -37,11 +38,13 @@
           }
         });
         break;
+
       case 'database-data-update':
         window.App.exec('pageDataUpdate', {
           args: payload
         });
         break;
+      
       default:
         break;
     }
