@@ -50,7 +50,7 @@ function userActivityCheck () {
  * Start the heartbeat interval, monitor user activity, tell the service worker.
  */
 async function heartbeatStart (name, interval) {
-  const reg = await navigator.serviceWorker.ready;
+  const reg = await navigator.serviceWorker.ready; // eslint-disable-line compat/compat
 
   heartbeats[name] = setInterval(() => {
     reg.active.postMessage({
