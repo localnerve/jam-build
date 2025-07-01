@@ -59,6 +59,8 @@ function determineBackgroundSyncSupport () {
             if (action === 'ln-background-sync-support-test') {
               resolve(result);
             }
+          }, {
+            once: true
           });
           reg.active.postMessage({ action: 'ln-background-sync-support-test' });
         });
