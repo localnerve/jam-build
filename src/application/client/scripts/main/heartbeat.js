@@ -99,7 +99,7 @@ function messageHandler (event) {
 /**
  * Setup heartbeat messaging.
  */
-export function setup (support) {
+export default function setup (support) {
   if (support.serviceWorker) {
     navigator.serviceWorker.addEventListener('message', messageHandler);
   }
