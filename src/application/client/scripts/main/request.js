@@ -25,6 +25,8 @@ export async function updatePageData (page, filter = {
   const seed = JSON.parse(localStorage.getItem('seed'));
   const filteredSeed = filterSeed(page, seed, filter);
 
+  // filteredSeed test is important here in the data cycle.
+  // If nullish, it means we DONT want to make the request here: The data will arrive shortly via serviceWorker 'pageDataUpdate'
   if ('serviceWorker' in navigator && filteredSeed) {
     const reg = await navigator.serviceWorker.ready;
     for (const [, payload] of Object.entries(filteredSeed)) {
