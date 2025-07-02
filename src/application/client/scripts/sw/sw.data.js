@@ -37,6 +37,7 @@ const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
 const E_REPLAY = 0xf56f3634aca0;
+const fetchTimeout = 4500;
 
 let blocked = false;
 let db;
@@ -50,9 +51,11 @@ let db;
  * Some popular browser vendors (brave) make the namespace, but DONT IMPLEMENT 🙁
  */
 let canSync = 'sync' in self.registration;
+let nativeSyncSupport;
 let queue;
 export function setupBackgroundRequests (syncSupport) {
   debug('setupBackgroundRequests, support:', syncSupport);
+  nativeSyncSupport = syncSupport;
 
   try {
     if (!queue) {
@@ -107,6 +110,7 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
     try {
       const meta = entry.metadata;
       const method = entry.request.method;
+
       if (method === 'GET' && meta.op === 'get') {
         getRequests.push(entry);
       } else {
@@ -119,9 +123,15 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
       }
     } catch {
       debug('Failed to replay mutation request: ', entry.request.url);
+
       await queue.unshiftRequest(entry);
+
       for (const get of getRequests) await queue.pushRequest(get);
-      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+
+      if (nativeSyncSupport) {
+        // If native, throw to let the browser know this did not go as planned
+        throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+      }
     }
   } // while - mutation requests
 
@@ -136,9 +146,11 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
     try {
       const meta = getEntry.metadata;
       reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
+      
       if (completed[reqKey]) {
         continue;
       }
+      
       await dataAPICall(getEntry.request, {
         asyncResponseHandler: getResponseHandler.bind(null, meta),
         metadata: meta,
@@ -147,6 +159,7 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
       completed[reqKey] = true;
     } catch {
       debug('Failed to replay get request: ', getEntry.request.url);
+      
       for (const get of getRequests) {
         const meta = getEntry.metadata;
         reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
@@ -154,7 +167,10 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
           await queue.pushRequest(get);
         }
       }
-      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+      if (nativeSyncSupport) {
+        // If native, throw to let the browser know this did not go as planned
+        throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+      }
     }
   } // for - get requests
 }
@@ -382,11 +398,19 @@ async function dataAPICall (request, {
 } = {}) {
   debug('dataAPICall ', request.url);
 
+  const abortController = new AbortController();
+  let fetchTimer = setTimeout(abortController.abort, fetchTimeout);
+
   let result = 0;
   let response = null;
-
+  
   try {
-    response = await fetch(request.clone());
+    response = await fetch(request.clone(), {
+      signal: abortController.signal
+    });
+
+    clearTimeout(fetchTimer);
+    fetchTimer = null;
 
     if (response.ok) {
       if (typeof asyncResponseHandler === 'function') {
@@ -415,7 +439,11 @@ async function dataAPICall (request, {
       }
     }
   } catch (error) {
-    debug('dataAPICall failed', error.message);
+    debug('dataAPICall failed', error.name, error.message);
+
+    if (fetchTimer) {
+      clearTimeout(fetchTimer);
+    }
 
     let handled = false;
 
