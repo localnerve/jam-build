@@ -24,6 +24,7 @@ import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
 import { startTimer } from './sw.timer.js';
+import { sendMessage } from './sw.utils.js';
 
 const dbname = 'jam_build';
 const storeTypes = ['app', 'user'];
@@ -34,7 +35,7 @@ const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bund
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
-const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 3000 : 3000; // eslint-disable-line -- assigned at bundle time
+const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
 const E_REPLAY = 0xf56f3634aca0;
 
 let blocked = false;
@@ -167,30 +168,6 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
  */
 function makeStoreName (storeType, version = schemaVersion) {
   return `${storeType}_documents_${version}`;
-}
-
-/**
- * Send a message to all the open application tabs.
- *
- * @param {String} meta - The meta message identifier
- * @param {Any} [payload] - The message payload
- */
-async function sendMessage (meta, payload) {
-  if (self.clients) {
-    let clients = await self.clients.matchAll();
-
-    if (clients.length === 0) {
-      await self.clients.claim();
-      clients = await self.clients.matchAll();
-    }
-
-    for (let i = 0; i < clients.length; i++) {
-      clients[i].postMessage({
-        meta,
-        payload
-      });
-    }
-  }
 }
 
 /**
@@ -817,7 +794,7 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
     throw new Error('Bad input passed to batchUpdate');
   }
 
-  startTimer(batchCollectionWindow, 250, 'batch-timer', processBatchUpdates);
+  startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
 
   /* eslint-disable no-param-reassign */
   collection = collection ?? '';

@@ -4,10 +4,13 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import debugLib from '@localnerve/debug';
+
+const debug = debugLib('heartbeat');
 
 const heartbeats = Object.create(null);
-const maxInactive = 10000;
 
+let maxInactiveTime;
 let lastUserActivity;
 
 /**
@@ -21,6 +24,8 @@ function updateUserActivity() {
  * Update the lastUserActivity timestamp and connect to activity events.
  */
 function userActivityStart () {
+  debug('starting user activity monitor');
+
   lastUserActivity = Date.now();
   window.addEventListener('mousemove', updateUserActivity);
   window.addEventListener('keydown', updateUserActivity);
@@ -31,6 +36,8 @@ function userActivityStart () {
  * Remove the activity events.
  */
 function userActivityStop () {
+  debug('stopping user activity monitor');
+
   window.removeEventListener('mousemove', updateUserActivity);
   window.removeEventListener('keydown', updateUserActivity);
   window.removeEventListener('touchstart', updateUserActivity);
@@ -43,14 +50,18 @@ function userActivityStop () {
  */
 function userActivityCheck () {
   const currentTime = Date.now();
-  return currentTime - lastUserActivity > maxInactive;
+  return currentTime - lastUserActivity > maxInactiveTime;
 }
 
 /**
  * Start the heartbeat interval, monitor user activity, tell the service worker.
  */
-async function heartbeatStart (name, interval) {
+async function heartbeatStart (name, interval, maxInactive) {
+  debug('start heartbeat', name, interval, maxInactive);
+
   const reg = await navigator.serviceWorker.ready; // eslint-disable-line compat/compat
+
+  maxInactiveTime = maxInactive;
 
   heartbeats[name] = setInterval(() => {
     reg.active.postMessage({
@@ -74,6 +85,8 @@ async function heartbeatStart (name, interval) {
  * Stop the user activity monitor, clear the heartbeat interval.
  */
 function heartbeatStop (name) {
+  debug('stop heartbeat', name);
+
   userActivityStop();
   clearInterval(heartbeats[name]);
 }
@@ -87,7 +100,7 @@ function messageHandler (event) {
 
   switch (msgId) {
     case 'heartbeat-start':
-      heartbeatStart(payload.name, payload.interval);
+      heartbeatStart(payload.name, payload.interval, payload.maxInactive);
       break;
 
     case 'heartbeat-stop':

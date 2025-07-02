@@ -17,6 +17,7 @@ import {
   batchUpdate,
   setupBackgroundRequests
 } from './sw.data.js';
+import { sendMessage } from './sw.utils.js';
 
 const { debug } = _private.logger || { debug: ()=> {} };
 
@@ -40,13 +41,7 @@ function sendResponse (event, response) {
   if (respondTo) {
     respondTo.postMessage(response);
   } else {
-    if (self.clients) {
-      result = self.clients.matchAll().then(clients => {
-        for (let i = 0; i < clients.length; i++) {
-          clients[i].postMessage(response);
-        }
-      });
-    }
+    sendMessage(null, response);
   }
 
   return result || Promise.resolve();
