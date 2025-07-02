@@ -55,6 +55,10 @@ function userActivityCheck () {
 
 /**
  * Start the heartbeat interval, monitor user activity, tell the service worker.
+ * 
+ * @param {String} name - The timer name
+ * @param {Number} interval - The timer interval
+ * @param {Number} maxInactive - The max time of inactivity
  */
 async function heartbeatStart (name, interval, maxInactive) {
   debug('start heartbeat', name, interval, maxInactive);
@@ -83,6 +87,8 @@ async function heartbeatStart (name, interval, maxInactive) {
 
 /**
  * Stop the user activity monitor, clear the heartbeat interval.
+ * 
+ * @param {String} name - The timer name
  */
 function heartbeatStop (name) {
   debug('stop heartbeat', name);
@@ -93,6 +99,8 @@ function heartbeatStop (name) {
 
 /**
  * Service worker event handler.
+ * 
+ * @param {Event} event - The service worker message event
  */
 function messageHandler (event) {
   const msgId = event?.data?.meta;
@@ -111,6 +119,8 @@ function messageHandler (event) {
 
 /**
  * Setup heartbeat messaging.
+ * 
+ * @param {Object} support - The browser support matrix
  */
 export default function setup (support) {
   if (support.serviceWorker) {
