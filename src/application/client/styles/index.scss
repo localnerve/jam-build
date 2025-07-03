@@ -11,6 +11,7 @@
 @forward 'prompt';
 @forward 'spinner';
 @forward 'main-banner';
+@forward 'dyn';
 
 html {
   font-size: v.$rem-base;
