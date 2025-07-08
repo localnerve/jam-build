@@ -761,10 +761,8 @@ async function processBatchUpdates () {
     return;
   }
 
+  const networkCallOrder = [];
   const output = {
-    // Property order here controls network call order.
-    // Keys (ops) are iterated by ascending chronological order of property creation...
-    // Because we use upserts, deletes must come last
     put: [],
     delete: []
   };
@@ -851,7 +849,8 @@ async function processBatchUpdates () {
             properties = { set(){}, get(){}, hasProps: false };
           }
         }
-        output[item.op].unshift({ // add to head so newest will be last
+        networkCallOrder.unshift(item.op); // add to head so newest will be last
+        output[item.op].unshift({
           storeType: item.storeType,
           document: item.document,
           collections: item.collection ? [item.collection] : [],
@@ -866,43 +865,44 @@ async function processBatchUpdates () {
   debug(`processBatchUpdates processing ${output.put.length} puts, ${output.delete.length} deletes...`, output);
 
   const reconcile = [];
-  for (const op of Object.keys(output)) {
-    for (const item of output[op]) {
-      const request = { ...item };
-      if (request.properties?.hasProps) {
-        request.collections = request.collections.map(collection => ({
-          collection,
-          properties: request.properties.get(collection)
-        }));
-      }
-      try {
-        await network[op](request);
-        debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${request.storeType}:${request.document}'`, {
-          ...request.collections
-        });
-      }
-      catch (e) {
-        const failedItem = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
-        if (failedItem) {
-          const newColl = (new Set(item.collections)).difference(new Set(failedItem.collections));
-          failedItem.collections.push(...newColl);
-        } else {
-          reconcile.push(item);
-        }
-        debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${request.storeType}:${request.document}', continuing...`, {
-          ...request.collections
-        }, e);
-      }
+  for (const op of networkCallOrder) { // replay oldest to newest
+    const item = output[op].shift();
+    const request = { ...item };
 
-      // Always delete. If it threw, it's not going to work by retrying, the input is bad
-      const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
-      let count = 0;
-      for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
-        count++;
-        await cursor.delete();
-      }
-      debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
+    if (request.properties?.hasProps) {
+      request.collections = request.collections.map(collection => ({
+        collection,
+        properties: request.properties.get(collection)
+      }));
     }
+
+    try {
+      await network[op](request);
+      debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${request.storeType}:${request.document}'`, {
+        ...request.collections
+      });
+    }
+    catch (e) {
+      const failedItem = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
+      if (failedItem) {
+        const newColl = (new Set(item.collections)).difference(new Set(failedItem.collections));
+        failedItem.collections.push(...newColl);
+      } else {
+        reconcile.push(item);
+      }
+      debug(`processBatchUpdates '${network[op].name}' FAILED for '${op}' with '${request.storeType}:${request.document}', continuing...`, {
+        ...request.collections
+      }, e);
+    }
+
+    // Always delete. If it threw, it's not going to work by retrying, the input is bad
+    const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
+    let count = 0;
+    for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
+      count++;
+      await cursor.delete();
+    }
+    debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
   }
 
   // This only happens if the remote data service errors on the input
@@ -1150,6 +1150,8 @@ async function processVersionConflicts () {
       baseData[storeType] = baseData[storeType] ?? {};
       baseData[storeType][doc] = baseData[storeType][doc] ?? {};
       baseData[storeType][doc][col] = { ...props };
+    } else {
+      debug(`baseDoc for ${baseKey} was not found`);
     }
   }
 
