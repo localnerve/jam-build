@@ -146,7 +146,7 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
     case 'put':
       if (collection) { // put collection and/or properties
         debug(`putting collection ${collection}...`);
-        if (isDifferent(storeName, keyPath, store[storeType][document][collection])) {
+        if (await isDifferent(storeName, keyPath, store[storeType][document][collection])) {
           await db.put(storeName, {
             document_name: document,
             collection_name: collection,
@@ -160,7 +160,7 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
         let changedOne = false;
         const doc = store[storeType][document];
         for (const coll of Object.keys(doc)) {
-          if (isDifferent(storeName, [document, coll], doc[coll] || {})) {
+          if (await isDifferent(storeName, [document, coll], doc[coll] || {})) {
             changedOne = true;
             await db.put(storeName, {
               document_name : document,
@@ -215,11 +215,26 @@ function queueMutation (op, key) {
   const document = keyPath[0];
   const collection = keyPath[1]; // could be undefined
 
+  if (swActive) {
+    debug('Sending may-update...', op, key);
+
+    swActive.postMessage({
+      action: 'may-update',
+      payload: {
+        storeType,
+        document,
+        collection,
+        op
+      }
+    });
+  }
+
   // Schedule task to update db, queue remote sync
   mutationQueue.push(async () => {
     const result = await performDatabaseUpdate(op, storeType, keyPath, propertyName);
-    if (result && swActive) {
+    if (swActive && result) {
       debug('Sending batch-update...', op, key);
+
       swActive.postMessage({
         action: 'batch-update',
         payload: {

@@ -27,3 +27,40 @@ export async function sendMessage (meta, payload) {
     }
   }
 }
+
+/**
+ * A class to enforce serialized execution
+ */
+export class CriticalSection {
+  constructor () {
+    this.queue = [];
+    this.lock = false;
+  }
+
+  async execute (task) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ task, resolve, reject });
+
+      if (!this.lock) {
+        this._processQueue();
+      }
+    });
+  }
+
+  async _processQueue () {
+    this.lock = true;
+
+    while (this.queue.length > 0) {
+      const { task, resolve, reject } = this.queue.shift();
+
+      try {
+        const result = await task();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    }
+
+    this.lock = false;
+  }
+}

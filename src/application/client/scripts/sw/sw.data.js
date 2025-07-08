@@ -12,6 +12,7 @@
  *   setupBackgroundRequests - Setup offline request queue, sync event processing
  *   refreshData - Get the latest data from the remote data service
  *   batchUpdate - Make a mutation to the remote data service
+ *   mayUpdate - Prepare for a mutation to the local data
  *   installDatabase - Sw install event handler
  *   activateDatabase - Sw activate event handler
  * 
@@ -19,26 +20,31 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import querystring from 'node:querystring';
-import { createMerger } from 'smob';
+import * as jsonDiffPatchLib from 'jsondiffpatch';
 import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
 import { startTimer } from './sw.timer.js';
-import { sendMessage } from './sw.utils.js';
+import { sendMessage, CriticalSection } from './sw.utils.js';
 
 const dbname = 'jam_build';
-const storeTypes = ['app', 'user'];
-const batchStoreType = 'batch';
+const mainStoreTypes = ['app', 'user'];
 const versionStoreType = 'version';
+const batchStoreType = 'batch';
 const conflictStoreType = 'conflict';
+const baseStoreType = 'base';
 const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
 const E_REPLAY = 0xf56f3634aca0;
+const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older than this are considered expired
 const fetchTimeout = 4500;
 
+const criticalSection = new CriticalSection();
+
+const jsonDiffPatch = jsonDiffPatchLib.create({ omitRemovedValues: true });
 let blocked = false;
 let db;
 
@@ -100,8 +106,9 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
     await storeData(storeType, data);
   };
   const mutationResponseHandler = async (metadata, data) => {
-    const { storeType, document } = metadata;
+    const { storeType, document, op } = metadata;
     await storeMutationResult(storeType, document, data);
+    await clearBaseStoreRecords(storeType, document, op);
   };
 
   // Service mutation requests in fifo order, defer true GETs
@@ -521,7 +528,7 @@ export async function refreshData ({ storeType, document, collections }) {
 }
 
 /**
- * Synchronize local data updates with the remote data service.
+ * Synchronize local data creation and updates with the remote data service.
  * 
  * @param {Object} payload - payload parameters
  * @param {String} payload.storeType - 'app' or 'user'
@@ -552,6 +559,7 @@ async function upsertData ({ storeType, document, collections = null }) {
   await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
+      await clearBaseStoreRecords(storeType, document, 'put');
     },
     metadata: {
       storeType,
@@ -620,6 +628,7 @@ async function deleteData ({ storeType, document, collections }) {
   await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
+      await clearBaseStoreRecords(storeType, document, 'delete');
     },
     metadata: {
       storeType,
@@ -628,6 +637,110 @@ async function deleteData ({ storeType, document, collections }) {
       op: 'delete'
     }
   });
+}
+
+/**
+ * Clean the base document store after mutations.
+ * 
+ * @param {String} storeType - 'app' or 'user'
+ * @param {String} document - The document that was updated
+ * @param {String} op - 'put' or 'delete'
+ */
+async function clearBaseStoreRecords (storeType, document, op) {
+  const baseStoreName = makeStoreName(baseStoreType);
+  const db = await getDB();
+
+  let count = 0;
+  const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
+  for await (const cursor of documents.iterate([storeType, document, op])) {
+    count++;
+    await cursor.delete();
+  }
+  debug(`deleted ${count} base document records for ${storeType}:${document}`);
+}
+
+/**
+ * Prepare for a data update by making a copy of the original type, document, and collection that might change to the base document store.
+ * If it's already been copied, do nothing.
+ * This copy is used in the case a conflict resolution is required, so we keep a per-op version of each, clearing the companion records
+ * as each mutation op completes.
+ * 
+ * @param {Object} payload - The message payload object
+ * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.document - The document to be updated
+ * @param {String} payload.op - The mutation operation, 'put' or 'delete'
+ * @param {String} [payload.collection] - The collection to be updated
+ * @param {Boolean} [clearOnly] - True to clear the record only, default false
+ */
+async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = false) {
+  if (!storeType || !document) {
+    throw new Error('Bad input passed to mayUpdate');
+  }
+  
+  /* eslint-disable no-param-reassign */
+  collection = collection ?? '';
+  /* eslint-enable no-param-reassign */
+
+  const baseStoreName = makeStoreName(baseStoreType);
+  const db = await getDB();
+
+  if (collection) {
+    const baseCopy = await db.getFromIndex(baseStoreName, 'collection', [storeType, document, collection, op]);
+    const staleBase = baseCopy && (Date.now() - baseCopy.timestamp) >= STALE_BASE_LIFESPAN;
+
+    if (!baseCopy || staleBase || clearOnly) {
+      if ((staleBase || clearOnly) && baseCopy) {
+        await db.delete(baseStoreName, baseCopy.id);
+      }
+
+      if (!clearOnly) {
+        const original = await db.get(makeStoreName(storeType), [document, collection]);
+
+        await db.add(baseStoreName, {
+          storeType, document, collection, op, timestamp: Date.now(), properties: original.properties
+        });
+      }
+    }
+  } else {
+    const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
+    const docCount = await documents.count([storeType, document, op]);
+    let deleteCount = 0;
+
+    for await (const cursor of documents.iterate([storeType, document, op])) {
+      const item = cursor.value;
+      const staleBase = Date.now() - item.timestamp >= STALE_BASE_LIFESPAN;
+
+      if (staleBase || clearOnly) {
+        deleteCount++;
+        await cursor.delete();
+      }
+    }
+
+    if ((docCount === 0 || docCount === deleteCount) && !clearOnly) {
+      const original = await db.getAllFromIndex(makeStoreName(storeType), 'document', document);
+
+      for (const orig of original) {
+        await db.add(baseStoreName, {
+          storeType,
+          document,
+          collection: orig.collection_name,
+          op,
+          timestamp: Date.now(),
+          properties: orig.properties
+        });
+      }
+    }
+  }
+}
+
+/**
+ * Call _mayUpdate in a serial execution lock.
+ * 
+ * @param {Object} payload - payload for _mayUpdate
+ * @param {Boolean} clearOnly - clearOnly for _mayUpdate
+ */
+export async function mayUpdate (payload, clearOnly = false) {
+  await criticalSection.execute(() => _mayUpdate(payload, clearOnly));
 }
 
 /**
@@ -816,13 +929,16 @@ async function processBatchUpdates () {
  * @param {String} payload.op - 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to update
  * @param {String} [payload.propertyName] - The property name to delete, op must === 'delete'
+ * @param {Boolean} [skipTimer] - true to not schedule processing, caller must schedule. Defaults to false.
  */
-export async function batchUpdate ({ storeType, document, op, collection, propertyName }) {
+export async function batchUpdate ({ storeType, document, op, collection, propertyName }, skipTimer = false) {
   if (!storeType || !document || !op) {
     throw new Error('Bad input passed to batchUpdate');
   }
 
-  startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
+  if (!skipTimer) {
+    startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
+  }
 
   /* eslint-disable no-param-reassign */
   collection = collection ?? '';
@@ -835,6 +951,96 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   await db.add(makeStoreName(batchStoreType), {
     storeType, document, collection, propertyName, op
   });
+}
+
+/**
+ * Perform a three way merge.
+ * Conflict is resolved by always prefering local OVER remote changes/values.
+ */
+function threeWayMerge (base, remote, local) {
+  if (!remote) {
+    return local;
+  }
+  if (!base) {
+    return remote;
+  }
+
+  const diffBaseRemote = jsonDiffPatch.diff(base, remote);
+  const diffBaseLocal = jsonDiffPatch.diff(base, local);
+
+  // Create a deep copy of the remote object to merge changes into
+  let mergedObject = { ...remote };
+
+  if (diffBaseRemote && diffBaseLocal) {
+    const conflicts = {};
+
+    const hasOwnProperty = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+    for (const key in diffBaseRemote) {
+      if (hasOwnProperty(diffBaseRemote, key)) {
+        if (hasOwnProperty(diffBaseLocal, key) && JSON.stringify(diffBaseRemote[key]) !== JSON.stringify(diffBaseLocal[key])) {
+          conflicts[key] = {
+            remote: diffBaseRemote[key],
+            local: diffBaseLocal[key],
+            localType: Array.isArray(local[key]) ? 'array' : typeof local[key]
+          };
+        } else {
+          debug('3WayMerge: merging remote key', key);
+          jsonDiffPatch.patch(mergedObject, { [key]: diffBaseRemote[key] });
+        }
+      } else {
+        debug('3WayMerge: skipping remote key', key);
+      }
+    }
+
+    for (const key in diffBaseLocal) {
+      if (hasOwnProperty(diffBaseLocal, key)) {
+        if (!hasOwnProperty(diffBaseRemote, key)) {
+          debug('3WayMerge: merging local key', key);
+          jsonDiffPatch.patch(mergedObject, { [key]: diffBaseLocal[key] });
+        }
+      } else {
+        debug('3WayMerge: skipping local key', key);
+      }
+    }
+
+    // Handle conflicts
+    for (const path in conflicts) {
+      if (hasOwnProperty(conflicts, path)) {
+        debug('3WayMerge: merging conflict path: ', path, conflicts[path].localType);
+
+        let newValue;
+        switch(conflicts[path].localType) {
+          case 'string':
+            newValue = Array.isArray(conflicts[path].local) ? conflicts[path].local[1] : conflicts[path].local;
+            break;
+          case 'array':
+            newValue = Object.entries(conflicts[path].local).reduce((acc, [key, value]) => {
+              if (Number.isInteger(parseInt(key, 10))) {
+                acc.push(Array.isArray(value) ? value[0] : value);
+              }
+              return acc;
+            }, []);
+            break;
+          default:
+            newValue = conflicts[path].local;
+            break;
+        }
+
+        mergedObject[path] = newValue;
+      } else {
+        debug('3WayMerge: skipping conflict path', path);
+      }
+    }
+  } else if (diffBaseRemote) {
+    debug('3WayMerge: diffBaseRemote only');
+    jsonDiffPatch.patch(mergedObject, diffBaseRemote);
+  } else if (diffBaseLocal) {
+    debug('3WayMerge: diffBaseLocal only');
+    jsonDiffPatch.patch(mergedObject, diffBaseLocal);
+  }
+
+  return mergedObject;
 }
 
 /**
@@ -868,10 +1074,11 @@ async function processVersionConflicts () {
   debug('conflictDocs version index records: ', await conflictDocs.count());
 
   // Read all conflict doc records, latest version first
-  // Set aside doc version, batch commands, and build the remote document objects.
+  // Set aside doc version, batch & base commands, and build the remote document objects.
   const remoteData = {};
   const versions = { app: {}, user: {} };
   const batch = { app: { put: null, delete: null }, user: { put: null, delete: null } };
+  const baseKeys = [];
   for await (const cursor of conflictDocs.iterate(null, 'prev')) { // latest version first
     const {
       new_version,
@@ -894,6 +1101,8 @@ async function processVersionConflicts () {
         op,
         collections
       };
+      baseKeys.push([storeType, doc, col, op]);
+
       remoteData[storeType] = remoteData[storeType] ?? {};
       remoteData[storeType][doc] = remoteData[storeType][doc] ?? {};
       remoteData[storeType][doc][col] = {
@@ -916,23 +1125,54 @@ async function processVersionConflicts () {
         localData[storeType] = localData[storeType] ?? {};
         localData[storeType][rec.document_name] =
           localData[storeType][rec.document_name] ?? {};
-        localData[storeType][rec.document_name][rec.collection_name] =
-          localData[storeType][rec.document_name][rec.collection_name] ?? {
-            ...rec.properties
-          };
+        localData[storeType][rec.document_name][rec.collection_name] = {
+          ...rec.properties
+        };
       }
     }
   }
 
   debug('processVersionConflicts localData', localData);
 
-  // Merge the localData onto the remoteData to create newData
-  const merge = createMerger({
-    inplace: true,
-    priority: 'right',
-    arrayPriority: 'right'
-  });
-  const newData = merge(remoteData, localData);
+  // Read the base data being mutated, assemble baseData
+  const baseStoreName = makeStoreName(baseStoreType);
+  const baseData = {};
+  for (const baseKey of baseKeys) {
+    const baseDoc = await db.getFromIndex(baseStoreName, 'collection', baseKey);
+    if (baseDoc) {
+      const {
+        storeType,
+        document: doc,
+        collection: col,
+        properties: props
+      } = baseDoc;
+
+      baseData[storeType] = baseData[storeType] ?? {};
+      baseData[storeType][doc] = baseData[storeType][doc] ?? {};
+      baseData[storeType][doc][col] = { ...props };
+    }
+  }
+
+  debug('processVersionConflicts baseData', baseData);
+
+  // Merge the localData onto the remoteData using baseData to assemble newData
+  // localData and baseData are built from remoteData
+  const newData = {};
+  for (const storeType of Object.keys(localData)) {
+    for (const doc of Object.keys(localData[storeType])) {
+      for (const col of Object.keys(localData[storeType][doc])) {
+        const newCol = threeWayMerge(
+          baseData?.[storeType]?.[doc]?.[col],
+          remoteData[storeType][doc][col],
+          localData[storeType][doc][col]
+        );
+
+        newData[storeType] = newData[storeType] ?? {};
+        newData[storeType][doc] = newData[storeType][doc] ?? {};
+        newData[storeType][doc][col] = newCol;
+      }
+    }
+  }
 
   debug('processVersionConflicts newData', newData);
 
@@ -985,7 +1225,8 @@ async function processVersionConflicts () {
       if (Array.isArray(payload.collections) && payload.collections.length > 0) {
         if (payload.collections.every(i => typeof i === 'string')) {
           for (const collection of payload.collections) {
-            batchUpdate({ ...payload, collection });
+            debug('Scheduling batch update: ', { ...payload, collection });
+            await batchUpdate({ ...payload, collection }, true);
           }
         } else if (payload.collections.every(i => isObj(i))) {
           const params = [];
@@ -1008,14 +1249,18 @@ async function processVersionConflicts () {
           }
 
           for (const param of params) {
-            batchUpdate(param);
+            debug('Scheduling batch update: ', param);
+            await batchUpdate(param, true);
           }
         }
       } else {
-        batchUpdate(payload); // storeType, document, op for a doc update
+        debug('Scheduling batch update: ', payload);
+        await batchUpdate(payload, true); // storeType, document, op for a doc update
       }
     }
   }
+
+  await processBatchUpdates();
 
   // Notify the app the data was updated
   for (const [, payload] of Object.entries(message)) {
@@ -1119,9 +1364,9 @@ export async function installDatabase () {
     upgrade(db, oldVersion, newVersion, transaction, event) {
 
       //
-      // APP|USER STORES
+      // MAIN STORES (app, user)
       // upgrade main objectStores...
-      for (const storeType of storeTypes) {
+      for (const storeType of mainStoreTypes) {
         const storeName = makeStoreName(storeType);
         
         if (!db.objectStoreNames.contains(storeName)) {
@@ -1216,6 +1461,34 @@ export async function installDatabase () {
       // deleteObjectStore can only be called in a version event transaction (like here).
       for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
         let oldStoreName = makeStoreName(batchStoreType, oldVersion);
+        if (db.objectStoreNames.contains(oldStoreName)) {
+          db.deleteObjectStore(oldStoreName);
+        }
+      }
+
+      //
+      // BASE STORE
+      // Upgrade the base document objectStore...
+      const baseStoreName = makeStoreName(baseStoreType);
+      if (!db.objectStoreNames.contains(baseStoreName)) {
+        const store = db.createObjectStore(baseStoreName, {
+          keyPath: 'id',
+          autoIncrement: true
+        });
+        store.createIndex('collection', ['storeType', 'document', 'collection', 'op'], {
+          unique: true
+        });
+        store.createIndex('document', ['storeType', 'document', 'op'], {
+          unique: false
+        });
+      }
+
+      // Do future migrations of base objectStore here...
+
+      // Cleanup all old objectStores after migration
+      // deleteObjectStore can only be called in a version event transaction (like here).
+      for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
+        let oldStoreName = makeStoreName(baseStoreType, oldVersion);
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }

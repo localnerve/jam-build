@@ -15,6 +15,7 @@ import {
   activateDatabase,
   refreshData,
   batchUpdate,
+  mayUpdate,
   setupBackgroundRequests
 } from './sw.data.js';
 import { sendMessage } from './sw.utils.js';
@@ -127,6 +128,13 @@ self.addEventListener('message', event => {
       debug('batch-update message');
       waitOrPassThru(
         batchUpdate(payload)
+      );
+      break;
+
+    case 'may-update':
+      debug('may-update message');
+      waitOrPassThru(
+        mayUpdate(payload)
       );
       break;
 
