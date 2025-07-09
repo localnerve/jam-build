@@ -38,7 +38,8 @@ const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle tim
 const queueName = `${dbname}-requests-${apiVersion}`;
 const { debug } = _private.logger || { debug: ()=> {} };
 const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
-const E_REPLAY = 0xf56f3634aca0;
+const E_REPLAY = 0x062de3cc;
+const E_CONFLICT = 0x32c79766;
 const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older than this are considered expired
 const fetchTimeout = 4500;
 
@@ -81,7 +82,7 @@ export function setupBackgroundRequests (syncSupport) {
   }
 
   if (canSync && !syncSupport && queue) {
-    replayQueueRequestsWithDataAPI({ queue }); // replay now if no sync
+    replayQueueRequestsWithDataAPI({ queue }); // replay now if artificial sync support
   }
 }
 
@@ -349,7 +350,7 @@ async function loadData (storeType, document, collections = null) {
 }
 
 /**
- * Check request queue, batch queue, and conflict queue for pending updates.
+ * Check request queue, batch queue, and conflict queue for pending updates (mutations).
  * 
  * @returns {Promise<Boolean>} returns true if pending updates found, false otherwise
  */
@@ -403,7 +404,7 @@ async function dataAPICall (request, {
   metadata = null,
   retry = true
 } = {}) {
-  debug('dataAPICall ', request.url);
+  debug('dataAPICall ', request.url, request.method);
 
   const abortController = new AbortController();
   let fetchTimer = setTimeout(abortController.abort, fetchTimeout);
@@ -433,6 +434,7 @@ async function dataAPICall (request, {
         if (resp.versionError) {
           await versionConflict(metadata);
           handled = true;
+          result = E_CONFLICT;
         }
       } else {
         if (staleResponse) {
@@ -556,7 +558,7 @@ async function upsertData ({ storeType, document, collections = null }) {
     body: JSON.stringify(body)
   });
 
-  await dataAPICall(request, {
+  const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
       await clearBaseStoreRecords(storeType, document, 'put');
@@ -568,6 +570,8 @@ async function upsertData ({ storeType, document, collections = null }) {
       op: 'put'
     }
   });
+
+  return result;
 }
 
 /**
@@ -625,7 +629,7 @@ async function deleteData ({ storeType, document, collections }) {
     body: JSON.stringify(body)
   });
 
-  await dataAPICall(request, {
+  const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
       await clearBaseStoreRecords(storeType, document, 'delete');
@@ -637,6 +641,8 @@ async function deleteData ({ storeType, document, collections }) {
       op: 'delete'
     }
   });
+
+  return result;
 }
 
 /**
@@ -661,7 +667,7 @@ async function clearBaseStoreRecords (storeType, document, op) {
 
 /**
  * Prepare for a data update by making a copy of the original type, document, and collection that might change to the base document store.
- * If it's already been copied, do nothing.
+ * If it's already been copied, and not expired by policy, do nothing.
  * This copy is used in the case a conflict resolution is required, so we keep a per-op version of each, clearing the companion records
  * as each mutation op completes.
  * 
@@ -862,7 +868,10 @@ async function processBatchUpdates () {
     lastKey = key;
   }
 
-  debug(`processBatchUpdates processing ${output.put.length} puts, ${output.delete.length} deletes...`, output);
+  debug(`processBatchUpdates processing ${output.put.length} puts, ${output.delete.length} deletes...`, {
+    ...output
+  });
+  debug('processBatchUpdates networkCallOrder', ...networkCallOrder);
 
   const reconcile = [];
   for (const op of networkCallOrder) { // replay oldest to newest
@@ -877,10 +886,16 @@ async function processBatchUpdates () {
     }
 
     try {
-      await network[op](request);
-      debug(`processBatchUpdates '${network[op].name}' completed for '${op}' with '${request.storeType}:${request.document}'`, {
+      const result = await network[op](request);
+
+      debug(`processBatchUpdates '${network[op].name}' completed with '${result}' for '${op}' with '${request.storeType}:${request.document}'`, {
         ...request.collections
       });
+
+      if (result === E_CONFLICT) {
+        debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
+        break; // We were invoked in subsequent resolution, reconcile any previous failures and exit
+      }
     }
     catch (e) {
       const failedItem = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
@@ -905,10 +920,13 @@ async function processBatchUpdates () {
     debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
   }
 
-  // This only happens if the remote data service errors on the input
+  // This happens if:
+  //   Bad input format
+  //   The remote data service errors in unanticpated way (probably bad input)
+  //   A coding error (probably handling input)
+  //   Incompatible browser without natural or artificial canSync
+  //   (Network or Version conflicts are handled at a lower level)
   // The local copy is out of sync with the remote service, reconcile contains all the failed items
-  // TODO: find the exact reasons this could occur, revisit user notification strategy
-  // TODO: if refresh fails, what next? if doc/collection doesn't exist (is new) it will fail 404 not found
   for (const request of reconcile) {
     debug('Reconciling by refreshData ', { ...request });
     try {
@@ -928,7 +946,7 @@ async function processBatchUpdates () {
  * @param {String} payload.document - The document for these updates
  * @param {String} payload.op - 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to update
- * @param {String} [payload.propertyName] - The property name to delete, op must === 'delete'
+ * @param {String} [payload.propertyName] - The property name to delete, required for 'delete'
  * @param {Boolean} [skipTimer] - true to not schedule processing, caller must schedule. Defaults to false.
  */
 export async function batchUpdate ({ storeType, document, op, collection, propertyName }, skipTimer = false) {
@@ -951,6 +969,43 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   await db.add(makeStoreName(batchStoreType), {
     storeType, document, collection, propertyName, op
   });
+}
+
+/**
+ * Add a batch update record if a similar one doesn't exist.
+ * Called on conflict resolution, no timer required.
+ * 
+ * @param {Object} payload - The message payload object
+ * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.document - The document for these updates
+ * @param {String} payload.op - 'put' or 'delete'
+ * @param {String} [payload.collection] - The collection to update
+ * @param {String} [payload.propertyName] - The property name to delete, required for 'delete'
+ */
+async function conditionalBatchUpdate ({ storeType, document, op, collection, propertyName }) {
+  if (!storeType || !document || !op) {
+    throw new Error('Bad input passed to conditionalBatchUpdate');
+  }
+
+  const db = await getDB();
+
+  /* eslint-disable no-param-reassign */
+  collection = collection ?? '';
+  /* eslint-enable no-param-reassign */
+
+  debug(`conditionalBatchUpdate ${storeType}:${document}:${collection}:${op}`);
+
+  const batchStoreName = makeStoreName(batchStoreType);
+  const batchRecordIndex = await db.transaction(batchStoreName).store.index('record');
+  const count = await batchRecordIndex.count([
+    storeType, document, collection, op
+  ]);
+
+  if (count === 0) {
+    await batchUpdate({ storeType, document, op, collection, propertyName }, true);
+  } else {
+    debug('batchUpdate SKIPPED');
+  }
 }
 
 /**
@@ -1007,7 +1062,9 @@ function threeWayMerge (base, remote, local) {
     // Handle conflicts
     for (const path in conflicts) {
       if (hasOwnProperty(conflicts, path)) {
-        debug('3WayMerge: merging conflict path: ', path, conflicts[path].localType);
+        debug('3WayMerge: merging conflict path: ', path, conflicts[path].local, conflicts[path].localType);
+        // TODO: 7/9 There is an occasional bug where mulitple deletes and re-adds results in localType === 'undefined' and this ghost item gets added.
+        // Keep trying to re-create and fix
 
         let newValue;
         switch(conflicts[path].localType) {
@@ -1219,7 +1276,7 @@ async function processVersionConflicts () {
 
   const isObj = thing => Object.prototype.toString.call(thing) === '[object Object]';
 
-  // Queue the batch commands
+  // Queue the batch commands, if required
   for (const storeType of Object.keys(batch)) {
     for (const [, payload] of Object.entries(batch[storeType])) {
       if (!payload) break;
@@ -1228,7 +1285,7 @@ async function processVersionConflicts () {
         if (payload.collections.every(i => typeof i === 'string')) {
           for (const collection of payload.collections) {
             debug('Scheduling batch update: ', { ...payload, collection });
-            await batchUpdate({ ...payload, collection }, true);
+            await conditionalBatchUpdate({ ...payload, collection });
           }
         } else if (payload.collections.every(i => isObj(i))) {
           const params = [];
@@ -1252,12 +1309,12 @@ async function processVersionConflicts () {
 
           for (const param of params) {
             debug('Scheduling batch update: ', param);
-            await batchUpdate(param, true);
+            await conditionalBatchUpdate(param);
           }
         }
       } else {
         debug('Scheduling batch update: ', payload);
-        await batchUpdate(payload, true); // storeType, document, op for a doc update
+        await conditionalBatchUpdate(payload); // storeType, document, op for a doc update
       }
     }
   }
@@ -1453,6 +1510,9 @@ export async function installDatabase () {
           unique: true
         });
         store.createIndex('delete', ['storeType', 'document', 'op'], {
+          unique: false
+        });
+        store.createIndex('record', ['storeType', 'document', 'collection', 'op'], {
           unique: false
         });
       }
