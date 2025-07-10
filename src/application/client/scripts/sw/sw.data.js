@@ -1030,7 +1030,9 @@ function threeWayMerge (base, remote, local) {
     const conflicts = {};
 
     const hasOwnProperty = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+    const getValue = val => Array.isArray(val) ? val[val.length - 1] : val;
 
+    // Patch in remote changes or save conflicts
     for (const key in diffBaseRemote) {
       if (hasOwnProperty(diffBaseRemote, key)) {
         if (hasOwnProperty(diffBaseLocal, key) && JSON.stringify(diffBaseRemote[key]) !== JSON.stringify(diffBaseLocal[key])) {
@@ -1048,6 +1050,7 @@ function threeWayMerge (base, remote, local) {
       }
     }
 
+    // Patch in local changes
     for (const key in diffBaseLocal) {
       if (hasOwnProperty(diffBaseLocal, key)) {
         if (!hasOwnProperty(diffBaseRemote, key)) {
@@ -1059,7 +1062,7 @@ function threeWayMerge (base, remote, local) {
       }
     }
 
-    // Handle conflicts
+    // Handle conflicts, always choose local over remote
     for (const path in conflicts) {
       if (hasOwnProperty(conflicts, path)) {
         debug('3WayMerge: merging conflict path: ', path, conflicts[path].local, conflicts[path].localType);
@@ -1068,19 +1071,16 @@ function threeWayMerge (base, remote, local) {
 
         let newValue;
         switch(conflicts[path].localType) {
-          case 'string':
-            newValue = Array.isArray(conflicts[path].local) ? conflicts[path].local[1] : conflicts[path].local;
-            break;
           case 'array':
             newValue = Object.entries(conflicts[path].local).reduce((acc, [key, value]) => {
               if (Number.isInteger(parseInt(key, 10))) {
-                acc.push(Array.isArray(value) ? value[0] : value);
+                acc.push(getValue(value));
               }
               return acc;
             }, []);
             break;
           default:
-            newValue = conflicts[path].local;
+            newValue = getValue(conflicts[path].local);
             break;
         }
 
