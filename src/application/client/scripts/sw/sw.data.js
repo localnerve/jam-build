@@ -1013,80 +1013,87 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
  * Conflict is resolved by always prefering local OVER remote changes/values.
  */
 function threeWayMerge (base, remote, local) {
-  if (!remote) {
-    return local;
-  }
   if (!base) {
-    return remote;
+    return remote; // there were no local changes, so reuse the GET
   }
 
   const diffBaseRemote = jsonDiffPatch.diff(base, remote);
   const diffBaseLocal = jsonDiffPatch.diff(base, local);
 
-  // Create a deep copy of the remote object to merge changes into
-  let mergedObject = { ...remote };
+  // Create a copy of the remote object to merge changes into
+  let mergedObject = { ...base };
 
   if (diffBaseRemote && diffBaseLocal) {
-    const conflicts = {};
+    const diffs = Object.create(null);
+    const patchedLocal = Object.create(null);
 
     const hasOwnProperty = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+    const getType = (obj, key) => Array.isArray(obj[key]) ? 'array' : typeof obj[key];
     const getValue = val => Array.isArray(val) ? val[val.length - 1] : val;
+    const isNullish = val => val === undefined || val === null;
 
-    // Patch in remote changes or save conflicts
-    for (const key in diffBaseRemote) {
-      if (hasOwnProperty(diffBaseRemote, key)) {
-        if (hasOwnProperty(diffBaseLocal, key) && JSON.stringify(diffBaseRemote[key]) !== JSON.stringify(diffBaseLocal[key])) {
-          conflicts[key] = {
-            remote: diffBaseRemote[key],
-            local: diffBaseLocal[key],
-            localType: Array.isArray(local[key]) ? 'array' : typeof local[key]
-          };
-        } else {
-          debug('3WayMerge: merging remote key', key);
-          jsonDiffPatch.patch(mergedObject, { [key]: diffBaseRemote[key] });
-        }
+    // Patch in remote changes (adds, deletes) or save actual diffs
+    for (const key of Object.keys(diffBaseRemote)) {
+      if (hasOwnProperty(remote, key) && (hasOwnProperty(mergedObject, key) || typeof mergedObject[key] !== 'undefined')) {
+        diffs[key] = {
+          remote: diffBaseRemote[key],
+          type: getType(mergedObject, key)
+        };
       } else {
-        debug('3WayMerge: skipping remote key', key);
+        debug(`3WayMerge: patching remote property change for ${key}`, diffBaseRemote[key]);
+        jsonDiffPatch.patch(mergedObject, { [key]: diffBaseRemote[key] });
       }
     }
 
-    // Patch in local changes
-    for (const key in diffBaseLocal) {
-      if (hasOwnProperty(diffBaseLocal, key)) {
-        if (!hasOwnProperty(diffBaseRemote, key)) {
-          debug('3WayMerge: merging local key', key);
-          jsonDiffPatch.patch(mergedObject, { [key]: diffBaseLocal[key] });
-        }
+    // Patch in local changes (adds, deletes) or save actual diffs
+    for (const key of Object.keys(diffBaseLocal)) {
+      if (hasOwnProperty(local, key) && (hasOwnProperty(mergedObject, key) || typeof mergedObject[key] !== 'undefined')) {
+        const diff = {
+          local: diffBaseLocal[key],
+          type: getType(mergedObject, key)
+        };
+        diffs[key] = hasOwnProperty(diffs, key) ? {
+          ...diffs[key],
+          ...diff
+        } : diff;
       } else {
-        debug('3WayMerge: skipping local key', key);
+        debug(`3WayMerge: patching local property change for ${key}`, diffBaseLocal[key]);
+        patchedLocal[key] = true;
+        jsonDiffPatch.patch(mergedObject, { [key]: diffBaseLocal[key] });
       }
     }
 
-    // Handle conflicts, always choose local over remote
-    for (const path in conflicts) {
-      if (hasOwnProperty(conflicts, path)) {
-        debug('3WayMerge: merging conflict path: ', path, conflicts[path].local, conflicts[path].localType);
-        // TODO: 7/9 There is an occasional bug where mulitple deletes and re-adds results in localType === 'undefined' and this ghost item gets added.
-        // Keep trying to re-create and fix
+    // Convert diff results to target javascript value types
+    const diffToValue = (diff, targetType) => {
+      let newValue;
+      switch(targetType) {
+        case 'array':
+          newValue = Object.entries(diff).reduce((acc, [key, value]) => {
+            if (Number.isInteger(parseInt(key, 10))) {
+              acc.push(getValue(value));
+            }
+            return acc;
+          }, []);
+          break;
+        default:
+          newValue = getValue(diff);
+          break;
+      }
+      return newValue;
+    };
+  
+    // Handle diffs, always choose local over remote
+    for (const path of Object.keys(diffs)) {
+      const { remote, local, type } = diffs[path];
 
-        let newValue;
-        switch(conflicts[path].localType) {
-          case 'array':
-            newValue = Object.entries(conflicts[path].local).reduce((acc, [key, value]) => {
-              if (Number.isInteger(parseInt(key, 10))) {
-                acc.push(getValue(value));
-              }
-              return acc;
-            }, []);
-            break;
-          default:
-            newValue = getValue(conflicts[path].local);
-            break;
-        }
-
-        mergedObject[path] = newValue;
+      if (!isNullish(local)) {
+        debug(`3WayMerge: resolving conflict with local ${path}`, local, type);
+        mergedObject[path] = diffToValue(local, type);
+      } else if (!isNullish(remote) && !patchedLocal[path]) {
+        debug(`3WayMerge: resolving conflict with remote ${path}`, remote, type);
+        mergedObject[path] = diffToValue(remote, type);
       } else {
-        debug('3WayMerge: skipping conflict path', path);
+        debug(`3WayMerge: could NOT resolve diff for ${path}`);
       }
     }
   } else if (diffBaseRemote) {
