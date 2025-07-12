@@ -18,6 +18,50 @@ const debug = debugLib(page);
 
 const store = {};
 
+const updateDataHandlers = Object.create(null);
+
+/**
+ * Listen for updates coming off the web component, update the data store(s) (and databases) on change.
+ * Once the store is updated, the changes are batched and combined for efficient updates on the worker backend, upsert/delete.
+ * For the 'state' collection, its all prop updates in the one collection.
+ * However, you could add and delete entire collections and even documents (a doc is a series of collection objects.
+ *
+ * @param {String} storeType - 'user' or 'app'
+ * @param {String} doc - The document to watch
+ * @param {String} collection - 
+ * @param {Event} e - The 'change' event from the web component
+ */
+function updateData (storeType, doc, collection, e) {
+  const { detail } = e;
+  const { key: prop, new: val } = detail;
+
+  debug('editable-object change', detail);
+
+  // It's safe to update the store here because we DONT listen to 'put' or 'delete' mutations
+  // Otherwise we'd get called twice
+  switch(detail.action) {
+    case 'add':
+    case 'edit':
+      store[storeType][doc][collection][prop] = val;
+      break;
+    case 'remove':
+      delete store[storeType][doc][collection][prop];
+      break;
+    default:
+      debug('editable-object change - unknown event, check the code...');
+      break;
+  }
+}
+
+/**
+ * Only allow updates if logged in.
+ * 
+ * @returns {Boolean} true if login active, false otherwise
+ */
+function canUpdate () {
+  return isLoginActive();
+}
+
 /**
  * On the store 'update' event, update the UI for application and user data.
  * Looks for collections named:
@@ -58,32 +102,16 @@ function updatePage ({ key, value: object }) {
       // Get a reference to the editable-object component
       el = document.getElementById(predicate); // collecion IDs are storeType.document.collection
 
+      // Only allow updates if logged in
+      el.onAdd = el.onEdit = el.onRemove = canUpdate;
+
       // Listen for updates coming off the web component, update the data store(s) (and databases) on change.
-      // Once the store is updated, the changes are batched and combined for efficient updates on the worker backend, upsert/delete.
-      // For the 'state' collection, its all prop updates in the one collection.
-      // However, you could add and delete entire collections and even documents (a doc is a series of collection objects).
-
-      el.addEventListener('change', e => {
-        const { detail } = e;
-        const { key: prop, new: val } = detail;
-
-        debug('editable-object change', detail);
-
-        // It's safe to update the store here because we DONT listen to 'put' or 'delete' mutations
-        // Otherwise we'd get called twice
-        switch(detail.action) {
-          case 'add':
-          case 'edit':
-            store[storeType][doc][collection][prop] = val;
-            break;
-          case 'remove':
-            delete store[storeType][doc][collection][prop];
-            break;
-          default:
-            debug('editable-object change - unknown event, check the code...');
-            break;
-        }
-      });
+      if (!updateDataHandlers[predicate]) {
+        updateDataHandlers[predicate] = updateData.bind(
+          null, storeType, doc, collection
+        );
+        el.addEventListener('change', updateDataHandlers[predicate]);
+      }
 
       if (storeType === 'app') {
         const profile = getUserProfile();
