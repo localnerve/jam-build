@@ -37,5 +37,7 @@ export async function updatePageData (page, filter = {
         payload
       });
     }
+  } else {
+    debug(`${page} will not send refresh-data`);
   }
 }

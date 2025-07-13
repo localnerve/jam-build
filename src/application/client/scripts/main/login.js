@@ -165,7 +165,8 @@ export default async function setup () {
   });
 
   if (isLoginCallback()) {
-    // Finish login
+    debug('finishing login from callback');
+
     const { data: login, errors: loginErrors } = await authRef.authorize({
       response_type: 'code',
       use_refresh_token: false
@@ -175,7 +176,10 @@ export default async function setup () {
       processLogin(login, { hdrStatusText, loginButtons, main });
     }
   } else {
+    debug('getting user profile');
+
     const profile = getUserProfile();
+    
     if (profile) {
       updateUI(profile, { hdrStatusText, loginButtons, main });
     }
