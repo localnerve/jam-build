@@ -81,7 +81,7 @@ function updatePage ({ key, value: object }) {
   }
 
   let el;
-  let predicate = key.join('.');
+  let predicate = key.join('-');
   const storeType = key[0];
   const doc = key[1];
   const collection = key[2];
@@ -89,7 +89,7 @@ function updatePage ({ key, value: object }) {
   switch (collection) {
     case 'content':
       for (const [prop, val] of Object.entries(object)) {
-        const id = `${predicate}.${prop}`; // content IDs are storeType.document.collection.property
+        const id = `${predicate}-${prop}`; // content IDs are storeType-document-collection-property
         debug(`Updating content ${id}...`);
         el = document.getElementById(id);
         el.innerText = val;
@@ -100,7 +100,7 @@ function updatePage ({ key, value: object }) {
       debug(`Updating state ${predicate}`);
 
       // Get a reference to the editable-object component
-      el = document.getElementById(predicate); // collecion IDs are storeType.document.collection
+      el = document.getElementById(predicate); // collecion IDs are storeType-document-collection
 
       // Only allow updates if logged in
       el.onAdd = el.onEdit = el.onRemove = canUpdate;
@@ -141,6 +141,7 @@ export default async function setup (support) {
   storeEvents.addEventListener('update', ['user', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'state'], updatePage);
 
+  debug('requesting app (and user) data...');
   await Promise.all([
     (async () => {
       store.app = await getApplicationStore(page);
@@ -153,6 +154,7 @@ export default async function setup (support) {
   ]);
 
   window.App.add('login-action-login', async () => {
+    debug('got login-action-login');
     store.user = await getUserStore(page);
   }); 
 }
