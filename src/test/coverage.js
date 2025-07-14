@@ -48,14 +48,17 @@ export async function stopJS (page, map) {
   const coverage = await page.coverage.stopJSCoverage();
 
   for (const entry of coverage) {
-    const urlPart = (new URL(entry.url)).pathname;
-    const pathName = urlPart.endsWith('/') ? '/home' : urlPart;
-    const scriptPath = `dist${!path.extname(pathName) ? `${pathName}.html` : pathName}`;
-    const converter = v8toIstanbul(scriptPath, 0, { source: entry.source });
-    await converter.load();
-    converter.applyCoverage(entry.functions);
-    const newMap = libCoverage.createCoverageMap(converter.toIstanbul());
-    map.merge(newMap);
+    const url = new URL(entry.url);
+    if (url.host === process.env.BASE_URL) {
+      const urlPart = url.pathname;
+      const pathName = urlPart.endsWith('/') ? '/home' : urlPart;
+      const scriptPath = `dist${!path.extname(pathName) ? `${pathName}.html` : pathName}`;
+      const converter = v8toIstanbul(scriptPath, 0, { source: entry.source });
+      await converter.load();
+      converter.applyCoverage(entry.functions);
+      const newMap = libCoverage.createCoverageMap(converter.toIstanbul());
+      map.merge(newMap);
+    }
   }
 
   let swCoverage = await getSwCoverage(page);
