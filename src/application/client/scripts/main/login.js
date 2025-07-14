@@ -124,6 +124,8 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
   const loggedIn = isLoginActive();
 
   if (!loggedIn) {
+    debug('loginHandler detected NOT ACTIVE login');
+
     history.pushState(null, '', window.location.url); // without this, back button from login goes nowhere
     
     const { data: login, errors: loginErrors } = await authRef.authorize({
@@ -137,6 +139,8 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
       await processLogin(login, { hdrStatusText, loginButtons, main });
     }
   } else {
+    debug('loginHandler detected ACTIVE login');
+
     await authRef.logout();
     
     sessionStorage.setItem('login', '');
