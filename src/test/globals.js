@@ -138,7 +138,7 @@ export default async function setup () {
 
   process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
 
-  debug('Setup globals success');
+  debug('Setup globals success', process.env.AUTHZ_URL, process.env.BASE_URL);
 
   return teardown;
 }
