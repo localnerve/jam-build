@@ -1,5 +1,12 @@
 /**
  * Heartbeat management. Maintains serviceWorker timer activity windows.
+ * serviceWorker activity windows are used to manage batch updates (app/user state saves).
+ * 
+ * TODO: add document event visibilitychange handling
+ * 
+ * Notes on visibilitychange to save state:
+ * https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event
+ * >> https://www.igvita.com/2015/11/20/dont-lose-user-and-app-state-use-page-visibility/
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
