@@ -93,6 +93,7 @@ export function createSettings (prod = true) {
       rollupInput: {
         input: [
           `${srcClient}/scripts/main/index.js`,
+          `${srcClient}/scripts/main/_admin.js`,
           `${srcClient}/scripts/main/pages/home.js`,
           `${srcClient}/scripts/sw/sw.reg.js`
         ]
