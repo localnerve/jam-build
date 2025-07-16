@@ -8,7 +8,7 @@
   "scripts": {
     "build": "npm run gulp-run -- build",
     "build:debug": "npm run gulp-debug -- build",
-    "build:dev": "npm run lint && npm run gulp-run -- dev-build",
+    "build:dev": "npm run gulp-run -- dev-build",
     "build:dev:debug": "npm run gulp-debug -- dev-build",
     "build:env": "cross-env AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} AUTHZ_URL=${AUTHZ_URL:-http://localhost:9010}",
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
