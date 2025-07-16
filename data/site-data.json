@@ -58,6 +58,18 @@
       },
       "order": 3
     },
+    "_admin": {
+      "title": "Admin Login",
+      "type": "admin",
+      "name": "_admin",
+      "route": "/_admin",
+      "label": "Admin Login",
+      "template": "main-banner",
+      "skip-all": true,
+      "file": "_admin",
+      "order": 0,
+      "external-css": "admin.css"
+    },
     "terms": {
       "title": "Terms and Conditions",
       "type": "legal",

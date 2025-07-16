@@ -1,0 +1,30 @@
+<div class="crown">
+  <a href="/" class="logo">
+    <img src="{{imageUrl 'logo.svg'}}" />
+  </a>
+  <h3>{{ siteData.business.name }}</h3>
+</div>
+
+<div class="container">
+  <form class="login-form" method="POST">
+    <div class="input-group">
+      <label for="login-email-or-phone-number">
+        <span>*</span>
+        Email / Phone Number
+      </label>
+      <input name="email" id="login-email-or-phone-number" placeholder="eg. hello@world.com / +919999999999" type="text" value="" required />
+    </div>
+    <div class="input-group">
+      <label for="login-password">
+        <span>*</span>
+        Password
+      </label>
+      <input name="password" id="login-password"  placeholder="********" type="password" value="" required />
+    </div>
+    <button class="login-button" type="submit" disabled="">
+      Log In
+    </button>
+  </form>
+</div>
+
+<script src="{{scriptUrl '_admin.js'}}"></script>
