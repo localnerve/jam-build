@@ -47,14 +47,15 @@ export async function createAppContainer (authorizerContainer, containerNetwork,
     appContainerImage = new GenericContainer(appImageName);
   } else {
     const userInfo = os.userInfo();
-    debug(`Building image ${appImageName}`, userInfo, os.arch());
+    debug(`Building image ${appImageName}`, userInfo, os.arch(), process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID);
     appContainerImage = await GenericContainer.fromDockerfile(path.resolve(thisDir, toRoot))
       .withBuildArgs({
         UID: `${userInfo.uid}`,
         GID: `${userInfo.gid}`,
         TARGETARCH: `${os.arch()}`,
         DEV_BUILD: '1',
-        AUTHZ_URL: `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
+        // AUTHZ_URL: `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
+        AUTHZ_URL: process.env.AUTHZ_URL,
         AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID
       })
       .withCache(true)

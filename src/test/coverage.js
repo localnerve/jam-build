@@ -49,7 +49,7 @@ export async function stopJS (page, map) {
 
   for (const entry of coverage) {
     const url = new URL(entry.url);
-    if (url.host === process.env.BASE_URL) {
+    if (url.origin === process.env.BASE_URL) {
       const urlPart = url.pathname;
       const pathName = urlPart.endsWith('/') ? '/home' : urlPart;
       const scriptPath = `dist${!path.extname(pathName) ? `${pathName}.html` : pathName}`;
@@ -61,22 +61,24 @@ export async function stopJS (page, map) {
     }
   }
 
-  let swCoverage = await getSwCoverage(page);
-  if (!process.env.LOCALHOST_PORT) {
-    // Not local, so remap swCoverage baseDir by removing /home/node/app from testcontainer home
-    const remoteRoot = '/home/node/app';
-    const localRoot = '.';
-    const remappedData = {};
-    Object.keys(swCoverage).forEach(key => {
-      const newKey = key.replace(remoteRoot, localRoot);
-      remappedData[newKey] = { ...swCoverage[key], ...{
-        path: swCoverage[key].path.replace(remoteRoot, localRoot)
-      }};
-    });
-    swCoverage = remappedData;
+  if (page.url().startsWith(process.env.BASE_URL)) {
+    let swCoverage = await getSwCoverage(page);
+    if (!process.env.LOCALHOST_PORT) {
+      // Not local, so remap swCoverage baseDir by removing /home/node/app from testcontainer home
+      const remoteRoot = '/home/node/app';
+      const localRoot = '.';
+      const remappedData = {};
+      Object.keys(swCoverage).forEach(key => {
+        const newKey = key.replace(remoteRoot, localRoot);
+        remappedData[newKey] = { ...swCoverage[key], ...{
+          path: swCoverage[key].path.replace(remoteRoot, localRoot)
+        }};
+      });
+      swCoverage = remappedData;
+    }
+    const newSwMap = libCoverage.createCoverageMap(swCoverage);
+    map.merge(newSwMap);
   }
-  const newSwMap = libCoverage.createCoverageMap(swCoverage);
-  map.merge(newSwMap);
 }
 
 async function getSwCoverage (page) {

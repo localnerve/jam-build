@@ -9,7 +9,7 @@
  * Browser init script to pre-hook 'database-data-update' and record the last keys sent by storeType.
  * This prevents missing super fast messages before we get a chance to setup a message handler.
  */
-export function initScriptDataUpdate () {
+export function initScriptDataUpdate ([authorizerURL, clientID]) {
   // console.log('window', window);
   // console.log('window.navigator', window.navigator);
 
@@ -23,6 +23,13 @@ export function initScriptDataUpdate () {
       window.__databaseDataUpdate[payload.storeType] = payload.keys;
     }
   });
+
+  if (!window.__authorizerOverrides) {
+    window.__authorizerOverrides = {
+      authorizerURL,
+      clientID
+    }
+  }
 }
 
 /**

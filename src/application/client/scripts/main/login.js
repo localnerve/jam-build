@@ -13,11 +13,30 @@ import debugLib from '@localnerve/debug';
 
 const debug = debugLib('login');
 
-const authRef = new Authorizer({
-  authorizerURL: process.env.AUTHZ_URL, // eslint-disable-line no-undef -- defined at bundle time
-  redirectURL: window.location.origin,
-  clientID: process.env.AUTHZ_CLIENT_ID // eslint-disable-line no-undef -- defined at bundle time
-});
+let authRef;
+
+/**
+ * Initialize the interface to the authorizer service.
+ * Uses bundled endpoint location/id unless override supplied.
+ */
+function initializeAuthorizer () {
+  if (!authRef) {
+    let authorizerURL, clientID;
+
+    if (window.__authorizerOverrides) {
+      ({ authorizerURL, clientID } = window.__authorizerOverrides);
+    } else {
+      authorizerURL = process.env.AUTHZ_URL; // eslint-disable-line no-undef -- defined at bundle time
+      clientID = process.env.AUTHZ_CLIENT_ID; // eslint-disable-line no-undef -- defined at bundle time
+    }
+
+    authRef = new Authorizer({
+      authorizerURL,
+      clientID,
+      redirectURL: window.location.origin 
+    });
+  }
+}
 
 /**
  * Check the login sessionStorage value to see if the login access token is active.
@@ -160,6 +179,8 @@ export default async function setup () {
   const hdrStatusText = document.querySelector('.ln-header .status p');
   const main = document.querySelector('main');
   const loginButtons = Array.from(document.querySelectorAll('.login-button, nav .login'));
+
+  initializeAuthorizer();
 
   // Install the login/logout handlers
   const boundLoginHander = loginHandler.bind(null, hdrStatusText, loginButtons, main);

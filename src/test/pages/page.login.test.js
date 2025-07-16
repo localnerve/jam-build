@@ -44,7 +44,9 @@ test.describe('login tests', () => {
   });
 
   test('Main login flow', async ({ page }) => {
-    await page.addInitScript(initScriptDataUpdate);
+    await page.addInitScript(
+      initScriptDataUpdate, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID]
+    );
 
     await page.goto(baseUrl);
 
@@ -73,17 +75,13 @@ test.describe('login tests', () => {
     // click to login
     await topLogin.click();
 
-    // @@@ debug it
+    // @@@ go debug it
     // await new Promise(resolve => setTimeout(resolve, 50000));
     // @@@
 
-    // wait for navigation to be NOT baseUrl
-    const urlBaseUrl = new URL(baseUrl);
-    const proto = urlBaseUrl.protocol;
-    const rest = baseUrl.split(proto)[1];
-    const reNotBaseUrl = new RegExp(`${proto}(?!${rest})`);
-
-    await page.waitForURL(reNotBaseUrl, {
+    await page.waitForURL(url => {
+      return url.origin === process.env.AUTHZ_URL;
+    }, {
       timeout: 5000
     });
 
