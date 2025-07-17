@@ -195,7 +195,7 @@
 
     %menu-button {
       padding: 0.3em;
-      border-radius: 0.4em;
+      border-radius: var(--border-radius);
       color: #fff;
       border-width: 1px;
       border-style: solid;

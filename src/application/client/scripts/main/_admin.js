@@ -8,43 +8,70 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { Authorizer } from '@localnerve/authorizer-js';
+import { processLogin, initializeAuthorizer, getUserProfile } from './login.js';
 import debugLib from '@localnerve/debug';
 
 const debug = debugLib('admin');
 
 let authRef;
 
-function initializeAuthorizer () {
-  authRef = new Authorizer({
-    authorizerURL: process.env.AUTHZ_URL, // eslint-disable-line no-undef -- assigned at bundle time
-    redirectURL: window.location.origin,
-    clientID: process.env.AUTHZ_CLIENT_ID, // eslint-disable-line no-undef -- assigned at bundle time
-  });
+/**
+ * Setup login form.
+ */
+function setupLogin () {
+  document.querySelector('#admin-login-form').addEventListener('submit', handleLogin);
 }
 
-initializeAuthorizer();
-
 /**
- * This is referenced in the hbs template directly to handle the submit event.
+ * Handle login form 'submit' event.
  */
 async function handleLogin (e) {
   e.preventDefault();
 
-  const formData = new FormData(e.target);
-  const values = Object.fromEntries(formData);
+  if (e.target?.checkValidity()) {
+    const formData = new FormData(e.target);
+    const values = Object.fromEntries(formData);
 
-  try {
-    const { data, errors } = await authRef.login({
-      ...values,
-      roles: ['user', 'admin']
-    });
-    debug({ data, errors });
-    window.location.replace('/');
-  } catch (error) {
-    debug({ error });
+    try {
+      const { data, errors } = await authRef.login({
+        ...values,
+        roles: ['user', 'admin']
+      });
+      
+      debug({ data, errors });
+
+      const result = await processLogin(data);
+
+      if (result) {
+        window.location.replace('/');
+      }
+    } catch (error) {
+      debug({ error });
+      window.App.exec('pageGeneralMessage', {
+        args: {
+          message: error.message,
+          class: 'error',
+          duration: 4000
+        }
+      });
+    }
   }
 }
 
-// hook up form submit on the only form
-document.querySelector('form').addEventListener('submit', handleLogin);
+function setup () {
+  authRef = initializeAuthorizer();
+  setupLogin();
+
+  const profile = getUserProfile();
+  if (profile) {
+    window.App.exec('pageGeneralMessage', {
+      args: {
+        message: `Currently logged in as ${profile.email}`,
+        class: 'info',
+        duration: 4000
+      }
+    });
+  }
+}
+
+setup();

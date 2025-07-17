@@ -13,13 +13,16 @@ import debugLib from '@localnerve/debug';
 
 const debug = debugLib('login');
 
+let listeners = [];
 let authRef;
 
 /**
  * Initialize the interface to the authorizer service.
  * Uses bundled endpoint location/id unless override supplied.
+ * 
+ * @return {Object} Authorizer reference
  */
-function initializeAuthorizer () {
+export function initializeAuthorizer () {
   if (!authRef) {
     let authorizerURL, clientID;
 
@@ -36,6 +39,8 @@ function initializeAuthorizer () {
       redirectURL: window.location.origin 
     });
   }
+
+  return authRef;
 }
 
 /**
@@ -74,46 +79,45 @@ export function getUserProfile () {
 }
 
 /**
- * Set the UI elements from the profile.
+ * Wire-up login events
  */
-function updateUI (profile, { hdrStatusText, loginButtons, main }) {
-  const message = profile ? `Welcome, ${profile.email}` : '';
-  const loggedIn = 'logged-in';
+function setupLoginEvents () {
+  const fireEvents = type => {
+    for (const listener of listeners) {
+      if (listener.type === type) listener.callback();
+    }
+  };
 
-  hdrStatusText.innerHTML = message;
-  
-  loginButtons.forEach(el => {
-    el.classList[profile ? 'add' : 'remove'](loggedIn);
+  window.App.add('login-action-login', () => {
+    fireEvents('login');
   });
-  
-  main.classList[profile ? 'add' : 'remove'](loggedIn);
+
+  window.App.add('login-action-logout', () => {
+    fireEvents('logout');
+  });
 }
 
 /**
- * Called after successful login for additional handling.
- * 
- * @param {Object} login - The login data returned from `authorize`
- * @param {Object} uiElements - The ui elements for login processing
+ * Allow clients to listen to login events.
  */
-async function processLogin (login, uiElements) {
-  sessionStorage.setItem('login', JSON.stringify({
-    startTime: Date.now(),
-    expires_in: login.expires_in
-  }));
+export const loginEvents = {
+  /**
+   * Add a login event listener.
+   * 
+   * @param {String} type - 'login' or 'logout'
+   * @param {Function} callback - Recieves no args
+   */
+  addEventListener (type, callback) {
+    listeners.push({ type, callback });
+  },
 
-  const { data: profile, errors: profileErrors } = await authRef.getProfile({
-    Authorization: `Bearer ${login.access_token}`,
-  });
-
-  if (!profileErrors.length) {
-    sessionStorage.setItem('user', JSON.stringify({
-      email: profile.email,
-      isAdmin: profile.roles.includes('admin')
-    }));
-    window.App.exec('login-action-login');
-    updateUI(profile, uiElements);
+  /**
+   * Removes the event listener, matched by function.
+   */
+  removeEventListener (type, callback) {
+    listeners = listeners.filter(i => !(i.type === type && i.callback === callback));
   }
-}
+};
 
 /**
  * Check to see if this is being called back in the PKCE login flow.
@@ -137,7 +141,96 @@ function isLoginCallback () {
   return false;
 }
 
-async function loginHandler (hdrStatusText, loginButtons, main, event) {
+/**
+ * Get the login user interface elements.
+ * 
+ * @returns {Object} An object containing the login ui elements by name
+ */
+function getLoginUIElements () {
+  const hdrStatusText = document.querySelector('.ln-header .status p');
+  const main = document.querySelector('main');
+  const loginButtons = Array.from(document.querySelectorAll('.login-button, nav .login'));
+
+  return {
+    hdrStatusText, main, loginButtons
+  };
+}
+
+/**
+ * Set the UI elements from the profile.
+ */
+function updateUI (profile, { hdrStatusText, loginButtons, main }) {
+  const message = profile ? `Welcome, ${profile.email}` : '';
+  const loggedIn = 'logged-in';
+
+  hdrStatusText.innerHTML = message;
+  
+  loginButtons.forEach(el => {
+    el.classList[profile ? 'add' : 'remove'](loggedIn);
+  });
+  
+  main.classList[profile ? 'add' : 'remove'](loggedIn);
+}
+
+/**
+ * Called after successful login for additional handling.
+ * Get user profile if needed, set sessionStorage, send login-action-login, update UI.
+ * 
+ * @param {Object} login - The login data returned from authorizerDev API call
+ * @param {Object} [login.user] - The login user profile
+ * @param {String} login.expires_in - The timespan of expiry in milliseconds
+ * @returns {Boolean} true on success, false otherwise
+ */
+export async function processLogin (login) {
+  if (login && !login.user) {
+    const { data: profile, errors: profileErrors } = await authRef.getProfile({
+      Authorization: `Bearer ${login.access_token}`,
+    });
+
+    if (!profileErrors.length) {
+      login.user = profile;
+    }
+  }
+
+  let result = false;
+
+  if (login?.user) {
+    sessionStorage.setItem('login', JSON.stringify({
+      startTime: Date.now(),
+      expires_in: login.expires_in
+    }));
+
+    sessionStorage.setItem('user', JSON.stringify({
+      email: login.user.email,
+      isAdmin: login.user.roles.includes('admin')
+    }));
+
+    window.App.exec('login-action-login');
+
+    const uiElements = getLoginUIElements();
+    updateUI(login.user, uiElements);
+
+    result = true;
+  } else {
+    window.App.exec('pageGeneralMessage', {
+      args: {
+        message: 'Could not process login',
+        class: 'error',
+        duration: 4000
+      }
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Event handler for login/logout click events.
+ * 
+ * @param {Object} uiElements - The UI elements to update
+ * @param {Event} event - The click event object
+ */
+async function loginHandler (uiElements, event) {
   event.preventDefault();
 
   const loggedIn = isLoginActive();
@@ -155,7 +248,7 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
     debug('loginHandler authorize response', login);
 
     if (!loginErrors.length && login?.access_token) {
-      await processLogin(login, { hdrStatusText, loginButtons, main });
+      await processLogin(login);
     }
   } else {
     debug('loginHandler detected ACTIVE login');
@@ -165,7 +258,7 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
     sessionStorage.setItem('login', '');
     sessionStorage.setItem('user', '');
     
-    updateUI(null, { hdrStatusText, loginButtons, main });
+    updateUI(null, uiElements);
     
     window.App.exec('login-action-logout');
   }
@@ -176,15 +269,14 @@ async function loginHandler (hdrStatusText, loginButtons, main, event) {
  * Installs the login/logout button handler, updates the UI with login status.
  */
 export default async function setup () {
-  const hdrStatusText = document.querySelector('.ln-header .status p');
-  const main = document.querySelector('main');
-  const loginButtons = Array.from(document.querySelectorAll('.login-button, nav .login'));
+  const uiElements = getLoginUIElements();
 
   initializeAuthorizer();
+  setupLoginEvents();
 
   // Install the login/logout handlers
-  const boundLoginHander = loginHandler.bind(null, hdrStatusText, loginButtons, main);
-  loginButtons.forEach(el => {
+  const boundLoginHander = loginHandler.bind(null, uiElements);
+  uiElements.loginButtons.forEach(el => {
     el.dataset.listener = true;
     el.addEventListener('click', boundLoginHander);
   });
@@ -198,7 +290,7 @@ export default async function setup () {
     });
     
     if (!loginErrors.length && login?.access_token) {
-      processLogin(login, { hdrStatusText, loginButtons, main });
+      processLogin(login);
     }
   } else {
     debug('getting user profile');
@@ -206,7 +298,7 @@ export default async function setup () {
     const profile = getUserProfile();
     
     if (profile) {
-      updateUI(profile, { hdrStatusText, loginButtons, main });
+      updateUI(profile, uiElements);
     }
   }
 }

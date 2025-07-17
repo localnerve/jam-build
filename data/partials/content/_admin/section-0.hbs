@@ -6,25 +6,25 @@
 </div>
 
 <div class="container">
-  <form class="login-form" method="POST">
+  <form id="admin-login-form" method="POST">
     <div class="input-group">
       <label for="login-email-or-phone-number">
         <span>*</span>
         Email / Phone Number
       </label>
-      <input name="email" id="login-email-or-phone-number" placeholder="eg. hello@world.com / +919999999999" type="text" value="" required />
+      <input name="email" id="login-email-or-phone-number" placeholder="eg. hello@world.com / +919999999999" type="text" value="" autocomplete="username tel email" required />
     </div>
     <div class="input-group">
       <label for="login-password">
         <span>*</span>
         Password
       </label>
-      <input name="password" id="login-password"  placeholder="********" type="password" value="" required />
+      <input name="password" id="login-password"  placeholder="********" type="password" value="" autocomplete="current-password" required />
     </div>
-    <button class="login-button" type="submit" disabled="">
+    <button type="submit">
       Log In
     </button>
   </form>
 </div>
 
-<script src="{{scriptUrl '_admin.js'}}"></script>
+<script type="module" src="{{scriptUrl '_admin.js'}}"></script>

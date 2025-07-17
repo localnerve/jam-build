@@ -1,21 +1,13 @@
 @use 'colors' as c;
 @use 'mixins' as m;
 
-main._admin {
-  margin: 1em;
-}
-
 .admin {
   display: flex;
   flex-flow: column nowrap;
   justify-content: center;
   align-items: center;
 
-  --admin-radius: 5px;
-}
-
-.crown {
-  margin-bottom: 1em;
+  --admin-radius: var(--border-radius, 5px);
 }
 
 .crown a {
@@ -32,7 +24,7 @@ main._admin {
 
 .admin .container {
   box-sizing: content-box;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--site-color);
   padding: 1.5rem;
   border-radius: var(--admin-radius);
   width: 100%;
@@ -62,6 +54,8 @@ form label span {
 }
 
 form input {
+  background-color: var(--site-bg);
+  color: var(--site-color);
   padding: 0.75em;
   margin-top: 0.25rem;
   border: 1px solid var(--site-color);
@@ -70,17 +64,23 @@ form input {
 }
 
 form button {
-  cursor: not-allowed;
-  color: var(--site-color);
-  background: var(--site-bg);
+  cursor: pointer;
+  color: var(--site-bg);
+  background: var(--site-color);
   padding: 1rem;
   border: 1px solid var(--site-color);
   border-radius: var(--admin-radius);
   width: 100%;
   line-height: 1.5;
-  margin-top: 2rem 0;
+  margin-top: 2rem;
 }
 
 form:has([name="email"]:valid):has([name="password"]:valid) button {
   cursor: pointer;
+}
+
+@supports selector(:has(*)) {
+  form button {
+    cursor: not-allowed;
+  }
 }

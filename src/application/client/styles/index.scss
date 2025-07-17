@@ -26,6 +26,7 @@ body {
   --site-bg: #{c.$site-white};
   --site-link-focus: #{c.$link-focus-dark};
   --link-focus-light: #{c.$link-focus-light};
+  --border-radius: 0.4rem;
   --spinner-size: 10em;
   --spinner-ring-size: 1rem;
   --spinner-speed: 1.5;
@@ -67,4 +68,5 @@ a:focus, button:focus, summary:focus {
 main {
   position: relative;
   z-index: 1;
+  margin-bottom: 1em;
 }

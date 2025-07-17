@@ -10,7 +10,7 @@ import '@localnerve/editable-object';
 import { storeEvents } from '../data.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
-import { isLoginActive, getUserProfile } from '../login.js';
+import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
 
 const page = 'home';
 
@@ -22,9 +22,9 @@ const updateDataHandlers = Object.create(null);
 
 /**
  * Listen for updates coming off the web component, update the data store(s) (and databases) on change.
- * Once the store is updated, the changes are batched and combined for efficient updates on the worker backend, upsert/delete.
- * For the 'state' collection, its all prop updates in the one collection.
- * However, you could add and delete entire collections and even documents (a doc is a series of collection objects.
+ * Once the store is updated, the changes are batched and combined in the worker backend, upsert/delete.
+ * This demo just shows multiple instances updates and deletes on collections...
+ *   ...But you could add and delete entire collections and even entire documents.
  *
  * @param {String} storeType - 'user' or 'app'
  * @param {String} doc - The document to watch
@@ -113,11 +113,6 @@ function updatePage ({ key, value: object }) {
         el.addEventListener('change', updateDataHandlers[predicate]);
       }
 
-      if (storeType === 'app') {
-        const profile = getUserProfile();
-        el.disableEdit = !(profile?.isAdmin);
-      }
-
       // Give the data to the web component...
       el.object = object;
       break;
@@ -136,10 +131,21 @@ function updatePage ({ key, value: object }) {
 export default async function setup (support) {
   debug('setup...', support);
 
+  const appStateControl = document.getElementById(`app-${page}-state`);
+
   storeEvents.addEventListener('update', ['app', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['app', page, 'state'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'state'], updatePage);
+
+  loginEvents.addEventListener('login', async () => {
+    store.user = await getUserStore(page);
+    const profile = getUserProfile();
+    appStateControl.disableEdit = !(profile?.isAdmin);
+  });
+  loginEvents.addEventListener('logout', () => {
+    appStateControl.disableEdit = true;
+  });
 
   debug('requesting app (and user) data...');
   await Promise.all([
@@ -152,9 +158,4 @@ export default async function setup (support) {
       }    
     })()
   ]);
-
-  window.App.add('login-action-login', async () => {
-    debug('got login-action-login');
-    store.user = await getUserStore(page);
-  }); 
 }
