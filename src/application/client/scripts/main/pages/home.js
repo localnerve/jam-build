@@ -124,6 +124,32 @@ function updatePage ({ key, value: object }) {
 }
 
 /**
+ * Setup the logged in user.
+ * 
+ * @param {EditableObject} appStateControl - The application level state data
+ */
+async function setupUser (appStateControl) {
+  const profile = getUserProfile();
+
+  appStateControl.disableEdit = !(profile?.isAdmin);
+
+  store.user = await getUserStore(page);
+
+  // If no user page or state data, set it up.
+  // This causes a new document and/or collection to be created on the remote data service.
+  //
+  // (This is the glory of the simplicity of idb/service-worker backed persistent nanostores)
+  // (If the app needed a mandatory initial user state, that could've been sent down with app data and assigned here)
+  //
+  if (!store.user[page]) {
+    store.user[page] = {};
+    store.user[page].state = {};
+  } else if (!store.user[page].state) {
+    store.user[page].state = {};
+  }
+}
+
+/**
  * Setup the home page.
  * 
  * @param {Object} support - The browser support object
@@ -132,16 +158,24 @@ export default async function setup (support) {
   debug('setup...', support);
 
   const appStateControl = document.getElementById(`app-${page}-state`);
+  const userIntroControl = document.getElementById(`user-${page}-content-intro`);
+  const userStateControl = document.getElementById(`user-${page}-state`);
 
   storeEvents.addEventListener('update', ['app', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['app', page, 'state'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'content'], updatePage);
   storeEvents.addEventListener('update', ['user', page, 'state'], updatePage);
 
+  // New user case
+  setTimeout(() => {
+    userIntroControl.innerHTML = '<strong>** No Data **</strong>';
+  }, 3000);
+  storeEvents.addEventListener('update', ['user', '', ''], () => {
+    userStateControl.object = {};
+  });
+
   loginEvents.addEventListener('login', async () => {
-    store.user = await getUserStore(page);
-    const profile = getUserProfile();
-    appStateControl.disableEdit = !(profile?.isAdmin);
+    setupUser(appStateControl);
   });
   loginEvents.addEventListener('logout', () => {
     appStateControl.disableEdit = true;
@@ -154,7 +188,7 @@ export default async function setup (support) {
     })(),
     (async () => {
       if (isLoginActive()) {
-        store.user = await getUserStore(page);
+        setupUser(appStateControl);
       }    
     })()
   ]);

@@ -46,6 +46,10 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
     store[storeType] = {};
   }
 
+  if (keys.length === 0) { // No Data
+    onChange('update', [storeType, '', ''], {});
+  }
+
   for (const [docName, colName] of keys) {
     const entry = await db.get(storeName, [docName, colName]);
     const value = entry.properties;
