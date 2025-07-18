@@ -321,10 +321,18 @@ async function loadData (storeType, document, collections = null) {
   const versionStoreName = makeStoreName(versionStoreType);
   const db = await getDB();
 
-  const { version } = await db.get(versionStoreName, [storeType, document]);
-  result.version = version;
+  let record = await db.get(versionStoreName, [storeType, document]);
+  if (!record) {
+    record = { version: 0 }; // Make a new document
+    await db.put(versionStoreName, {
+      storeType,
+      document,
+      version: record.version
+    });
+  }
+  result.version = record.version;
 
-  if (!collections) {
+  if (!collections || collections.length <= 0) {
     const idbResults = await db.getAllFromIndex(storeName, 'document', document);
     for (const idbResult of idbResults) {
       result.collections.push({
@@ -407,7 +415,10 @@ async function dataAPICall (request, {
   debug('dataAPICall ', request.url, request.method);
 
   const abortController = new AbortController();
-  let fetchTimer = setTimeout(abortController.abort, fetchTimeout);
+  let fetchTimer = setTimeout(
+    abortController.abort.bind(abortController),
+    fetchTimeout
+  );
 
   let result = 0;
   let response = null;
