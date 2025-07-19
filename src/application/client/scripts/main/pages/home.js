@@ -168,7 +168,9 @@ export default async function setup (support) {
 
   // New user case
   setTimeout(() => {
-    userIntroControl.innerHTML = '<strong>** No Data **</strong>';
+    if (!userIntroControl.innerText) {
+      userIntroControl.innerHTML = '<strong>** No Data **</strong>';
+    }
   }, 3000);
   storeEvents.addEventListener('update', ['user', '', ''], () => {
     userStateControl.object = {};
