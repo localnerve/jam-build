@@ -1,8 +1,6 @@
 /**
  * Heartbeat management. Maintains serviceWorker timer activity windows.
- * serviceWorker activity windows are used to manage batch updates (app/user state saves).
- * 
- * TODO: add document event visibilitychange handling
+ * serviceWorker activity windows are used to manage batch updates (and state saves).
  * 
  * Notes on visibilitychange to save state:
  * https://developer.mozilla.org/en-US/docs/Web/API/Document/visibilitychange_event
@@ -17,47 +15,53 @@ const debug = debugLib('heartbeat');
 
 const heartbeats = Object.create(null);
 
-let maxInactiveTime;
-let lastUserActivity;
-
 /**
  * Update the lastUserActivity timestamp.
+ * 
+ * @param {Object} heartbeats - A reference to the heartbeats object
+ * @param {String} name - The timer name
  */
-function updateUserActivity() {
-  lastUserActivity = Date.now();
+function updateUserActivity (heartbeats, name) {
+  heartbeats[name].lastUserActivity = Date.now();
 }
 
 /**
  * Update the lastUserActivity timestamp and connect to activity events.
+ * 
+ * @param {String} name - The timer name
  */
-function userActivityStart () {
+function userActivityStart (name) {
   debug('starting user activity monitor');
 
-  lastUserActivity = Date.now();
-  window.addEventListener('mousemove', updateUserActivity);
-  window.addEventListener('keydown', updateUserActivity);
-  window.addEventListener('touchstart', updateUserActivity);
+  heartbeats[name].lastUserActivity = Date.now();
+  window.addEventListener('mousemove', heartbeats[name].updateUserActivity);
+  window.addEventListener('keydown', heartbeats[name].updateUserActivity);
+  window.addEventListener('touchstart', heartbeats[name].updateUserActivity);
 }
 
 /**
  * Remove the activity events.
+ * 
+ * @param {String} name - The timer name
  */
-function userActivityStop () {
+function userActivityStop (name) {
   debug('stopping user activity monitor');
 
-  window.removeEventListener('mousemove', updateUserActivity);
-  window.removeEventListener('keydown', updateUserActivity);
-  window.removeEventListener('touchstart', updateUserActivity);
+  window.removeEventListener('mousemove', heartbeats[name].updateUserActivity);
+  window.removeEventListener('keydown', heartbeats[name].updateUserActivity);
+  window.removeEventListener('touchstart', heartbeats[name].updateUserActivity);
 }
 
 /**
  * See if elapsed time has exceeded maxInactive time.
  * 
- * @returns {Boolean} true if exceeded, false otherwise.
+ * @param {String} name - The timer name
+ * @returns {Boolean} true if exceeded, false otherwise
  */
-function userActivityCheck () {
+function userActivityCheck (name) {
+  const heartbeat = heartbeats[name];
   const currentTime = Date.now();
-  return currentTime - lastUserActivity > maxInactiveTime;
+  return currentTime - heartbeat.lastUserActivity > heartbeat.maxInactiveTime;
 }
 
 /**
@@ -69,22 +73,27 @@ function userActivityCheck () {
  */
 async function heartbeatStart (name, interval, maxInactive) {
   debug('start heartbeat', name, interval, maxInactive);
+  
+  heartbeatStop(name);
 
   const reg = await navigator.serviceWorker.ready; // eslint-disable-line compat/compat
 
-  maxInactiveTime = maxInactive;
+  heartbeats[name] = {
+    interval: setInterval(name => {
+      reg.active.postMessage({
+        action: 'heartbeat-beat',
+        payload: {
+          name,
+          inactive: userActivityCheck(name)
+        }
+      });
+    }, interval, name),
+    updateUserActivity: updateUserActivity.bind(null, heartbeats, name),
+    maxInactiveTime: maxInactive,
+    lastUserActivity: 0
+  };
 
-  heartbeats[name] = setInterval(() => {
-    reg.active.postMessage({
-      action: 'heartbeat-beat',
-      payload: {
-        name,
-        inactive: userActivityCheck()
-      }
-    });
-  }, interval);
-
-  userActivityStart();
+  userActivityStart(name);
 
   reg.active.postMessage({
     action: 'heartbeat-start',
@@ -98,10 +107,13 @@ async function heartbeatStart (name, interval, maxInactive) {
  * @param {String} name - The timer name
  */
 function heartbeatStop (name) {
-  debug('stop heartbeat', name);
+  debug('stop heartbeat', name, !!heartbeats[name]);
 
-  userActivityStop();
-  clearInterval(heartbeats[name]);
+  if (heartbeats[name]) {
+    userActivityStop(name);
+    clearInterval(heartbeats[name].interval);
+    delete heartbeats[name];
+  }
 }
 
 /**
@@ -109,7 +121,7 @@ function heartbeatStop (name) {
  * 
  * @param {Event} event - The service worker message event
  */
-function messageHandler (event) {
+function swMessageHandler (event) {
   const msgId = event?.data?.meta;
   const payload = event?.data?.payload;
 
@@ -125,12 +137,34 @@ function messageHandler (event) {
 }
 
 /**
+ * If visibilitychange visibilityState == 'hidden' service all timers now.
+ */
+async function visibilityHandler () {
+  if (document.visibilityState == 'hidden') {
+    debug('visibilityState == hidden, request service all timers now');
+  
+    const reg = await navigator.serviceWorker.ready;
+    const timerNames = Object.keys(heartbeats);
+
+    for (const name of timerNames) {
+      heartbeatStop(name);
+    }
+
+    reg.active.postMessage({
+      action: 'service-timers-now',
+      payload: { timerNames }
+    });
+  }
+}
+
+/**
  * Setup heartbeat messaging.
  * 
  * @param {Object} support - The browser support matrix
  */
 export default function setup (support) {
   if (support.serviceWorker) {
-    navigator.serviceWorker.addEventListener('message', messageHandler);
+    navigator.serviceWorker.addEventListener('message', swMessageHandler);
+    document.addEventListener('visibilitychange', visibilityHandler);
   }
 }

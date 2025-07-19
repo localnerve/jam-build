@@ -45,6 +45,13 @@ self.addEventListener('message', event => {
       }
       break;
 
+    case 'service-timers-now':
+      debug(`service-timers-now ${payload.timerNames}`);
+      for (const name of payload.timerNames) {
+        serviceTimer(name);
+      }
+      break;
+
     default:
       break;
   }
@@ -70,12 +77,11 @@ async function startHeartbeat (timerName, interval, maxInactive) {
  * @param {String} timerName - The timer name
  */
 async function stopHeartbeat (timerName) {
+  delete heartbeat[timerName];
+
   await sendMessage('heartbeat-stop', {
     name: timerName
   });
-
-  delete heartbeat[timerName];
-  heartbeat[timerName] = null;
 }
 
 /**
@@ -110,15 +116,21 @@ function checkHeartbeat (timerName, resolution) {
  * Service the function expressed by the timer.
  * 
  * @param {String} timerName - The name identifying the timer
- * @param {Function} callback - The function to execute
  */
-function serviceTimer (timerName, callback) {
-  debug(`servicing timer ${timerName}`);
+function serviceTimer (timerName) {
+  if (timers[timerName]) {
+    debug(`servicing timer ${timerName}`);
 
-  clearInterval(timers[timerName].intervalId);
-  stopHeartbeat(timerName);
-  delete timers[timerName];
-  callback();
+    clearInterval(timers[timerName].intervalId);
+
+    const callback = timers[timerName].callback;
+    callback();
+    
+    stopHeartbeat(timerName);
+    delete timers[timerName];
+  } else {
+    debug(`Timer ${timerName} already serviced, SKIPPING`);
+  }
 }
 
 /**
@@ -143,19 +155,20 @@ export function startTimer (duration, timerName, callback, resolution = 500) {
   }
 
   timers[timerName] = {
-    timeLeft: duration
+    timeLeft: duration,
+    callback
   };
 
   timers[timerName].intervalId = setInterval(() => {
     const timer = timers[timerName];
 
     if (timer.timeLeft <= 0) {
-      return serviceTimer(timerName, callback);
+      return serviceTimer(timerName);
     }
 
     timer.timeLeft -= resolution;
     if (!checkHeartbeat(timerName, resolution)) {
-      serviceTimer(timerName, callback);
+      serviceTimer(timerName);
     }
   }, resolution);
 }
