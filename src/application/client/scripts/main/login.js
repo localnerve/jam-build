@@ -225,12 +225,24 @@ export async function processLogin (login) {
 }
 
 /**
+ * Called after a successful logout for additional handling.
+ */
+export function processLogout () {
+  sessionStorage.setItem('login', '');
+  sessionStorage.setItem('user', '');
+  
+  const uiElements = getLoginUIElements();
+  updateUI(null, uiElements);
+  
+  window.App.exec('login-action-logout');
+}
+
+/**
  * Event handler for login/logout click events.
  * 
- * @param {Object} uiElements - The UI elements to update
  * @param {Event} event - The click event object
  */
-async function loginHandler (uiElements, event) {
+async function loginHandler (event) {
   event.preventDefault();
 
   const loggedIn = isLoginActive();
@@ -255,12 +267,7 @@ async function loginHandler (uiElements, event) {
 
     await authRef.logout();
     
-    sessionStorage.setItem('login', '');
-    sessionStorage.setItem('user', '');
-    
-    updateUI(null, uiElements);
-    
-    window.App.exec('login-action-logout');
+    processLogout();
   }
 }
 
@@ -275,10 +282,9 @@ export default async function setup () {
   setupLoginEvents();
 
   // Install the login/logout handlers
-  const boundLoginHander = loginHandler.bind(null, uiElements);
   uiElements.loginButtons.forEach(el => {
     el.dataset.listener = true;
-    el.addEventListener('click', boundLoginHander);
+    el.addEventListener('click', loginHandler);
   });
 
   if (isLoginCallback()) {

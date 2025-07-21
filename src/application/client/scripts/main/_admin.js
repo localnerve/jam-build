@@ -8,7 +8,13 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { processLogin, initializeAuthorizer, getUserProfile } from './login.js';
+import {
+  processLogin,
+  processLogout,
+  initializeAuthorizer,
+  getUserProfile,
+  loginEvents
+} from './login.js';
 import debugLib from '@localnerve/debug';
 
 const debug = debugLib('admin');
@@ -17,13 +23,40 @@ let authRef;
 
 /**
  * Setup login form.
+ * Presume loggedIn, update if not loggedIn.
+ * Always presumes an in-page transition, just in case. No downsides.
+ * 
+ * @param {Boolean} loggedIn - True if logged in, false otherwise
  */
-function setupLogin () {
-  document.querySelector('#admin-login-form').addEventListener('submit', handleLogin);
+function setupLogin (loggedIn = true) {
+  const form = document.querySelector('#admin-login-form');
+  const prevHandler = loggedIn ? handleLogin : handleLogout;
+  const nextHandler = loggedIn ? handleLogout : handleLogin;
+  const classMethod = loggedIn ? 'remove' : 'add';
+  const formMethod = loggedIn ? 'setAttribute' : 'removeAttribute';
+
+  form[formMethod]('novalidate', true);
+  form.classList[classMethod]('login');
+  form.removeEventListener('submit', prevHandler);
+  form.addEventListener('submit', nextHandler);
 }
 
 /**
- * Handle login form 'submit' event.
+ * Wrapper/event handler for logout setup
+ */
+function setupUIForLogout () {
+  setupLogin(true);
+}
+
+/**
+ * Wrapper/event handler for login setup
+ */
+function setupUIForLogin () {
+  setupLogin(false);
+}
+
+/**
+ * Handle login form 'submit' event for login.
  */
 async function handleLogin (e) {
   e.preventDefault();
@@ -58,12 +91,30 @@ async function handleLogin (e) {
   }
 }
 
+/**
+ * Handle login form 'submit' event for logout.
+ */
+async function handleLogout (e) {
+  e.preventDefault();
+
+  await authRef.logout();
+
+  processLogout();
+  setupLogin(false);
+}
+
 function setup () {
   authRef = initializeAuthorizer();
-  setupLogin();
+
+  loginEvents.removeEventListener('login', setupUIForLogout);
+  loginEvents.addEventListener('login', setupUIForLogout);
+  loginEvents.removeEventListener('logout', setupUIForLogin);
+  loginEvents.addEventListener('logout', setupUIForLogin);
 
   const profile = getUserProfile();
   if (profile) {
+    setupLogin(true);
+
     window.App.exec('pageGeneralMessage', {
       args: {
         message: `Currently logged in as ${profile.email}`,
@@ -71,6 +122,8 @@ function setup () {
         duration: 4000
       }
     });
+  } else {
+    setupLogin(false);
   }
 }
 

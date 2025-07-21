@@ -22,7 +22,10 @@
       <input name="password" id="login-password"  placeholder="********" type="password" value="" autocomplete="current-password" required />
     </div>
     <button type="submit">
-      Log In
+      {{#with (lookup siteData.pages page)}}
+      <span class="label">{{label}}</span>
+      <span class="alt-label">{{alt-label}}</span>
+      {{/with}}
     </button>
   </form>
 </div>

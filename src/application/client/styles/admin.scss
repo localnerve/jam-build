@@ -47,6 +47,11 @@ form {
 form label {
   display: block;
   padding: 0.25rem 0;
+  opacity: 0.5;
+}
+
+form.login label {
+  opacity: 1;
 }
 
 form label span {
@@ -54,6 +59,8 @@ form label span {
 }
 
 form input {
+  pointer-events: none;
+  opacity: 0.5;
   background-color: var(--site-bg);
   color: var(--site-color);
   padding: 0.75em;
@@ -61,6 +68,11 @@ form input {
   border: 1px solid var(--site-color);
   border-radius: var(--admin-radius);
   width: 100%;
+}
+
+form.login input {
+  pointer-events: initial;
+  opacity: 1;
 }
 
 form button {
@@ -75,12 +87,28 @@ form button {
   margin-top: 2rem;
 }
 
-form:has([name="email"]:valid):has([name="password"]:valid) button {
+form .label {
+  display: none;
+}
+
+form.login .label {
+  display: inline;
+}
+
+form .alt-label {
+  display: inline;
+}
+
+form.login .alt-label {
+  display: none;
+}
+
+form.login:has([name="email"]:valid):has([name="password"]:valid) button {
   cursor: pointer;
 }
 
 @supports selector(:has(*)) {
-  form button {
+  form.login button {
     cursor: not-allowed;
   }
 }
