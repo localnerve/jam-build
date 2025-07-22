@@ -13,6 +13,7 @@ import {
   processLogout,
   initializeAuthorizer,
   getUserProfile,
+  isLoginActive,
   loginEvents
 } from './login.js';
 import debugLib from '@localnerve/debug';
@@ -21,14 +22,24 @@ const debug = debugLib('admin');
 
 let authRef;
 
+function bfCacheHandler (e) {
+  if (e.persisted) {
+    debug('rendering from cache');
+    setupLogin();
+  }
+}
+window.removeEventListener('pageshow', bfCacheHandler);
+window.addEventListener('pageshow', bfCacheHandler);
+
 /**
  * Setup login form.
  * Presume loggedIn, update if not loggedIn.
  * Always presumes an in-page transition, just in case. No downsides.
- * 
- * @param {Boolean} loggedIn - True if logged in, false otherwise
+ *
  */
-function setupLogin (loggedIn = true) {
+function setupLogin () {
+  const loggedIn = isLoginActive();
+
   const form = document.querySelector('#admin-login-form');
   const prevHandler = loggedIn ? handleLogin : handleLogout;
   const nextHandler = loggedIn ? handleLogout : handleLogin;
@@ -104,6 +115,8 @@ async function handleLogout (e) {
 }
 
 function setup () {
+  debug('running setup');
+
   authRef = initializeAuthorizer();
 
   loginEvents.removeEventListener('login', setupUIForLogout);
@@ -111,10 +124,10 @@ function setup () {
   loginEvents.removeEventListener('logout', setupUIForLogin);
   loginEvents.addEventListener('logout', setupUIForLogin);
 
+  setupLogin();
+
   const profile = getUserProfile();
   if (profile) {
-    setupLogin(true);
-
     window.App.exec('pageGeneralMessage', {
       args: {
         message: `Currently logged in as ${profile.email}`,
@@ -122,8 +135,6 @@ function setup () {
         duration: 4000
       }
     });
-  } else {
-    setupLogin(false);
   }
 }
 
