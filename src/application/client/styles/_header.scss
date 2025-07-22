@@ -42,8 +42,9 @@ $box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
     display: flex;
     flex-flow: row wrap;
     align-items: center;
-    justify-content: space-between;  
+    justify-content: space-between;
     width: 100%;
+    margin: 0.5rem 0;
 
     @include m.min-width (1200px) { // large
       width: 1200px;
