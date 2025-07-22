@@ -803,10 +803,10 @@ async function processBatchUpdates () {
   // 1. newer deletes always override older matching puts (older puts that match with newer deletes are discarded):
   //    - matching precedence: a. whole document, b. whole collection, c. single property
   //      - If any of these match, the older puts and deletes have to be discarded
-  //    - In the case where older put does not overlap with a newer delete, both are executed, put first then delete
+  //    - In the case where older put does not overlap with a newer delete, both are executed
   // 2. older puts merge collection with newer matching puts, except whole document puts
   // 3. older deletes merge properties with newer matching deletes, except whole document or collection deletes
-  // 4. presumes newer puts could not be made on deleted items (code should not compile or crash before).
+  // 4. presumes newer puts could not be made on deleted items
 
   let lastKey;
   for await (const cursor of batch.iterate(null, 'prev')) { // latest arrival (autoincrement id) first
@@ -888,6 +888,7 @@ async function processBatchUpdates () {
   for (const op of networkCallOrder) { // replay oldest to newest
     const item = output[op].shift();
     const request = { ...item };
+    let result;
 
     if (request.properties?.hasProps) {
       request.collections = request.collections.map(collection => ({
@@ -897,16 +898,11 @@ async function processBatchUpdates () {
     }
 
     try {
-      const result = await network[op](request);
+      result = await network[op](request);
 
       debug(`processBatchUpdates '${network[op].name}' completed with '${result}' for '${op}' with '${request.storeType}:${request.document}'`, {
         ...request.collections
       });
-
-      if (result === E_CONFLICT) {
-        debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
-        break; // We were invoked in subsequent resolution, reconcile any previous failures and exit
-      }
     }
     catch (e) {
       const failedItem = reconcile.find(i => i.storeType === item.storeType && i.document === item.document);
@@ -929,6 +925,11 @@ async function processBatchUpdates () {
       await cursor.delete();
     }
     debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
+
+    if (result === E_CONFLICT) {
+      debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
+      break; // We were invoked in subsequent resolution
+    }
   }
 
   // This happens if:
@@ -1282,11 +1283,13 @@ async function processVersionConflicts () {
   const versionStoreName = makeStoreName(versionStoreType);
   for (const storeType of Object.keys(versions)) {
     for (const [document, version] of Object.entries(versions[storeType])) {
-      await db.put(versionStoreName, {
-        storeType,
-        document,
-        version: `${version}`
-      });
+      if (document && version > 0) {
+        await db.put(versionStoreName, {
+          storeType,
+          document,
+          version: `${version}`
+        });
+      }
     }
   }
 
@@ -1337,6 +1340,19 @@ async function processVersionConflicts () {
     }
   }
 
+  // Delete all the conflict records for the processed document
+  let conflictDeletes = 0;
+  for (const storeType of Object.keys(remoteData)) {
+    for (const [doc_name, doc] of Object.entries(remoteData[storeType])) {
+      for (const [col_name,] of Object.entries(doc)) {
+        conflictDeletes++;
+        await db.delete(storeName, [storeType, doc_name, col_name]);
+      }
+    }
+  }
+
+  debug(`deleted ${conflictDeletes} conflict records before re-processing`);
+
   await processBatchUpdates();
 
   // Notify the app the data was updated
@@ -1351,15 +1367,6 @@ async function processVersionConflicts () {
   }
 
   debug('processVersionConflicts sent client messages', message);
-
-  // Delete all the conflict records for the processed document
-  for (const storeType of Object.keys(remoteData)) {
-    for (const [doc_name, doc] of Object.entries(remoteData[storeType])) {
-      for (const [col_name,] of Object.entries(doc)) {
-        await db.delete(storeName, [storeType, doc_name, col_name]);
-      }
-    }
-  }
 }
 
 /**
