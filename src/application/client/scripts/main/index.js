@@ -8,12 +8,14 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-
+import debugLib from '@localnerve/debug';
 import createSupport from './support.js';
 import setupHeader from './header.js';
 import setupPrompts from './prompts.js';
 import setupLogin from './login.js';
 import setupHeartbeat from './heartbeat.js';
+
+const debug = debugLib('main');
 
 /**
  * Update all current year elements in the page with the current full year.
@@ -80,6 +82,8 @@ function loaded (support) {
  * App setup main execution on DOMContentReady
  */
 async function setup () {
+  debug('running setup');
+
   const support = await createSupport();
 
   support.init();
