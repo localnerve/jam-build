@@ -177,7 +177,7 @@ export default async function setup (support) {
   });
 
   loginEvents.addEventListener('login', async () => {
-    setupUser(appStateControl);
+    await setupUser(appStateControl);
   });
   loginEvents.addEventListener('logout', () => {
     appStateControl.disableEdit = true;
@@ -190,7 +190,7 @@ export default async function setup (support) {
     })(),
     (async () => {
       if (isLoginActive()) {
-        setupUser(appStateControl);
+        await setupUser(appStateControl);
       }    
     })()
   ]);
