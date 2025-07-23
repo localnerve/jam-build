@@ -711,7 +711,8 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
       }
 
       if (!clearOnly) {
-        const original = await db.get(makeStoreName(storeType), [document, collection]);
+        const storeName = makeStoreName(storeType);
+        const original = await db.get(storeName, [document, collection]);
 
         await db.add(baseStoreName, {
           storeType, document, collection, op, timestamp: Date.now(), properties: original.properties
@@ -734,7 +735,8 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
     }
 
     if ((docCount === 0 || docCount === deleteCount) && !clearOnly) {
-      const original = await db.getAllFromIndex(makeStoreName(storeType), 'document', document);
+      const storeName = makeStoreName(storeType);
+      const original = await db.getAllFromIndex(storeName, 'document', document);
 
       for (const orig of original) {
         await db.add(baseStoreName, {
@@ -769,12 +771,12 @@ export async function mayUpdate (payload, clearOnly = false) {
  * @returns {Promise<undefined>} fulfills when the function completes.
  */
 async function processBatchUpdates () {
-  const storeName = makeStoreName(batchStoreType);
+  const batchStoreName = makeStoreName(batchStoreType);
   const db = await getDB();
-  const totalRecords = await db.count(storeName);
+  const totalRecords = await db.count(batchStoreName);
 
   if (totalRecords === 0) {
-    debug(`Batch process skipped, no records found in the ${storeName}`);
+    debug(`Batch process skipped, no records found in the ${batchStoreName}`);
     return;
   }
 
@@ -792,7 +794,7 @@ async function processBatchUpdates () {
 
   // For iterating in descending id+storeType+document+collection order
   // The latest updates are always first per storeType+document+collection, op+prop vary
-  const batch = await db.transaction(storeName).store.index('batch');
+  const batch = await db.transaction(batchStoreName).store.index('batch');
   // batch is sorted by key ['id', 'storeType', 'document', 'collection'] 
 
   // vvvv Complex code alert vvvv
@@ -918,7 +920,7 @@ async function processBatchUpdates () {
     }
 
     // Always delete. If it threw, it's not going to work by retrying, the input is bad
-    const deleteRecords = await db.transaction(storeName, 'readwrite').store.index('delete');
+    const deleteRecords = await db.transaction(batchStoreName, 'readwrite').store.index('delete');
     let count = 0;
     for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
       count++;
@@ -978,7 +980,8 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   debug(`batchUpdate db.add ${storeType}:${document}:${collection}:${propertyName}:${op}`);
 
   const db = await getDB();
-  await db.add(makeStoreName(batchStoreType), {
+  const batchStoreName = makeStoreName(batchStoreType);
+  await db.add(batchStoreName, {
     storeType, document, collection, propertyName, op
   });
 }
@@ -1032,7 +1035,7 @@ function threeWayMerge (base, remote, local) {
   const diffBaseRemote = jsonDiffPatch.diff(base, remote);
   const diffBaseLocal = jsonDiffPatch.diff(base, local);
 
-  // Create a copy of the remote object to merge changes into
+  // Merge remote and local changes into the base
   let mergedObject = { ...base };
 
   if (diffBaseRemote && diffBaseLocal) {
@@ -1134,18 +1137,18 @@ function threeWayMerge (base, remote, local) {
  * 
  */
 async function processVersionConflicts () {
-  const storeName = makeStoreName(conflictStoreType);
+  const conflictStoreName = makeStoreName(conflictStoreType);
   const db = await getDB();
-  const totalRecords = await db.count(storeName);
+  const totalRecords = await db.count(conflictStoreName);
 
   if (totalRecords === 0) {
-    debug(`Version conflicts process skipped, no records found in the ${storeName}`);
+    debug(`Version conflicts process skipped, no records found in the ${conflictStoreName}`);
     return;
   }
 
-  debug(`processVersionConflicts processing ${totalRecords} records from ${storeName}...`);
+  debug(`processVersionConflicts processing ${totalRecords} records from ${conflictStoreName}...`);
 
-  const conflictDocs = await db.transaction(storeName).store.index('version');
+  const conflictDocs = await db.transaction(conflictStoreName).store.index('version');
 
   debug('conflictDocs version index records: ', await conflictDocs.count());
 
@@ -1346,7 +1349,7 @@ async function processVersionConflicts () {
     for (const [doc_name, doc] of Object.entries(remoteData[storeType])) {
       for (const [col_name,] of Object.entries(doc)) {
         conflictDeletes++;
-        await db.delete(storeName, [storeType, doc_name, col_name]);
+        await db.delete(conflictStoreName, [storeType, doc_name, col_name]);
       }
     }
   }
@@ -1381,7 +1384,7 @@ async function processVersionConflicts () {
  */
 async function storeVersionConflict (storeType, op, collections, data) {
   const db = await getDB();
-  const storeName = makeStoreName(conflictStoreType);
+  const conflictStoreName = makeStoreName(conflictStoreType);
 
   // Format and store the new version data
   for (const [doc_name, doc] of Object.entries(data)) {
@@ -1392,7 +1395,7 @@ async function storeVersionConflict (storeType, op, collections, data) {
     const new_version = newDocVersion.padStart(15, '0');
 
     for (const [col_name, props] of Object.entries(doc)) {
-      await db.put(storeName, {
+      await db.put(conflictStoreName, {
         storeType,
         document_name: doc_name,
         collection_name: col_name,
@@ -1470,7 +1473,7 @@ export async function installDatabase () {
         // Cleanup all old objectStores after migration
         // deleteObjectStore can only be called in a version event transaction (like here).
         for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
-          let oldStoreName = makeStoreName(storeType, oldVersion);
+          const oldStoreName = makeStoreName(storeType, oldVersion);
           if (db.objectStoreNames.contains(oldStoreName)) {
             db.deleteObjectStore(oldStoreName);
           }
@@ -1492,7 +1495,7 @@ export async function installDatabase () {
       // Cleanup all old objectStores after migration
       // deleteObjectStore can only be called in a version event transaction (like here).
       for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
-        let oldStoreName = makeStoreName(versionStoreType, oldVersion);
+        const oldStoreName = makeStoreName(versionStoreType, oldVersion);
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }
@@ -1516,7 +1519,7 @@ export async function installDatabase () {
       // Cleanup all old objectStores after migration
       // deleteObjectStore can only be called in a version event transaction (like here).
       for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
-        let oldStoreName = makeStoreName(conflictStoreType, oldVersion);
+        const oldStoreName = makeStoreName(conflictStoreType, oldVersion);
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }
@@ -1547,7 +1550,7 @@ export async function installDatabase () {
       // Cleanup all old objectStores after migration
       // deleteObjectStore can only be called in a version event transaction (like here).
       for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
-        let oldStoreName = makeStoreName(batchStoreType, oldVersion);
+        const oldStoreName = makeStoreName(batchStoreType, oldVersion);
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }
@@ -1575,7 +1578,7 @@ export async function installDatabase () {
       // Cleanup all old objectStores after migration
       // deleteObjectStore can only be called in a version event transaction (like here).
       for (let oldVersion = schemaVersion - 1; oldVersion > -1; oldVersion--) {
-        let oldStoreName = makeStoreName(baseStoreType, oldVersion);
+        const oldStoreName = makeStoreName(baseStoreType, oldVersion);
         if (db.objectStoreNames.contains(oldStoreName)) {
           db.deleteObjectStore(oldStoreName);
         }
