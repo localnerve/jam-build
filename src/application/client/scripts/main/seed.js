@@ -4,6 +4,9 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import { makeStoreType } from './utils.js';
+
+const appStoreType = makeStoreType('app', 'public');
 
 /**
  * Create or update a page request seed object.
@@ -31,7 +34,7 @@ export function pageSeed (page, seed = {}, next = null) {
     return acc;
   }, []);
 
-  seed[`${next.storeType}:${page}`] = {
+  seed[`${next.storeType}-${page}`] = {
     storeType: next.storeType,
     document: page,
     collections: newCollections
@@ -51,7 +54,7 @@ export function pageSeed (page, seed = {}, next = null) {
  * @returns {Object} The filtered request seed
  */
 export function filterSeed (page, seed, {
-  storeTypes = ['app', 'user'],
+  storeTypes = [appStoreType],
   collections = []
 } = {}) {
   if (!seed) {
@@ -62,12 +65,12 @@ export function filterSeed (page, seed, {
 
   return Object.entries(seed).reduce((acc, [key, payload]) => {
     const payloadColl = new Set(payload.collections);
-    const [keyType, keyPage] = key.split(':');
+    const [keyType, keyPage] = key.split('-');
 
     if (storeTypes.includes(keyType) && page === keyPage) {
       const filteredColl = [...payloadColl.intersection(inputColl)];
 
-      acc[`${keyType}:${keyPage}`] = {
+      acc[`${keyType}-${keyPage}`] = {
         storeType: keyType,
         document: keyPage,
         collections: !filteredColl.length ? undefined : filteredColl

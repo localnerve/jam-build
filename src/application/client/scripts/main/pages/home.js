@@ -9,15 +9,15 @@ import '@localnerve/editable-object';
 
 import { storeEvents } from '../data.js';
 import { getUserStore } from '../user.js';
-import { getApplicationStore } from '../app.js';
+import { getPublicApplicationStore } from '../app.js';
 import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
-
-const page = 'home';
-
-const debug = debugLib(page);
+import { makeStoreType, getStoreTypeDelim } from '../utils.js';
 
 const store = {};
-
+const page = 'home';
+const storeTypeDelim = getStoreTypeDelim();
+const appStoreType = makeStoreType('app', 'public');
+const debug = debugLib(page);
 const updateDataHandlers = Object.create(null);
 
 /**
@@ -26,9 +26,9 @@ const updateDataHandlers = Object.create(null);
  * This demo just shows multiple instances updates and deletes on collections...
  *   ...But you could add and delete entire collections and even entire documents.
  *
- * @param {String} storeType - 'user' or 'app'
- * @param {String} doc - The document to watch
- * @param {String} collection - 
+ * @param {String} storeType - keyPath to the document
+ * @param {String} doc - The document to update
+ * @param {String} collection - The collection to update
  * @param {Event} e - The 'change' event from the web component
  */
 function updateData (storeType, doc, collection, e) {
@@ -81,7 +81,11 @@ function updatePage ({ key, value: object }) {
   }
 
   let el;
-  let predicate = key.join('-');
+  // strip any hex hash in storeType
+  let predicate = [
+    ...key[0].split(storeTypeDelim).filter(t => !/^[0-9a-fA-F]+$/.test(t)),
+    ...key.slice(1)
+  ].join('-');
   const storeType = key[0];
   const doc = key[1];
   const collection = key[2];
@@ -125,15 +129,32 @@ function updatePage ({ key, value: object }) {
 
 /**
  * Setup the logged in user.
- * 
- * @param {EditableObject} appStateControl - The application level state data
  */
-async function setupUser (appStateControl) {
+async function setupUser () {
+  const appPublicStateControl = document.getElementById(`app-public-${page}-state`);
+  const userIntroControl = document.getElementById(`user-${page}-content-intro`);
+  const userStateControl = document.getElementById(`user-${page}-state`);
+
   const profile = getUserProfile();
+  const { storeType: userStoreType } = profile;
 
-  appStateControl.disableEdit = !(profile?.isAdmin);
+  storeEvents.addEventListener('update', [userStoreType, '', ''], () => {
+    userStateControl.object = {};
+  });
+  storeEvents.addEventListener('update', [userStoreType, page, 'content'], updatePage);
+  storeEvents.addEventListener('update', [userStoreType, page, 'state'], updatePage);
 
-  store.user = await getUserStore(page);
+  // New user case / No intro text
+  setTimeout(() => {
+    if (!userIntroControl.innerText) {
+      userIntroControl.innerHTML = '<strong>** No Data **</strong>';
+    }
+  }, 3000);
+
+  // User can edit appPublic controls if isAdmin
+  appPublicStateControl.disableEdit = !(profile?.isAdmin);
+
+  store[userStoreType] = await getUserStore(page, userStoreType);
 
   // If no user page or state data, set it up.
   // This causes a new document and/or collection to be created on the remote data service.
@@ -141,11 +162,11 @@ async function setupUser (appStateControl) {
   // (This is the glory of the simplicity of idb/service-worker backed persistent nanostores)
   // (If the app needed a mandatory initial user state, that could've been sent down with app data and assigned here)
   //
-  if (!store.user[page]) {
-    store.user[page] = {};
-    store.user[page].state = {};
-  } else if (!store.user[page].state) {
-    store.user[page].state = {};
+  if (!store[userStoreType][page]) {
+    store[userStoreType][page] = {};
+    store[userStoreType][page].state = {};
+  } else if (!store[userStoreType][page].state) {
+    store[userStoreType][page].state = {};
   }
 }
 
@@ -157,40 +178,26 @@ async function setupUser (appStateControl) {
 export default async function setup (support) {
   debug('setup...', support);
 
-  const appStateControl = document.getElementById(`app-${page}-state`);
-  const userIntroControl = document.getElementById(`user-${page}-content-intro`);
-  const userStateControl = document.getElementById(`user-${page}-state`);
+  const appPublicStateControl = document.getElementById(`app-public-${page}-state`);
 
-  storeEvents.addEventListener('update', ['app', page, 'content'], updatePage);
-  storeEvents.addEventListener('update', ['app', page, 'state'], updatePage);
-  storeEvents.addEventListener('update', ['user', page, 'content'], updatePage);
-  storeEvents.addEventListener('update', ['user', page, 'state'], updatePage);
-
-  // New user case
-  setTimeout(() => {
-    if (!userIntroControl.innerText) {
-      userIntroControl.innerHTML = '<strong>** No Data **</strong>';
-    }
-  }, 3000);
-  storeEvents.addEventListener('update', ['user', '', ''], () => {
-    userStateControl.object = {};
-  });
+  storeEvents.addEventListener('update', [appStoreType, page, 'content'], updatePage);
+  storeEvents.addEventListener('update', [appStoreType, page, 'state'], updatePage);
 
   loginEvents.addEventListener('login', async () => {
-    await setupUser(appStateControl);
+    await setupUser();
   });
   loginEvents.addEventListener('logout', () => {
-    appStateControl.disableEdit = true;
+    appPublicStateControl.disableEdit = true;
   });
 
   debug('requesting app (and user) data...');
   await Promise.all([
     (async () => {
-      store.app = await getApplicationStore(page);
+      store[appStoreType] = await getPublicApplicationStore(page);
     })(),
     (async () => {
       if (isLoginActive()) {
-        await setupUser(appStateControl);
+        await setupUser();
       }    
     })()
   ]);

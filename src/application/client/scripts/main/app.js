@@ -6,15 +6,16 @@
  */
 import { updatePageData } from './request.js';
 import { createStore } from './data.js';
+import { makeStoreType } from './utils.js';
 
 /**
- * Get the app store.
+ * Get the public application store.
  * 
  * @param {String} page - The name of the page
  * @return {Object} The hot proxied app data store
  */
-export async function getApplicationStore (page) {
+export async function getPublicApplicationStore (page) {
   await updatePageData(page);
 
-  return createStore('app', page);
+  return createStore(makeStoreType('app', 'public'), page);
 }

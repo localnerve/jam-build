@@ -12,19 +12,20 @@ import { createStore } from './data.js';
  * Get the user store.
  * 
  * @param {String} page - The name of the page
+ * @param {String} storeType - The user storeType
  * @returns {Object} The hot proxied user store
  */
-export async function getUserStore (page) {
+export async function getUserStore (page, storeType) {
   const seed = JSON.parse(localStorage.getItem('seed')) || undefined;
-  
+
   localStorage.setItem('seed', JSON.stringify(pageSeed(page, seed, {
-    storeType: 'user',
+    storeType,
     keys: []
   })));
   
   await updatePageData(page, {
-    storeTypes: ['user']
+    storeTypes: [storeType]
   });
 
-  return createStore('user', page);
+  return createStore(storeType, page);
 }

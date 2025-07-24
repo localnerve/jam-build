@@ -17,6 +17,7 @@ let listeners = [];
 const waiters = {};
 const store = {};
 const storeNames = new Map();
+const dataScopes = new Map();
 const createdStores = new Map();
 
 if ('serviceWorker' in navigator) {
@@ -29,13 +30,14 @@ if ('serviceWorker' in navigator) {
  * Updates memory store backing, and sends the notifications.
  *
  * @param {Object} params - window.App 'database-data-update' event payload
- * @param {String} params.dbname - The database name of the update
- * @param {String} params.storeType - The storeType 'app' or 'user'
- * @param {String} params.storeName - The objectStore name of the update
- * @param {Array} params.keys - The objectStore keys of the update
+ * @param {String} params.dbname - The database name
+ * @param {String} params.storeType - The storeType [store:scope]
+ * @param {String} params.storeName - The full, versioned objectStore name 
+ * @param {String} params.scope - The data scope part of the key
+ * @param {Array} params.keys - The document part of the key [doc, col]
  */
-async function dataUpdate ({ dbname, storeType, storeName, keys }) {
-  debug('"pageDataUpdate" notification recieved from service worker', dbname, storeType, storeName, keys);
+async function dataUpdate ({ dbname, storeType, storeName, scope, keys }) {
+  debug('"pageDataUpdate" notification recieved from service worker', dbname, storeType, storeName, scope, keys);
 
   if (!db) {
     db = await openDB(dbname);
@@ -46,12 +48,16 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
     store[storeType] = {};
   }
 
+  if (!dataScopes.has(storeType)) {
+    dataScopes.set(storeType, scope);
+  }
+
   if (keys.length === 0) { // No Data
     onChange('update', [storeType, '', ''], {});
   }
 
   for (const [docName, colName] of keys) {
-    const entry = await db.get(storeName, [docName, colName]);
+    const entry = await db.get(storeName, [scope, docName, colName]);
     const value = entry.properties;
 
     store[storeType][docName] = store[storeType][docName] ?? {};
@@ -72,7 +78,7 @@ async function dataUpdate ({ dbname, storeType, storeName, keys }) {
  * Compare proposedProperties with existing properties on the keyPath.
  * 
  * @param {String} storeName - The storeName
- * @param {String} keyPath - [document, collection] keyPath
+ * @param {String} keyPath - [scope, document, collection] keyPath
  * @param {Object} proposedProperties - The new, proposedProperties
  * @returns {Boolean} true if the proposedProperties are different than existing, false otherwise
  */
@@ -89,9 +95,9 @@ async function isDifferent(storeName, keyPath, proposedProperties) {
   if (existing) {
     const { properties: existingProperties } = existing;
     different = !fastIsEqual(existingProperties, proposedProperties);
-
-    debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
   }
+
+  debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
 
   return different;
 }
@@ -102,7 +108,7 @@ async function isDifferent(storeName, keyPath, proposedProperties) {
  *   'delete' allows document, collection, or property removal
  * 
  * @param {String} op - 'put' or 'delete'
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - A keyPath to the document
  * @param {Array} keyPath - The keyPath to the data [document, collection]
  * @param {String|Nullish} [propertyName] - The propertyName (required for property deletes)
  * @returns 
@@ -110,6 +116,7 @@ async function isDifferent(storeName, keyPath, proposedProperties) {
 async function performDatabaseUpdate (op, storeType, keyPath, propertyName = null) {
   debug('performDatabaseUpdate', op, storeType, keyPath, propertyName);
 
+  const scope = dataScopes.get(storeType);
   const document = keyPath[0];
   const collection = keyPath[1];
   const storeName = storeNames.get(storeType);
@@ -120,7 +127,7 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
       if (collection) {
         if (propertyName) { // delete single property
           debug(`deleting propertyName '${propertyName}' from '${collection}'...`);
-          const item = await db.get(storeName, keyPath);
+          const item = await db.get(storeName, [scope, ...keyPath]);
           debug(`deleting propertyName '${propertyName}' from item.properties...`, item.properties);
           if (item.properties && propertyName in item.properties) {
             delete item.properties[propertyName];
@@ -132,14 +139,14 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
           result = true;
         } else { // delete whole collection
           debug(`deleting collection '${collection}'...`);
-          await db.delete(storeName, keyPath);
+          await db.delete(storeName, [scope, ...keyPath]);
           debug(`deleted collection '${collection}'`);
           result = true;
         }
       } else { // delete the whole document
         debug(`deleting document '${document}'...`);
         const docs = await db.transaction(storeName, 'readwrite').store.index('document');
-        for await (const cursor of docs.iterate(IDBKeyRange.only(document))) {
+        for await (const cursor of docs.iterate(IDBKeyRange.only([scope, document]))) {
           await cursor.delete();
         }
         debug(`deleted document '${document}'`);
@@ -150,8 +157,9 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
     case 'put':
       if (collection) { // put collection and/or properties
         debug(`putting collection ${collection}...`);
-        if (await isDifferent(storeName, keyPath, store[storeType][document][collection])) {
+        if (await isDifferent(storeName, [scope, ...keyPath], store[storeType][document][collection])) {
           await db.put(storeName, {
+            scope,
             document_name: document,
             collection_name: collection,
             properties: store[storeType][document][collection]
@@ -164,9 +172,10 @@ async function performDatabaseUpdate (op, storeType, keyPath, propertyName = nul
         let changedOne = false;
         const doc = store[storeType][document];
         for (const coll of Object.keys(doc)) {
-          if (await isDifferent(storeName, [document, coll], doc[coll] || {})) {
+          if (await isDifferent(storeName, [scope, document, coll], doc[coll] || {})) {
             changedOne = true;
             await db.put(storeName, {
+              scope,
               document_name : document,
               collection_name: coll,
               properties: doc[coll] || {}
@@ -378,7 +387,7 @@ export const storeEvents = {
  * Sets up data service worker data update handling.
  * For a new store, this will block until 'database-data-update' message is sent.
  *
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope
  * @param {String} page - The page, document for use
  * @returns {Object} - The connected data store for the storeType
  */
@@ -393,15 +402,15 @@ export async function createStore (storeType, page) {
 
   /**
    * Install the handler for pageDataUpdate network callbacks from the service worker
-   * (window.App.add discards duplicate adds, returns false)
+   *   (window.App.add discards duplicate adds)
    * This either gets called immediately bc the service worker installed and has init data ready,
    * or called shortly after the page calls to requestPageData and is called back.
    * 
    * @param {Object} payload - The pageDataUpdate object
    * @param {String} payload.dbname - The database name
    * @param {String} payload.storeName - The full store name
-   * @param {String} payload.storeType - 'app' or 'user'
-   * @param {Array} payload.keys - An array of the collections that were updated
+   * @param {String} payload.storeType - A keyPath to the document
+   * @param {Array} payload.keys - An array of the [doc, collection] keyPaths to the data that were updated
    * @param {Boolean} [payload.local] - Local db, no new data. Only uses local if no objectStore has been created
    * @param {Object} [payload.message] - If present, sends message to the UI
    * @param {String} [payload.message.text] - The text of the message

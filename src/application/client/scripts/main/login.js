@@ -10,6 +10,7 @@
  */
 import { Authorizer } from '@localnerve/authorizer-js';
 import debugLib from '@localnerve/debug';
+import { hashDigest, makeStoreType } from './utils.js';
 
 const debug = debugLib('login');
 
@@ -200,8 +201,12 @@ export async function processLogin (login) {
       expires_in: login.expires_in
     }));
 
+    const userId = await hashDigest(login.user.email);
+
     sessionStorage.setItem('user', JSON.stringify({
       email: login.user.email,
+      userId,
+      storeType: makeStoreType('user', userId),
       isAdmin: login.user.roles.includes('admin')
     }));
 

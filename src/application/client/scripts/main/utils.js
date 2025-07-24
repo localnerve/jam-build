@@ -29,3 +29,33 @@ export function getStyleNumber (style, ...props) {
     0
   );
 }
+
+/**
+ * Create a hex hash digest string for a given input string.
+ * 
+ * @param {String} input - A string to create the hash digest for
+ * @returns {String} A hex string hash digest for the input
+ */
+export async function hashDigest (input) {
+  const msgUint8 = new TextEncoder().encode(input);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+/**
+ * Get the storeType delimiter.
+ * 
+ * @returns {String} The storeType delimiter
+ */
+export function getStoreTypeDelim () {
+  return ':';
+}
+
+/**
+ * Make storeType from store and scope
+ */
+export function makeStoreType (store, scope) {
+  return `${store}${getStoreTypeDelim()}${scope}`;
+}

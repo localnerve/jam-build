@@ -42,6 +42,7 @@ const E_REPLAY = 0x062de3cc;
 const E_CONFLICT = 0x32c79766;
 const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older than this are considered expired
 const fetchTimeout = 4500;
+const storeTypeDelim = ':';
 
 const criticalSection = new CriticalSection();
 
@@ -186,12 +187,35 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
 /**
  * Make the storeName from the storeType.
  * 
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope
  * @param {Number|String} [version] - The schema version, defaults to this version as compiled
  * @returns {String} The objectStore name
  */
 function makeStoreName (storeType, version = schemaVersion) {
-  return `${storeType}_documents_${version}`;
+  const type = storeType.split(storeTypeDelim)[0];
+  return `${type}_documents_${version}`;
+}
+
+/**
+ * Get the data scope from the storeType.
+ * 
+ * @param {String} storeType - store:scope
+ * @returns {String} The data scope string value
+ */
+function getStoreTypeScope (storeType) {
+  return storeType.split(storeTypeDelim)[1];
+}
+
+/**
+ * Make the url fragement to the resource for the given storeType.
+ * For now, just get the storeType store.
+ * When multiple app level data scopes required, use scope for 'app' store.
+ * 
+ * @param {String} storeType - store:scope
+ * @returns {String} The storeType resource
+ */
+function makeStoreTypeURLFragment (storeType) {
+  return storeType.split(storeTypeDelim)[0];
 }
 
 /**
@@ -209,7 +233,7 @@ async function getDB () {
 /**
  * Store put or delete successful mutation new version result.
  * 
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope
  * @param {String} document - The document name
  * @param {String} result - The mutation result payload
  */
@@ -228,7 +252,7 @@ async function storeMutationResult (storeType, document, result) {
  * Read data from local objectstores and send to the app.
  * localData is the fallback (stale) data in a Network First strategy.
  * 
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope
  * @param {String} document - The document name
  * @param {String|Array<String>} [collections] - collection name(s) to get
  * @param {String} [message] - A user message
@@ -236,6 +260,7 @@ async function storeMutationResult (storeType, document, result) {
 async function localData (storeType, document, collections = null,
   message = 'A local copy of the data is being shown') {
   const storeName = makeStoreName(storeType);
+  const scope = getStoreTypeScope(storeType);
   const db = await getDB();
   const keys = [];
 
@@ -245,7 +270,7 @@ async function localData (storeType, document, collections = null,
       keys.push([document, collection]);
     }
   } else {
-    const idbResults = await db.getAllFromIndex(storeName, 'document', document);
+    const idbResults = await db.getAllFromIndex(storeName, 'document', [scope, document]);
     for (const idbResult of idbResults) {
       keys.push([document, idbResult.collection_name]);
     }
@@ -255,6 +280,7 @@ async function localData (storeType, document, collections = null,
     dbname,
     storeName,
     storeType,
+    scope,
     keys,
     local: true,
     message: {
@@ -269,11 +295,12 @@ async function localData (storeType, document, collections = null,
  * Re-formats data from the network to the idb objectStore format.
  * Sends message to the app with the new data.
  *
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope
  * @param {Object} data - The remote data to store
  */
 async function storeData (storeType, data) {
   const storeName = makeStoreName(storeType);
+  const scope = getStoreTypeScope(storeType);
   const versionStoreName = makeStoreName(versionStoreType);
   const keys = [];
   const db = await getDB();
@@ -291,6 +318,7 @@ async function storeData (storeType, data) {
     for (const [col_name, props] of Object.entries(doc)) {
       keys.push([doc_name, col_name]);
       await db.put(storeName, {
+        scope,
         document_name: doc_name,
         collection_name: col_name,
         properties: props
@@ -303,6 +331,7 @@ async function storeData (storeType, data) {
     dbname,
     storeName,
     storeType,
+    scope,
     keys
   });
 }
@@ -311,13 +340,14 @@ async function storeData (storeType, data) {
  * Load data from local objectStores by document name or document and possible collection name(s).
  * Format the local data for *upsert* to the remote data service.
  *
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope
  * @param {String} document - The document name
  * @param {Array<String>} [collections] - An array of collection names
  */
 async function loadData (storeType, document, collections = null) {
   const result = { collections: [] };
   const storeName = makeStoreName(storeType);
+  const scope = getStoreTypeScope(storeType);
   const versionStoreName = makeStoreName(versionStoreType);
   const db = await getDB();
 
@@ -333,7 +363,7 @@ async function loadData (storeType, document, collections = null) {
   result.version = record.version;
 
   if (!collections || collections.length <= 0) {
-    const idbResults = await db.getAllFromIndex(storeName, 'document', document);
+    const idbResults = await db.getAllFromIndex(storeName, 'document', [scope, document]);
     for (const idbResult of idbResults) {
       result.collections.push({
         collection: idbResult.collection_name,
@@ -344,7 +374,7 @@ async function loadData (storeType, document, collections = null) {
     }
   } else {
     for (const collection of collections) {
-      const idbResult = await db.get(storeName, [document, collection]);
+      const idbResult = await db.get(storeName, [scope, document, collection]);
       result.collections.push({
         collection,
         properties: {
@@ -495,7 +525,7 @@ async function dataAPICall (request, {
  * If there is a network issue, return local data instead.
  *
  * @param {Object} payload - payload parameters
- * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.storeType - store:scope
  * @param {String} [payload.document] - document name
  * @param {String|Array<String>} [payload.collections] - collection name(s) to get
  */
@@ -507,7 +537,8 @@ export async function refreshData ({ storeType, document, collections }) {
     return localData(storeType, document, collections);
   }
 
-  const baseUrl = `/api/data/${storeType}`;
+  const resource = makeStoreTypeURLFragment(storeType);
+  const baseUrl = `/api/data/${resource}`;
   const path = document ? `/${document}${
     typeof collections === 'string' ? `/${collections}`
       : collections?.length === 1 ? `/${collections[0]}` : ''
@@ -555,7 +586,8 @@ async function upsertData ({ storeType, document, collections = null }) {
     throw new Error('Bad input passed to upsertData');
   }
 
-  const baseUrl = `/api/data/${storeType}`;
+  const resource = makeStoreTypeURLFragment(storeType);
+  const baseUrl = `/api/data/${resource}`;
   const url = `${baseUrl}/${document}`;
 
   const body = await loadData(storeType, document, collections);
@@ -603,7 +635,8 @@ async function deleteData ({ storeType, document, collections }) {
     throw new Error('Bad input passed to deleteData');
   }
 
-  const baseUrl = `/api/data/${storeType}`;
+  const resource = makeStoreTypeURLFragment(storeType);
+  const baseUrl = `/api/data/${resource}`;
   let url = `${baseUrl}/${document}`;
 
   // Prepare string collections
@@ -683,7 +716,7 @@ async function clearBaseStoreRecords (storeType, document, op) {
  * as each mutation op completes.
  * 
  * @param {Object} payload - The message payload object
- * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.storeType - store:scope
  * @param {String} payload.document - The document to be updated
  * @param {String} payload.op - The mutation operation, 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to be updated
@@ -699,6 +732,8 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
   /* eslint-enable no-param-reassign */
 
   const baseStoreName = makeStoreName(baseStoreType);
+  const scope = getStoreTypeScope(storeType);
+  const storeName = makeStoreName(storeType);
   const db = await getDB();
 
   if (collection) {
@@ -711,8 +746,7 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
       }
 
       if (!clearOnly) {
-        const storeName = makeStoreName(storeType);
-        const original = await db.get(storeName, [document, collection]);
+        const original = await db.get(storeName, [scope, document, collection]);
 
         await db.add(baseStoreName, {
           storeType, document, collection, op, timestamp: Date.now(), properties: original.properties
@@ -735,8 +769,7 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
     }
 
     if ((docCount === 0 || docCount === deleteCount) && !clearOnly) {
-      const storeName = makeStoreName(storeType);
-      const original = await db.getAllFromIndex(storeName, 'document', document);
+      const original = await db.getAllFromIndex(storeName, 'document', [scope, document]);
 
       for (const orig of original) {
         await db.add(baseStoreName, {
@@ -1155,8 +1188,8 @@ async function processVersionConflicts () {
   // Read all conflict doc records, latest version first
   // Set aside doc version, batch & base commands, and build the remote document objects.
   const remoteData = {};
-  const versions = { app: {}, user: {} };
-  const batch = { app: { put: null, delete: null }, user: { put: null, delete: null } };
+  const versions = {};
+  const batch = {};
   const baseKeys = [];
   for await (const cursor of conflictDocs.iterate(null, 'prev')) { // latest version first
     const {
@@ -1171,6 +1204,12 @@ async function processVersionConflicts () {
 
     // eslint-disable-next-line compat/compat
     const version = typeof BigInt(42) === 'bigint' ? BigInt(new_version) : +new_version; 
+
+    // Build base properties if they don't exist
+    versions[storeType] = versions[storeType] ?? {};
+    batch[storeType] = batch[storeType] ?? {};
+    batch[storeType].put = batch[storeType].put ?? null;
+    batch[storeType].delete = batch[storeType].delete ?? null;
 
     if (!versions[storeType][doc] || versions[storeType][doc] <= version) {
       versions[storeType][doc] = version;
@@ -1196,9 +1235,10 @@ async function processVersionConflicts () {
   const localData = {};
   for (const storeType of Object.keys(remoteData)) {
     const storeName = makeStoreName(storeType);
+    const scope = getStoreTypeScope(storeType);
     
     for (const doc of Object.keys(remoteData[storeType])) {
-      const records = await db.getAllFromIndex(storeName, 'document', doc);
+      const records = await db.getAllFromIndex(storeName, 'document', [scope, doc]);
       
       for (const rec of records) {
         localData[storeType] = localData[storeType] ?? {};
@@ -1261,17 +1301,20 @@ async function processVersionConflicts () {
   const message = {};
   for (const storeType of Object.keys(newData)) {
     const storeName = makeStoreName(storeType);
+    const scope = getStoreTypeScope(storeType);
 
     message[storeType] = message[storeType] ?? { keys: [] };
     message[storeType].dbname = dbname;
     message[storeType].storeName = storeName;
     message[storeType].storeType = storeType;
+    message[storeType].scope = scope;
 
     for (const [doc_name, doc] of Object.entries(newData[storeType])) {
       for (const [col_name, props] of Object.entries(doc)) {
         message[storeType].keys.push([doc_name, col_name]);
 
         await db.put(storeName, {
+          scope,
           document_name: doc_name,
           collection_name: col_name,
           properties: props
@@ -1419,7 +1462,8 @@ async function storeVersionConflict (storeType, op, collections, data) {
  * @param {String|Array<String>|Array<Object>} payload.collections - The network request format of collections
  */
 async function versionConflict ({ storeType, document, op, collections }) {
-  const url = `/api/data/${storeType}/${document}`;
+  const resource = makeStoreTypeURLFragment(storeType);
+  const url = `/api/data/${resource}/${document}`;
 
   const result = await dataAPICall(new Request(url, {
     headers: {
@@ -1458,12 +1502,12 @@ export async function installDatabase () {
         
         if (!db.objectStoreNames.contains(storeName)) {
           const store = db.createObjectStore(storeName, {
-            keyPath: ['document_name', 'collection_name'] 
+            keyPath: ['scope', 'document_name', 'collection_name']
           });
-          store.createIndex('document', 'document_name', {
+          store.createIndex('document', ['scope', 'document_name'], {
             unique: false
           });
-          store.createIndex('collection', 'collection_name', {
+          store.createIndex('collection', ['scope', 'collection_name'], {
             unique: false
           });
         }
@@ -1604,5 +1648,5 @@ export async function activateDatabase () {
     await installDatabase();
   }
   
-  await refreshData({ storeType: 'app' });
+  await refreshData({ storeType: 'app:public' });
 }
