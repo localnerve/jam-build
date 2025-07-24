@@ -63,10 +63,12 @@ async function dataUpdate ({ dbname, storeType, storeName, scope, keys }) {
     store[storeType][docName] = store[storeType][docName] ?? {};
     store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
 
-    const deletes = (new Set(Object.keys(store[storeType][docName][colName])))
-      .difference(new Set(Object.keys(value)));
-    for (const prop of deletes) {
-      delete store[storeType][docName][colName][prop];
+    if (value) {
+      const deletes = (new Set(Object.keys(store[storeType][docName][colName])))
+        .difference(new Set(Object.keys(value)));
+      for (const prop of deletes) {
+        delete store[storeType][docName][colName][prop];
+      }
     }
     Object.assign(store[storeType][docName][colName], value);
     
