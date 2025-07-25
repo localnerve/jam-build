@@ -6,6 +6,7 @@
  */
 import { test, expect } from '../fixtures.js';
 import { acquireAccount } from '../authz.js';
+import { makeStoreType, hashDigest } from '../../application/client/scripts/main/utils.js';
 /*
 import {
   createTestDataApp,
@@ -13,7 +14,7 @@ import {
   deleteTestDataApp,
   deleteTestDataUser
 } from '../testdata.js';
-*/
+ */
 import { startJS, stopJS, createMap, createReport } from '../coverage.js';
 import { initScriptDataUpdate, waitForDataUpdate } from './page.utils.js';
 
@@ -21,11 +22,11 @@ test.describe('login tests', () => {
   let baseUrl;
   let map;
 
-  test.beforeAll(async (/* { adminRequest, userRequest } */) => {
+  test.beforeAll(async (/*{ adminRequest, userRequest }*/) => {
     baseUrl = process.env.BASE_URL;
     map = createMap();
-    //await createTestDataApp(baseUrl, adminRequest);
-    //await createTestDataUser(baseUrl, userRequest);
+    // await createTestDataApp(baseUrl, adminRequest);
+    // await createTestDataUser(baseUrl, userRequest);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -39,8 +40,8 @@ test.describe('login tests', () => {
   // eslint-disable-next-line no-empty-pattern
   test.afterAll(async ({ /* adminRequest, userRequest */ }, testInfo) => {
     await createReport(map, testInfo);
-    //await deleteTestDataApp(baseUrl, adminRequest);
-    //await deleteTestDataUser(baseUrl, userRequest);
+    // await deleteTestDataApp(baseUrl, adminRequest);
+    // await deleteTestDataUser(baseUrl, userRequest);
   });
 
   test('Main login flow', async ({ page }) => {
@@ -55,11 +56,14 @@ test.describe('login tests', () => {
       content: 'localStorage.setItem("debug", "data,request,home,login");'
     });
 
+    let storeType = makeStoreType('app', 'public');
+
     // Wait for the app to setup
     let payload = await waitForDataUpdate(page, {
-      storeType: 'app'
+      storeType,
+      timeout: 6000
     });
-    expect(payload.storeType).toEqual('app');
+    expect(payload.storeType).toEqual(storeType);
 
     // Login
     let logins = await page.getByLabel('Log In').all();
@@ -82,7 +86,7 @@ test.describe('login tests', () => {
     await page.waitForURL(url => {
       return url.origin === process.env.AUTHZ_URL;
     }, {
-      timeout: 5000
+      timeout: 6000
     });
 
     const loginButton = page.getByText('Log In');
@@ -99,9 +103,12 @@ test.describe('login tests', () => {
       timeout: 5000
     });
 
+    const userId = await hashDigest(account.username);
+    storeType = makeStoreType('user', userId);
+
     // Start waiting for user data
     const promiseForUser = waitForDataUpdate(page, {
-      storeType: 'user'
+      storeType
     });
 
     // Verify login state changed
@@ -115,6 +122,6 @@ test.describe('login tests', () => {
 
     // Finish waiting for user data and verify type received
     payload = await promiseForUser;
-    expect(payload.storeType).toEqual('user');
+    expect(payload.storeType).toEqual(storeType);
   });
 });

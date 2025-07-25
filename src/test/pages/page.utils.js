@@ -4,6 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import { makeStoreType } from '../../application/client/scripts/main/utils.js';
 
 /**
  * Browser init script to pre-hook 'database-data-update' and record the last keys sent by storeType.
@@ -37,12 +38,12 @@ export function initScriptDataUpdate ([authorizerURL, clientID]) {
  * 
  * @param {Page} page - The playwright Page fixture
  * @param {Object} [options] - options object
- * @param {String} [options.storeType] - The storeType to wait for 'app' or 'user', defaults to 'app'
+ * @param {String} [options.storeType] - The storeType to wait for 'app' or 'user', defaults to 'app:public'
  * @param {Number} [options.timeout] - timeout, defaults to 3000
  * @returns {Promise<Object>} A promise that resolves to the message payload object
  */
 export function waitForDataUpdate (page, {
-  storeType = 'app',
+  storeType = makeStoreType('app', 'public'),
   timeout = 3000
 } = {}) {
   return page.evaluate(([storeType, timeout]) => {

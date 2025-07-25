@@ -467,6 +467,8 @@ async function dataAPICall (request, {
         await asyncResponseHandler(data);
       }
     } else {
+      debug(`fetch ${request.method} for ${request.url} failed: ${response.status}`, response);
+
       let handled = false;
 
       if (request.method !== 'GET') {
@@ -489,7 +491,7 @@ async function dataAPICall (request, {
       }
     }
   } catch (error) {
-    debug('dataAPICall failed', error.name, error.message);
+    debug('dataAPICall threw exception', error.name, error.message);
 
     if (fetchTimer) {
       clearTimeout(fetchTimer);
