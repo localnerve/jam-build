@@ -105,14 +105,14 @@ export async function deleteTestDataApp (url, adminRequest) {
     await getData(adminRequest, `${url}/api/data/app/home`, json => {
       version = json.home.__version
     });
+
+    await deleteData(adminRequest, `${url}/api/data/app/home`, {
+      version: 1,
+      deleteDocument: true
+    });
   } catch (e) {
     console.warn('no existing app home data');
   }
-
-  await deleteData(adminRequest, `${url}/api/data/app/home`, {
-    version: 1,
-    deleteDocument: true
-  });
 }
 
 /**
@@ -128,12 +128,12 @@ export async function deleteTestDataUser (url, userRequest) {
     await getData(userRequest, `${url}/api/data/user/home`, json => {
       version = json.home.__version
     });
+
+    await deleteData(userRequest, `${url}/api/data/user/home`, {
+      version,
+      deleteDocument: true
+    });
   } catch (e) {
     console.warn('no existing user home data');
   }
-
-  await deleteData(userRequest, `${url}/api/data/user/home`, {
-    version,
-    deleteDocument: true
-  });
 }

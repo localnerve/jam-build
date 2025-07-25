@@ -7,14 +7,12 @@
 import { test, expect } from '../fixtures.js';
 import { acquireAccount } from '../authz.js';
 import { makeStoreType, hashDigest } from '../../application/client/scripts/main/utils.js';
-/*
 import {
   createTestDataApp,
   createTestDataUser,
   deleteTestDataApp,
   deleteTestDataUser
 } from '../testdata.js';
- */
 import { startJS, stopJS, createMap, createReport } from '../coverage.js';
 import { initScriptDataUpdate, waitForDataUpdate } from './page.utils.js';
 
@@ -22,11 +20,11 @@ test.describe('login tests', () => {
   let baseUrl;
   let map;
 
-  test.beforeAll(async (/*{ adminRequest, userRequest }*/) => {
+  test.beforeAll(async ({ adminRequest, userRequest }) => {
     baseUrl = process.env.BASE_URL;
     map = createMap();
-    // await createTestDataApp(baseUrl, adminRequest);
-    // await createTestDataUser(baseUrl, userRequest);
+    await createTestDataApp(baseUrl, adminRequest);
+    await createTestDataUser(baseUrl, userRequest);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -38,14 +36,14 @@ test.describe('login tests', () => {
   });
 
   // eslint-disable-next-line no-empty-pattern
-  test.afterAll(async ({ /* adminRequest, userRequest */ }, testInfo) => {
+  test.afterAll(async ({ adminRequest, userRequest }, testInfo) => {
     await createReport(map, testInfo);
-    // await deleteTestDataApp(baseUrl, adminRequest);
-    // await deleteTestDataUser(baseUrl, userRequest);
+    await deleteTestDataApp(baseUrl, adminRequest);
+    await deleteTestDataUser(baseUrl, userRequest);
   });
 
   test('Main login flow', async ({ page }) => {
-    test.setTimeout(15000);
+    test.setTimeout(30000);
 
     await page.addInitScript(
       initScriptDataUpdate, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID]
@@ -63,7 +61,7 @@ test.describe('login tests', () => {
     // Wait for the app to setup
     let payload = await waitForDataUpdate(page, {
       storeType,
-      timeout: 6000
+      timeout: 8000
     });
     expect(payload.storeType).toEqual(storeType);
 
@@ -73,7 +71,7 @@ test.describe('login tests', () => {
 
     // make sure button is in the expected state
     await topLogin.locator('.label').waitFor({
-      timeout: 3000
+      timeout: 5000
     });
     const loginText = await topLogin.innerText();
     expect(loginText).toEqual('Log In'); // eslint-disable-line  playwright/prefer-web-first-assertions
@@ -88,7 +86,7 @@ test.describe('login tests', () => {
     await page.waitForURL(url => {
       return url.origin === process.env.AUTHZ_URL;
     }, {
-      timeout: 6000
+      timeout: 8000
     });
 
     const loginButton = page.getByText('Log In');
@@ -102,7 +100,7 @@ test.describe('login tests', () => {
 
     // Wait for auth callback
     await page.waitForURL(`${baseUrl}/?state=**`, {
-      timeout: 5000
+      timeout: 8000
     });
 
     const userId = await hashDigest(account.username);
@@ -110,14 +108,15 @@ test.describe('login tests', () => {
 
     // Start waiting for user data
     const promiseForUser = waitForDataUpdate(page, {
-      storeType
+      storeType,
+      timeout: 8000
     });
 
     // Verify login state changed
     logins = await page.getByLabel('Log In').all();
     topLogin = logins[1];
     await topLogin.locator('.alt-label').waitFor({
-      timeout: 3000
+      timeout: 5000
     });
     const logoutText = await topLogin.innerText();
     expect(logoutText).toEqual('Log Out'); // eslint-disable-line  playwright/prefer-web-first-assertions

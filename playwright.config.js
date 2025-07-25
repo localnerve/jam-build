@@ -34,7 +34,7 @@ export default defineConfig({
   }, {
     name: 'pages',
     testMatch: 'pages/**/*.test.js',
-    dependencies: ['fixtures']
+    dependencies: ['fixtures', 'api']
   }, {
     name: 'Chrome',
     use: {
