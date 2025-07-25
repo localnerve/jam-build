@@ -45,6 +45,8 @@ test.describe('login tests', () => {
   });
 
   test('Main login flow', async ({ page }) => {
+    test.timeout(15000);
+
     await page.addInitScript(
       initScriptDataUpdate, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID]
     );
