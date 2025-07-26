@@ -26,7 +26,7 @@ export async function createReport (map, testInfo) {
   while (exists) {
     try {
       exists = await fs.access(outputPath).then(() => true);
-      outputPath = path.join(coverageDir, `${basename}-${++i}.json`);
+      outputPath = path.join(coverageDir, `${basename}-${++i}`);
     } catch {
       exists = false;
     }
