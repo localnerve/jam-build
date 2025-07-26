@@ -27,7 +27,7 @@ if ('serviceWorker' in navigator) {
 
 /**
  * Main handler for 'database-data-update' message from the service worker.
- * Updates memory store backing, and sends the notifications.
+ * Updates memory store backing, and sends the 'update' notifications.
  *
  * @param {Object} params - window.App 'database-data-update' event payload
  * @param {String} params.dbname - The database name
@@ -290,6 +290,7 @@ function onChange(op, key, value) {
 /**
  * Recursive proxy handler.
  * This formats the key into an array and sets the mutation op for changes.
+ * This is the persistent nanostore pattern.
  * 
  * @param {Array} path - The keypath to 'here'
  * @returns {Object} The proxy handler for this keypath
@@ -308,7 +309,7 @@ function createHandler (path = []) {
       onChange('put', [...path, key], value);
       return true;
     },
-    deleteProperty(target, key) {
+    deleteProperty (target, key) {
       delete target[key];
       onChange('delete', [...path, key], undefined);
       return true;
