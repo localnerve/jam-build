@@ -1,5 +1,6 @@
 /**
- * The home page
+ * The home page.
+ * Demonstrates full data lifecycle using vanilla Object proxied persistent nanostores.
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
@@ -38,11 +39,11 @@ function updateData (storeType, doc, collection, e) {
 
   debug('editable-object change', detail);
 
-  // It's safe to update the store here because we DONT listen to 'put' or 'delete' mutations
-  // Otherwise we'd get called twice
+  // It's safe to update the store here because we DONT listen to 'put' or 'delete' mutations with this handler
+  // Just 'update', otherwise we'd get called multiple times
   switch(detail.action) {
     case 'add':
-    case 'edit':
+    case 'edit': // 'put' is upsert, see ../data.js:queueMutation
       store[storeType][doc][collection][prop] = val;
       break;
     case 'remove':
@@ -55,12 +56,64 @@ function updateData (storeType, doc, collection, e) {
 }
 
 /**
- * Only allow updates if logged in.
+ * Update policy. Only allow updates if logged in.
  * 
  * @returns {Boolean} true if login active, false otherwise
  */
 function canUpdate () {
   return isLoginActive();
+}
+
+/**
+ * If needed, connect the given editableObject ctrl to get and send updates.
+ * Listens for updates coming off the web component, updates the data store(s) (and databases) on 'change'.
+ * 
+ * @param {EdtiableObject} ctrl - The EditableObject control instance
+ * @param {String} storeType - The key path to the document
+ * @param {String} doc - The document name
+ * @param {String} col - The collection name
+ */
+function connectEditableObject (ctrl, storeType, doc, col) {
+  if (!updateDataHandlers[ctrl.id]) {
+    updateDataHandlers[ctrl.id] = updateData.bind(
+      null, storeType, doc, col
+    );
+
+    // Only allow updates if logged in
+    ctrl.onAdd = ctrl.onEdit = ctrl.onRemove = canUpdate;
+
+    // Handle component change events
+    ctrl.addEventListener('change', updateDataHandlers[ctrl.id]);
+  }
+}
+
+/**
+ * Build a new store or document for the given storeType.
+ * This causes a new document and/or collection to be created on the remote data service.
+ * 
+ * This is the glory and simplicity of idb/service-worker backed persistent nanostores.
+ * If the app needed a mandatory initial user state, that could've been sent down with app data and assigned here.
+ * 
+ * @param {String} storeType - The storeType to build a new document on
+ * @param {String} document - The document to create
+ * @param {String} [collection] - The collection to create
+ * @return {Boolean} true if data was created, false otherwise
+ */
+function buildNewDocumentIfRequired (storeType, document, collection = '') {
+  debug('buildNewDocumentIfRequired: ', storeType, document, collection);
+
+  let result = false;
+  if (document && !store[storeType][document]) {
+    store[storeType][document] = {};
+    if (collection) {
+      store[storeType][document][collection] = {};
+    }
+    result = true;
+  } else if (document && collection && !store[storeType][document][collection]) {
+    store[storeType][document][collection] = {};
+    result = true;
+  }
+  return result;
 }
 
 /**
@@ -82,7 +135,7 @@ function updatePage ({ key, value: object }) {
   }
 
   let el;
-  // strip any hex hash in storeType
+  // strip any hex hash key in storeType
   let predicate = [
     ...key[0].split(storeTypeDelim).filter(t => !/^[0-9a-fA-F]+$/.test(t)),
     ...key.slice(1)
@@ -103,22 +156,8 @@ function updatePage ({ key, value: object }) {
 
     case 'state':
       debug(`Updating state ${predicate}`);
-
-      // Get a reference to the editable-object component
       el = document.getElementById(predicate); // collecion IDs are storeType-document-collection
-
-      // Only allow updates if logged in
-      el.onAdd = el.onEdit = el.onRemove = canUpdate;
-
-      // Listen for updates coming off the web component, update the data store(s) (and databases) on change.
-      if (!updateDataHandlers[predicate]) {
-        updateDataHandlers[predicate] = updateData.bind(
-          null, storeType, doc, collection
-        );
-        el.addEventListener('change', updateDataHandlers[predicate]);
-      }
-
-      // Give the data to the web component...
+      connectEditableObject(el, storeType, doc, collection);
       el.object = object;
       break;
 
@@ -157,17 +196,14 @@ async function setupUser () {
 
   store[userStoreType] = await getUserStore(page, userStoreType);
 
-  // If no user page or state data, set it up.
-  // This causes a new document and/or collection to be created on the remote data service.
-  //
-  // (This is the glory of the simplicity of idb/service-worker backed persistent nanostores)
-  // (If the app needed a mandatory initial user state, that could've been sent down with app data and assigned here)
-  //
-  if (!store[userStoreType][page]) {
-    store[userStoreType][page] = {};
-    store[userStoreType][page].state = {};
-  } else if (!store[userStoreType][page].state) {
-    store[userStoreType][page].state = {};
+  buildNewDocumentIfRequired(userStoreType, page, 'state');
+
+  if (profile?.isAdmin) {
+    const updated = buildNewDocumentIfRequired(appStoreType, page, 'state');
+    if (updated) {
+      appPublicStateControl.object = {};
+      connectEditableObject(appPublicStateControl, appStoreType, page, 'state');
+    }
   }
 }
 
@@ -184,7 +220,7 @@ export default async function setup (support) {
   storeEvents.addEventListener('update', [appStoreType, page, 'content'], updatePage);
   storeEvents.addEventListener('update', [appStoreType, page, 'state'], updatePage);
   storeEvents.addEventListener('update', [appStoreType, '', ''], () => {
-    appPublicStateControl.object = { message: 'You forgot to setup the application state data' };
+    appPublicStateControl.object = { message: 'You forgot to setup the demo application state' };
   });
   setTimeout(() => {
     const appPublicIntroControl = document.getElementById(`app-public-${page}-content-intro`);
