@@ -26,12 +26,14 @@
     "test:env": "cross-env AUTHZ_ADMIN_SECRET=deadbEf-2af536fa DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
     "test:env:local": "npm run test:env -- AUTHZ_URL=http://localhost:9010 AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64 LOCALHOST_PORT=5000",
     "test:local": "npm run test:env:local -- playwright test --project=api --project=pages",
+    "test:local:api": "npm run test:env:local -- playwright test --project=api",
     "test:local:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=pages --workers=1 --timeout=600000 --headed",
     "test:build": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 playwright test --project=dummy --headed",
     "test:debug2": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=api --project=pages --workers=2 --timeout=600000 --headed",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=api --project=pages --workers=1 --timeout=600000 --headed",
     "test:_user": "npm run test:env:local -- node src/test/_createlocaluser.js",
     "test:_data": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata",
+    "test:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
     "test:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000"
   },
   "repository": {

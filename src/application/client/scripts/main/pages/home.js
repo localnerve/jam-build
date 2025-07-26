@@ -9,12 +9,13 @@ import '@localnerve/editable-object';
 
 import { storeEvents } from '../data.js';
 import { getUserStore } from '../user.js';
-import { getPublicApplicationStore } from '../app.js';
+import { getApplicationStore } from '../app.js';
 import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
 import { makeStoreType, getStoreTypeDelim } from '../utils.js';
 
 const store = {};
 const page = 'home';
+const noDataMarkup = '<strong>** No Data **</strong>'; 
 const storeTypeDelim = getStoreTypeDelim();
 const appStoreType = makeStoreType('app', 'public');
 const debug = debugLib(page);
@@ -147,7 +148,7 @@ async function setupUser () {
   // New user case / No intro text
   setTimeout(() => {
     if (!userIntroControl.innerText) {
-      userIntroControl.innerHTML = '<strong>** No Data **</strong>';
+      userIntroControl.innerHTML = noDataMarkup;
     }
   }, 3000);
 
@@ -182,6 +183,15 @@ export default async function setup (support) {
 
   storeEvents.addEventListener('update', [appStoreType, page, 'content'], updatePage);
   storeEvents.addEventListener('update', [appStoreType, page, 'state'], updatePage);
+  storeEvents.addEventListener('update', [appStoreType, '', ''], () => {
+    appPublicStateControl.object = { message: 'You forgot to setup the application state data' };
+  });
+  setTimeout(() => {
+    const appPublicIntroControl = document.getElementById(`app-public-${page}-content-intro`);
+    if (!appPublicIntroControl.innerText) {
+      appPublicIntroControl.innerHTML = noDataMarkup;
+    }
+  }, 3000);
 
   loginEvents.addEventListener('login', async () => {
     await setupUser();
@@ -193,7 +203,7 @@ export default async function setup (support) {
   debug('requesting app (and user) data...');
   await Promise.all([
     (async () => {
-      store[appStoreType] = await getPublicApplicationStore(page);
+      store[appStoreType] = await getApplicationStore(page, appStoreType);
     })(),
     (async () => {
       if (isLoginActive()) {

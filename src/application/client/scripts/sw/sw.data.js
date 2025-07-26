@@ -264,15 +264,19 @@ async function localData (storeType, document, collections = null,
   const db = await getDB();
   const keys = [];
 
-  if (collections) {
-    const colls = typeof collections === 'string' ? [collections] : collections;
-    for (const collection of colls) {
-      keys.push([document, collection]);
-    }
-  } else {
-    const idbResults = await db.getAllFromIndex(storeName, 'document', [scope, document]);
-    for (const idbResult of idbResults) {
-      keys.push([document, idbResult.collection_name]);
+  debug(`localData: storeType='${storeType}' scope='${scope}' document='${document}'`);
+
+  if (document) {
+    if (collections) {
+      const colls = typeof collections === 'string' ? [collections] : collections;
+      for (const collection of colls) {
+        keys.push([document, collection]);
+      }
+    } else {
+      const idbResults = await db.getAllFromIndex(storeName, 'document', [scope, document]);
+      for (const idbResult of idbResults) {
+        keys.push([document, idbResult.collection_name]);
+      }
     }
   }
 
@@ -461,14 +465,17 @@ async function dataAPICall (request, {
     clearTimeout(fetchTimer);
     fetchTimer = null;
 
+    debug(`fetch ${request.method} response for ${request.url}: ${response.status}`, response);
+
     if (response.ok) {
       if (typeof asyncResponseHandler === 'function') {
-        const data = await response.json();
+        let data = {};
+        if (response.status !== 204) {
+          data = await response.json();
+        }
         await asyncResponseHandler(data);
       }
     } else {
-      debug(`fetch ${request.method} for ${request.url} failed: ${response.status}`, response);
-
       let handled = false;
 
       if (request.method !== 'GET') {
@@ -750,9 +757,13 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
       if (!clearOnly) {
         const original = await db.get(storeName, [scope, document, collection]);
 
-        await db.add(baseStoreName, {
-          storeType, document, collection, op, timestamp: Date.now(), properties: original.properties
-        });
+        debug(`_mayUpdate collection [${scope},${document},${collection}] original: `, original);
+
+        if (original) {
+          await db.add(baseStoreName, {
+            storeType, document, collection, op, timestamp: Date.now(), properties: original.properties
+          });
+        }
       }
     }
   } else {
@@ -773,15 +784,19 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
     if ((docCount === 0 || docCount === deleteCount) && !clearOnly) {
       const original = await db.getAllFromIndex(storeName, 'document', [scope, document]);
 
-      for (const orig of original) {
-        await db.add(baseStoreName, {
-          storeType,
-          document,
-          collection: orig.collection_name,
-          op,
-          timestamp: Date.now(),
-          properties: orig.properties
-        });
+      debug(`_mayUpdate document [${scope},${document}] original: `, original);
+
+      if (original) {
+        for (const orig of original) {
+          await db.add(baseStoreName, {
+            storeType,
+            document,
+            collection: orig.collection_name,
+            op,
+            timestamp: Date.now(),
+            properties: orig.properties
+          });
+        }
       }
     }
   }

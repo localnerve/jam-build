@@ -62,18 +62,18 @@ BEGIN
             FROM application_documents d
             JOIN application_documents_collections dc ON d.document_id = dc.document_id
             JOIN application_collections c ON dc.collection_id = c.collection_id
-            JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
-            JOIN application_properties p ON cp.property_id = p.property_id
+            LEFT JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
+            LEFT JOIN application_properties p ON cp.property_id = p.property_id
             WHERE d.document_name = p_document_name
               AND FIND_IN_SET(c.collection_name, p_collections);
         ELSE
-            -- If no CSV string is provided, use the original query
+            -- If no collections string is provided, try to get all available
             SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
             FROM application_documents d
             JOIN application_documents_collections dc ON d.document_id = dc.document_id
             JOIN application_collections c ON dc.collection_id = c.collection_id
-            JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
-            JOIN application_properties p ON cp.property_id = p.property_id
+            LEFT JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
+            LEFT JOIN application_properties p ON cp.property_id = p.property_id
             WHERE d.document_name = p_document_name;
         END IF;
     END IF;
@@ -97,8 +97,8 @@ BEGIN
         FROM application_documents d
         JOIN application_documents_collections dc ON d.document_id = dc.document_id
         JOIN application_collections c ON dc.collection_id = c.collection_id
-        JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
-        JOIN application_properties p ON cp.property_id = p.property_id;
+        LEFT JOIN application_collections_properties cp ON c.collection_id = cp.collection_id
+        LEFT JOIN application_properties p ON cp.property_id = p.property_id;
     END IF;
 END;
 //
@@ -697,18 +697,18 @@ BEGIN
             FROM user_documents d
             JOIN user_documents_collections dc ON d.document_id = dc.document_id
             JOIN user_collections c ON dc.collection_id = c.collection_id
-            JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
-            JOIN user_properties p ON cp.property_id = p.property_id
+            LEFT JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
+            LEFT JOIN user_properties p ON cp.property_id = p.property_id
             WHERE d.user_id = p_user_id AND d.document_name = p_document_name
               AND FIND_IN_SET(c.collection_name, p_collections);
         ELSE
-            -- If no CSV string is provided, use the original query
+            -- No CSV collections string provided, try to get all
             SELECT d.document_name, d.document_version, c.collection_id, c.collection_name, p.property_id, p.property_name, p.property_value
             FROM user_documents d
             JOIN user_documents_collections dc ON d.document_id = dc.document_id
             JOIN user_collections c ON dc.collection_id = c.collection_id
-            JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
-            JOIN user_properties p ON cp.property_id = p.property_id
+            LEFT JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
+            LEFT JOIN user_properties p ON cp.property_id = p.property_id
             WHERE d.user_id = p_user_id AND d.document_name = p_document_name;
         END IF;
     END IF;
@@ -733,8 +733,8 @@ BEGIN
         FROM user_documents d
         JOIN user_documents_collections dc ON d.document_id = dc.document_id
         JOIN user_collections c ON dc.collection_id = c.collection_id
-        JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
-        JOIN user_properties p ON cp.property_id = p.property_id
+        LEFT JOIN user_collections_properties cp ON c.collection_id = cp.collection_id
+        LEFT JOIN user_properties p ON cp.property_id = p.property_id
         WHERE d.user_id = p_user_id;
     END IF;
 END;

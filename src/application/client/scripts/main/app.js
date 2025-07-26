@@ -8,14 +8,17 @@ import { updatePageData } from './request.js';
 import { createStore } from './data.js';
 import { makeStoreType } from './utils.js';
 
+const appPublic = makeStoreType('app', 'public');
+
 /**
- * Get the public application store.
+ * Get an application store.
  * 
  * @param {String} page - The name of the page
+ * @param {String} storeType - The storeType of the dataset to get, defaults to app:public
  * @return {Object} The hot proxied app data store
  */
-export async function getPublicApplicationStore (page) {
+export async function getApplicationStore (page, storeType = appPublic) {
   await updatePageData(page);
 
-  return createStore(makeStoreType('app', 'public'), page);
+  return createStore(storeType, page);
 }

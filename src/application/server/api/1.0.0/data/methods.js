@@ -70,11 +70,15 @@ function reduceDocumentResults (acc, curr) {
       __version: `${curr.document_version}`
     };
   }
+  
   let collection = document[curr.collection_name];
   if (!collection) {
     collection = document[curr.collection_name] = {};
   }
-  collection[curr.property_name] = curr.property_value;
+
+  if (curr.property_name) {
+    collection[curr.property_name] = curr.property_value;
+  }
   return acc;
 }
 

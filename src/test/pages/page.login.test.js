@@ -35,7 +35,6 @@ test.describe('login tests', () => {
     await stopJS(page, map);
   });
 
-  // eslint-disable-next-line no-empty-pattern
   test.afterAll(async ({ adminRequest, userRequest }, testInfo) => {
     await createReport(map, testInfo);
     await deleteTestDataApp(baseUrl, adminRequest);

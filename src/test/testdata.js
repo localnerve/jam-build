@@ -107,7 +107,7 @@ export async function deleteTestDataApp (url, adminRequest) {
     });
 
     await deleteData(adminRequest, `${url}/api/data/app/home`, {
-      version: 1,
+      version,
       deleteDocument: true
     });
   } catch (e) {

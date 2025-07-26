@@ -552,6 +552,50 @@ test.describe('/api/data/user', () => {
     await getData(adminRequest, `${baseUrl}/home/girls`, 204);
   });
 
+  test('empty collections that exist are still returned with doc query, user', async ({ userRequest }) => {
+    version.user = await postData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
+      collections: [{
+        collection: 'girls'
+      }]
+    });
+
+    await getData(userRequest, `${baseUrl}/home/girls`, 204); // should be empty
+
+    await getData(userRequest, `${baseUrl}/home`, json => {
+      expect(json).toEqual({
+        home: {
+          __version: version.user,
+          state: expect.any(Object),
+          friends: expect.any(Object),
+          girls: {}
+        }
+      });
+    });
+  });
+
+  test('empty collections that exist are still returned with full query, user', async ({ userRequest }) => {
+    version.user = await postData(userRequest, `${baseUrl}/home`, {
+      version: version.user,
+      collections: [{
+        collection: 'girls'
+      }]
+    });
+
+    await getData(userRequest, `${baseUrl}/home/girls`, 204); // should be empty
+
+    await getData(userRequest, `${baseUrl}`, json => {
+      expect(json).toEqual({
+        home: {
+          __version: version.user,
+          state: expect.any(Object),
+          friends: expect.any(Object),
+          girls: {}
+        }
+      });
+    });
+  });
+
   test('delete a collection, user', async ({ userRequest }) => {
     await getData(userRequest, `${baseUrl}/home/friends`, json => {
       expect(json).toEqual(expect.objectContaining({

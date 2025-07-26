@@ -375,7 +375,7 @@ test.describe('/api/data/app', () => {
     });
   });
 
-  test('empty collections that exist should return 204', async ({ adminRequest }) => {
+  test('empty collections that exist should return 204 with collection query', async ({ adminRequest }) => {
     version = await postData(adminRequest, `${baseUrl}/home`, {
       version,
       collections: [{
@@ -408,6 +408,50 @@ test.describe('/api/data/app', () => {
     });
 
     await getData(adminRequest, `${baseUrl}/home/girls`, 204);
+  });
+
+  test('empty collections that exist are still returned with doc query', async ({ adminRequest }) => {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
+      collections: [{
+        collection: 'girls'
+      }]
+    });
+
+    await getData(adminRequest, `${baseUrl}/home/girls`, 204); // should be empty
+
+    await getData(adminRequest, `${baseUrl}/home`, json => {
+      expect(json).toEqual({
+        home: {
+          __version: version,
+          state: expect.any(Object),
+          friends: expect.any(Object),
+          girls: {}
+        }
+      });
+    });
+  });
+
+  test('empty collections that exist are still returned with full query', async ({ adminRequest }) => {
+    version = await postData(adminRequest, `${baseUrl}/home`, {
+      version,
+      collections: [{
+        collection: 'girls'
+      }]
+    });
+
+    await getData(adminRequest, `${baseUrl}/home/girls`, 204); // should be empty
+
+    await getData(adminRequest, `${baseUrl}`, json => {
+      expect(json).toEqual({
+        home: {
+          __version: version,
+          state: expect.any(Object),
+          friends: expect.any(Object),
+          girls: {}
+        }
+      });
+    });
   });
 
   test('post empty collections, no property input', async ({ adminRequest }) => {
