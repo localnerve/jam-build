@@ -25,7 +25,7 @@ import * as jsonDiffPatchLib from 'jsondiffpatch';
 import { openDB } from 'idb';
 import { Queue } from 'workbox-background-sync'; // workbox-core
 import { _private } from 'workbox-core';
-import { startTimer } from './sw.timer.js';
+import { startTimer, serviceAllTimers } from './sw.timer.js';
 import { sendMessage, CriticalSection } from './sw.utils.js';
 
 const dbname = 'jam_build';
@@ -755,6 +755,7 @@ export async function logout ({ storeType }) {
 
     if (!exists) {
       await _batchUpdate({ storeType, op: 'logout' }, true);
+      serviceAllTimers();
     }
   } else {
     await _logout(storeType);

@@ -134,6 +134,19 @@ function serviceTimer (timerName) {
 }
 
 /**
+ * Service all timers currently in the timers object.
+ */
+export function serviceAllTimers () {
+  const timerNames = Object.keys(timers);
+
+  debug(`serviceAllTimers ${timerNames}`);
+
+  for (const timerName of timerNames) {
+    serviceTimer(timerName);
+  }
+}
+
+/**
  * Start or reset a timer by name.
  * Start a heartbeat for a new timer.
  * If the heartbeat skips, consider the timer expired and service the timer.
