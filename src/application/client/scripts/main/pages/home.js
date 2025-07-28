@@ -117,6 +117,7 @@ function buildNewDocumentIfRequired (storeType, document, collection = '') {
 }
 
 /**
+ * Store 'update' event handler.
  * On the store 'update' event, update the UI for application and user data.
  * Looks for collections named:
  *   'content'
@@ -135,7 +136,7 @@ function updatePage ({ key, value: object }) {
   }
 
   let el;
-  // strip any hex hash key in storeType
+  // strip any hex hash key in storeType so you don't need user ids in markup ids. user is user.
   let predicate = [
     ...key[0].split(storeTypeDelim).filter(t => !/^[0-9a-fA-F]+$/.test(t)),
     ...key.slice(1)
@@ -179,7 +180,7 @@ async function setupUser () {
   const { storeType: userStoreType } = profile;
 
   storeEvents.addEventListener('update', [userStoreType, '', ''], () => {
-    userStateControl.object = {};
+    userStateControl.object = { message: 'Initializing demo user state...' };
   });
   storeEvents.addEventListener('update', [userStoreType, page, 'content'], updatePage);
   storeEvents.addEventListener('update', [userStoreType, page, 'state'], updatePage);
@@ -196,10 +197,14 @@ async function setupUser () {
 
   store[userStoreType] = await getUserStore(page, userStoreType);
 
-  buildNewDocumentIfRequired(userStoreType, page, 'state');
+  let updated = buildNewDocumentIfRequired(userStoreType, page, 'state');
+  if (updated) {
+    userStateControl.object = {};
+    connectEditableObject(userStateControl, userStoreType, page, 'state');
+  }
 
   if (profile?.isAdmin) {
-    const updated = buildNewDocumentIfRequired(appStoreType, page, 'state');
+    updated = buildNewDocumentIfRequired(appStoreType, page, 'state');
     if (updated) {
       appPublicStateControl.object = {};
       connectEditableObject(appPublicStateControl, appStoreType, page, 'state');
@@ -220,7 +225,7 @@ export default async function setup (support) {
   storeEvents.addEventListener('update', [appStoreType, page, 'content'], updatePage);
   storeEvents.addEventListener('update', [appStoreType, page, 'state'], updatePage);
   storeEvents.addEventListener('update', [appStoreType, '', ''], () => {
-    appPublicStateControl.object = { message: 'You forgot to setup the demo application state' };
+    appPublicStateControl.object = { message: 'Login as admin to init app state' };
   });
   setTimeout(() => {
     const appPublicIntroControl = document.getElementById(`app-public-${page}-content-intro`);
