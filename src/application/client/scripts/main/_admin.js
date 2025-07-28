@@ -10,7 +10,7 @@
  */
 import {
   processLogin,
-  processLogout,
+  logout,
   initializeAuthorizer,
   getUserProfile,
   isLoginActive,
@@ -50,20 +50,6 @@ function setupLogin () {
   form.classList[classMethod]('login');
   form.removeEventListener('submit', prevHandler);
   form.addEventListener('submit', nextHandler);
-}
-
-/**
- * Wrapper/event handler for logout setup
- */
-function setupUIForLogout () {
-  setupLogin(true);
-}
-
-/**
- * Wrapper/event handler for login setup
- */
-function setupUIForLogin () {
-  setupLogin(false);
 }
 
 /**
@@ -108,9 +94,8 @@ async function handleLogin (e) {
 async function handleLogout (e) {
   e.preventDefault();
 
-  await authRef.logout();
+  await logout();
 
-  processLogout();
   setupLogin(false);
 }
 
@@ -119,10 +104,10 @@ function setup () {
 
   authRef = initializeAuthorizer();
 
-  loginEvents.removeEventListener('login', setupUIForLogout);
-  loginEvents.addEventListener('login', setupUIForLogout);
-  loginEvents.removeEventListener('logout', setupUIForLogin);
-  loginEvents.addEventListener('logout', setupUIForLogin);
+  loginEvents.removeEventListener('login', setupLogin);
+  loginEvents.addEventListener('login', setupLogin);
+  loginEvents.removeEventListener('logout', setupLogin);
+  loginEvents.addEventListener('logout', setupLogin);
 
   setupLogin();
 

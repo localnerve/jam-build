@@ -232,7 +232,7 @@ export async function processLogin (login) {
 /**
  * Called after a successful logout for additional handling.
  */
-export function processLogout () {
+function processLogout () {  
   sessionStorage.setItem('login', '');
   sessionStorage.setItem('user', '');
   
@@ -240,6 +240,50 @@ export function processLogout () {
   updateUI(null, uiElements);
   
   window.App.exec('login-action-logout');
+}
+
+/**
+ * Handle the 'logout-complete' message from the service worker.
+ *
+ * @param {Event} event - The service worker event
+ */
+async function logoutComplete (event) {
+  const pageSpinner = document.querySelector('.page-spinner');
+  const msgId = event?.data?.meta;
+
+  if (msgId === 'logout-complete') {
+    await authRef.logout();
+    pageSpinner.classList.remove('show');
+    processLogout();
+  }
+}
+
+/**
+ * Do the entire logout sequence.
+ * Sends message to the service worker and waits for the 'logout-complete' message.
+ * The worker may be batch processing, so we have to wait before credentials are destroyed.
+ */
+export async function logout () {
+  if ('serviceWorker' in navigator) {
+    const pageSpinner = document.querySelector('.page-spinner');
+    const profile = getUserProfile();
+    const reg = await navigator.serviceWorker.ready;
+    
+    pageSpinner.classList.add('show');
+
+    navigator.serviceWorker.removeEventListener('message', logoutComplete);
+    navigator.serviceWorker.addEventListener('message', logoutComplete);
+
+    reg.active.postMessage({
+      action: 'logout',
+      payload: {
+        storeType: profile.storeType
+      }
+    });
+  } else {
+    await authRef.logout();
+    processLogout();
+  }
 }
 
 /**
@@ -269,10 +313,7 @@ async function loginHandler (event) {
     }
   } else {
     debug('loginHandler detected ACTIVE login');
-
-    await authRef.logout();
-    
-    processLogout();
+    await logout();
   }
 }
 

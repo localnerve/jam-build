@@ -16,6 +16,7 @@ import {
   refreshData,
   batchUpdate,
   mayUpdate,
+  logout,
   setupBackgroundRequests
 } from './sw.data.js';
 import { sendMessage } from './sw.utils.js';
@@ -138,6 +139,13 @@ self.addEventListener('message', event => {
       );
       break;
 
+    case 'logout':
+      debug('logout message');
+      waitOrPassThru(
+        logout(payload)
+      );
+      break;
+  
     case '__coverage__':
       debug('__coverage__ message');
       waitOrPassThru(

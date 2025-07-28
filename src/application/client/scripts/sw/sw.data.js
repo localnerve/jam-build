@@ -9,7 +9,8 @@
  *   process.env.NODE_ENV - 'production' or not
  *
  * exports:
- *   setupBackgroundRequests - Setup offline request queue, sync event processing
+ *   setupBackgroundRequests - Setup offline request queue, 'sync' event or polyfill
+ *   logout - Perform any logout actions
  *   refreshData - Get the latest data from the remote data service
  *   batchUpdate - Make a mutation to the remote data service
  *   mayUpdate - Prepare for a mutation to the local data
@@ -44,9 +45,11 @@ const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older th
 const fetchTimeout = 4500;
 const storeTypeDelim = ':';
 
-const criticalSection = new CriticalSection();
+const csMayUpdate = new CriticalSection();
+const csBatchUpdate = new CriticalSection();
 
 const jsonDiffPatch = jsonDiffPatchLib.create({ omitRemovedValues: true });
+
 let blocked = false;
 let db;
 
@@ -187,7 +190,7 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
 /**
  * Make the storeName from the storeType.
  * 
- * @param {String} storeType - store:scope
+ * @param {String} storeType - store:scope path to document
  * @param {Number|String} [version] - The schema version, defaults to this version as compiled
  * @returns {String} The objectStore name
  */
@@ -211,7 +214,7 @@ function getStoreTypeScope (storeType) {
  * For now, just get the storeType store.
  * When multiple app level data scopes required, use scope for 'app' store.
  * 
- * @param {String} storeType - store:scope
+ * @param {String} storeType - store:scope path to document
  * @returns {String} The storeType resource
  */
 function makeStoreTypeURLFragment (storeType) {
@@ -233,7 +236,7 @@ async function getDB () {
 /**
  * Store put or delete successful mutation new version result.
  * 
- * @param {String} storeType - store:scope
+ * @param {String} storeType - store:scope path to document
  * @param {String} document - The document name
  * @param {String} result - The mutation result payload
  */
@@ -252,7 +255,7 @@ async function storeMutationResult (storeType, document, result) {
  * Read data from local objectstores and send to the app.
  * localData is the fallback (stale) data in a Network First strategy.
  * 
- * @param {String} storeType - store:scope
+ * @param {String} storeType - store:scope path to document
  * @param {String} document - The document name
  * @param {String|Array<String>} [collections] - collection name(s) to get
  * @param {String} [message] - A user message
@@ -299,7 +302,7 @@ async function localData (storeType, document, collections = null,
  * Re-formats data from the network to the idb objectStore format.
  * Sends message to the app with the new data.
  *
- * @param {String} storeType - store:scope
+ * @param {String} storeType - store:scope path to document
  * @param {Object} data - The remote data to store
  */
 async function storeData (storeType, data) {
@@ -344,7 +347,7 @@ async function storeData (storeType, data) {
  * Load data from local objectStores by document name or document and possible collection name(s).
  * Format the local data for *upsert* to the remote data service.
  *
- * @param {String} storeType - store:scope
+ * @param {String} storeType - store:scope path to document
  * @param {String} document - The document name
  * @param {Array<String>} [collections] - An array of collection names
  */
@@ -454,7 +457,7 @@ async function dataAPICall (request, {
     fetchTimeout
   );
 
-  let result = 0;
+  let result = -1;
   let response = null;
   
   try {
@@ -475,6 +478,7 @@ async function dataAPICall (request, {
         }
         await asyncResponseHandler(data);
       }
+      result = 0;
     } else {
       let handled = false;
 
@@ -534,7 +538,7 @@ async function dataAPICall (request, {
  * If there is a network issue, return local data instead.
  *
  * @param {Object} payload - payload parameters
- * @param {String} payload.storeType - store:scope
+ * @param {String} payload.storeType - store:scope path to document
  * @param {String} [payload.document] - document name
  * @param {String|Array<String>} [payload.collections] - collection name(s) to get
  */
@@ -584,7 +588,7 @@ export async function refreshData ({ storeType, document, collections }) {
  * Synchronize local data creation and updates with the remote data service.
  * 
  * @param {Object} payload - payload parameters
- * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to which the update applies
  * @param {Array<String>} [payload.collections] - The collections to upsert, omit for all
  */
@@ -633,7 +637,7 @@ async function upsertData ({ storeType, document, collections = null }) {
  *   @see processBatchUpdates for formatting
  * 
  * @param {Object} payload - parameters
- * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to which the delete applies
  * @param {String|Array<String>|Object|Array<Object>} [payload.collections] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
  */
@@ -699,9 +703,68 @@ async function deleteData ({ storeType, document, collections }) {
 }
 
 /**
+ * Perform database actions on logout.
+ * 
+ * @param {String} storeType - store:scope path to document
+ * @param {Boolean} [cleanup] - false to skip cleanup, defaults to true
+ * @param {Boolean} [notify] - false to skip sendMessage, defaults to true
+ */
+async function _logout (storeType, cleanup = true, notify = true) {
+  if (cleanup) {
+    const db = await getDB();
+    const storeName = makeStoreName(storeType);
+    const scope = getStoreTypeScope(storeType);
+    const scopeIndex = await db.transaction(storeName, 'readwrite').store.index('scope');
+
+    let count = 0;
+    for await (const cursor of scopeIndex.iterate(IDBKeyRange.only(scope))) {
+      count++;
+      await cursor.delete();
+    }
+
+    debug(`Deleted ${count} records from ${storeName} on logout for scope ${scope}`);
+  }
+
+  if (notify) {
+    await sendMessage('logout-complete');
+  }
+}
+
+/**
+ * Perform actions on logout.
+ * 
+ * @param {Object} payload - The arguments
+ * @param {String} payload.storeType - store:scope path to document
+ */
+export async function logout ({ storeType }) {
+  const hasUpdates = await hasPendingUpdates();
+
+  if (hasUpdates) {
+    const db = await getDB();
+    const batchStore = makeStoreName(batchStoreType);
+    const batchOpsIndex = db.transaction(batchStore).store.index('ops');
+
+    let exists = false;
+    for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only('logout'))) {
+      const { storeType: existingStoreType } = cursor.value;
+      if (existingStoreType === storeType) {
+        exists = true;
+        break;
+      }
+    }
+
+    if (!exists) {
+      await _batchUpdate({ storeType, op: 'logout' }, true);
+    }
+  } else {
+    await _logout(storeType);
+  }
+}
+
+/**
  * Clean the base document store after mutations.
  * 
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope path to document
  * @param {String} document - The document that was updated
  * @param {String} op - 'put' or 'delete'
  */
@@ -725,7 +788,7 @@ async function clearBaseStoreRecords (storeType, document, op) {
  * as each mutation op completes.
  * 
  * @param {Object} payload - The message payload object
- * @param {String} payload.storeType - store:scope
+ * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to be updated
  * @param {String} payload.op - The mutation operation, 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to be updated
@@ -803,13 +866,12 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
 }
 
 /**
- * Call _mayUpdate in a serial execution lock.
+ * Call _mayUpdate in a serial execution lock to force serial, complete fcfs execution.
  * 
- * @param {Object} payload - payload for _mayUpdate
- * @param {Boolean} clearOnly - clearOnly for _mayUpdate
+ * @param {Array} args - args for _mayUpdate
  */
-export async function mayUpdate (payload, clearOnly = false) {
-  await criticalSection.execute(() => _mayUpdate(payload, clearOnly));
+export async function mayUpdate (...args) {
+  await csMayUpdate.execute(() => _mayUpdate(...args));
 }
 
 /**
@@ -835,6 +897,7 @@ async function processBatchUpdates () {
     put: [],
     delete: []
   };
+  const networkOps = Object.keys(output);
   const network = { // map output ops to calls
     put: upsertData,
     delete: deleteData
@@ -863,8 +926,11 @@ async function processBatchUpdates () {
   let lastKey;
   for await (const cursor of batch.iterate(null, 'prev')) { // latest arrival (autoincrement id) first
     const item = cursor.value;
-    const key = `${item.storeType}:${item.document}:${item.collection}:${item.propertyName}`;
 
+    // only consider network ops
+    if (!networkOps.includes(item.op)) continue;
+
+    const key = `${item.storeType}:${item.document}:${item.collection}:${item.propertyName}`;
     debug('processBatchUpdates loop: ', item.op, key);
 
     if (key !== lastKey) {
@@ -929,18 +995,20 @@ async function processBatchUpdates () {
     }
 
     lastKey = key;
-  }
+  } // for - batchRecords
 
   debug(`processBatchUpdates processing ${output.put.length} puts, ${output.delete.length} deletes...`, {
     ...output
   });
   debug('processBatchUpdates networkCallOrder', ...networkCallOrder);
 
+  let networkResult = 0;
+  let storeTypeReplay = new Map();
+
   const reconcile = [];
   for (const op of networkCallOrder) { // replay oldest to newest
     const item = output[op].shift();
     const request = { ...item };
-    let result;
 
     if (request.properties?.hasProps) {
       request.collections = request.collections.map(collection => ({
@@ -950,9 +1018,11 @@ async function processBatchUpdates () {
     }
 
     try {
-      result = await network[op](request);
+      networkResult = await network[op](request);
 
-      debug(`processBatchUpdates '${network[op].name}' completed with '${result}' for '${op}' with '${request.storeType}:${request.document}'`, {
+      storeTypeReplay.set(request.storeType, networkResult === E_REPLAY);
+
+      debug(`processBatchUpdates '${network[op].name}' completed with '${networkResult}' for '${op}' with '${request.storeType}:${request.document}'`, {
         ...request.collections
       });
     }
@@ -978,11 +1048,11 @@ async function processBatchUpdates () {
     }
     debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
 
-    if (result === E_CONFLICT) {
+    if (networkResult === E_CONFLICT) {
       debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
       break; // We were invoked in subsequent resolution
     }
-  }
+  } // for - networkCallOrder
 
   // This happens if:
   //   Bad input format
@@ -998,6 +1068,20 @@ async function processBatchUpdates () {
     } catch (e) {
       debug(`Failed to reconcile ${request.storeType}:${request.document}`, { ...request }, e);
     }
+  } // for - reconcile
+
+  // If complete invocation, process any additional batch ops
+  if (networkResult !== E_CONFLICT) {
+    const batchOpsIndex = await db.transaction(batchStoreName, 'readwrite').store.index('ops');
+    // op === 'logout'
+    for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only('logout'))) {
+      const { storeType } = cursor.value;
+      await cursor.delete(); // always consume it
+      const next = await cursor.continue(); // manual advance to check for last
+
+      // If storeType mutation will replay, cleanup == false; If last storeType, notify == true
+      _logout(storeType, !storeTypeReplay.get(storeType), !next);
+    }
   }
 }
 
@@ -1006,15 +1090,15 @@ async function processBatchUpdates () {
  * Reset the batchCollectionWindow.
  * 
  * @param {Object} payload - The message payload object
- * @param {String} payload.storeType - 'app' or 'user'
- * @param {String} payload.document - The document for these updates
- * @param {String} payload.op - 'put' or 'delete'
+ * @param {String} payload.storeType - store:scope document path
+ * @param {String} payload.op - 'put' or 'delete' or 'logout'
+ * @param {String} [payload.document] - The document for these updates, can be omitted if op NOT 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to update
  * @param {String} [payload.propertyName] - The property name to delete, required for 'delete'
  * @param {Boolean} [skipTimer] - true to not schedule processing, caller must schedule. Defaults to false.
  */
-export async function batchUpdate ({ storeType, document, op, collection, propertyName }, skipTimer = false) {
-  if (!storeType || !document || !op) {
+async function _batchUpdate ({ storeType, document, op, collection, propertyName }, skipTimer = false) {
+  if (!storeType || !op || !(document || op === 'logout')) {
     throw new Error('Bad input passed to batchUpdate');
   }
 
@@ -1025,9 +1109,10 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
   /* eslint-disable no-param-reassign */
   collection = collection ?? '';
   propertyName = propertyName ?? '';
+  document = document ?? '';
   /* eslint-enable no-param-reassign */
 
-  debug(`batchUpdate db.add ${storeType}:${document}:${collection}:${propertyName}:${op}`);
+  debug(`_batchUpdate db.add ${storeType}:${document}:${collection}:${propertyName}:${op}`);
 
   const db = await getDB();
   const batchStoreName = makeStoreName(batchStoreType);
@@ -1037,11 +1122,20 @@ export async function batchUpdate ({ storeType, document, op, collection, proper
 }
 
 /**
+ * Call _batchUpdate in a serial execution lock to force complete, serial fcfs execution.
+ * 
+ * @param {Array} args - args for _batchUpdate
+ */
+export async function batchUpdate (...args) {
+  await csBatchUpdate.execute(() => _batchUpdate(...args));
+}
+
+/**
  * Add a batch update record if a similar one doesn't exist.
  * Called on conflict resolution, no timer required.
  * 
  * @param {Object} payload - The message payload object
- * @param {String} payload.storeType - 'app' or 'user'
+ * @param {String} payload.storeType - store:scope document path
  * @param {String} payload.document - The document for these updates
  * @param {String} payload.op - 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to update
@@ -1067,7 +1161,7 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
   ]);
 
   if (count === 0) {
-    await batchUpdate({ storeType, document, op, collection, propertyName }, true);
+    await _batchUpdate({ storeType, document, op, collection, propertyName }, true);
   } else {
     debug('batchUpdate SKIPPED');
   }
@@ -1437,7 +1531,7 @@ async function processVersionConflicts () {
  * Contains the current version and data for the document to be updated from the remote store,
  * along with the requested modication data of storeType, op (the modification), and the collections array.
  * 
- * @param {String} storeType - 'app' or 'user'
+ * @param {String} storeType - store:scope path to document
  * @param {String} op - 'put' or 'delete'
  * @param {Array<String>|Array<Object>|String} collections - The network request collections
  * @param {Object} data - The latest version of the remote document
@@ -1473,7 +1567,7 @@ async function storeVersionConflict (storeType, op, collections, data) {
  * Gets the remote document and starts the resolution process.
  * 
  * @param {Object} payload - The parameters
- * @param {String} payload.storeType - 'user' or 'app'
+ * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document name
  * @param {String} payload.op - 'put' or 'delete'
  * @param {String|Array<String>|Array<Object>} payload.collections - The network request format of collections
@@ -1520,6 +1614,9 @@ export async function installDatabase () {
         if (!db.objectStoreNames.contains(storeName)) {
           const store = db.createObjectStore(storeName, {
             keyPath: ['scope', 'document_name', 'collection_name']
+          });
+          store.createIndex('scope', 'scope', {
+            unique: false
           });
           store.createIndex('document', ['scope', 'document_name'], {
             unique: false
@@ -1602,6 +1699,9 @@ export async function installDatabase () {
           unique: false
         });
         store.createIndex('record', ['storeType', 'document', 'collection', 'op'], {
+          unique: false
+        });
+        store.createIndex('ops', 'op', {
           unique: false
         });
       }
