@@ -62,11 +62,9 @@ let db;
  * Some popular browser vendors (brave) make the namespace, but DONT IMPLEMENT 🙁
  */
 let canSync = 'sync' in self.registration;
-let nativeSyncSupport;
 let queue;
 export function setupBackgroundRequests (syncSupport) {
   debug('setupBackgroundRequests, support:', syncSupport);
-  nativeSyncSupport = syncSupport;
 
   try {
     if (!queue) {
@@ -140,10 +138,7 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
 
       for (const get of getRequests) await queue.pushRequest(get);
 
-      if (nativeSyncSupport) {
-        // If native, throw to let the browser know this did not go as planned
-        throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
-      }
+      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
     }
   } // while - mutation requests
 
@@ -179,10 +174,8 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
           await queue.pushRequest(get);
         }
       }
-      if (nativeSyncSupport) {
-        // If native, throw to let the browser know this did not go as planned
-        throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
-      }
+
+      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
     }
   } // for - get requests
 }
@@ -1435,7 +1428,7 @@ async function processVersionConflicts () {
     }
   }
 
-  debug(`processVersionConflicts wrote ${message.app?.keys.length} app records and ${message.user?.keys.length} user records`);
+  debug('processVersionConflicts wrote new records contained in the keys: ', message);
 
   // Update the version objectStore with the new versions for the docs
   const versionStoreName = makeStoreName(versionStoreType);
@@ -1456,9 +1449,10 @@ async function processVersionConflicts () {
   const isObj = thing => Object.prototype.toString.call(thing) === '[object Object]';
 
   // Queue the batch commands, if required
+  debug('processVersionConflicts processing batch...', batch);
   for (const storeType of Object.keys(batch)) {
     for (const [, payload] of Object.entries(batch[storeType])) {
-      if (!payload) break;
+      if (!payload) continue;
 
       if (Array.isArray(payload.collections) && payload.collections.length > 0) {
         if (payload.collections.every(i => typeof i === 'string')) {
