@@ -22,6 +22,7 @@ const debug = debugLib('main');
  */
 function updateCurrentYear () {
   const currentYear = (new Date()).getFullYear();
+
   Array.from(document.querySelectorAll('.current-year')).forEach(el => {
     const currentYearElement = el;
     currentYearElement.innerText = currentYear;
@@ -34,25 +35,24 @@ function updateCurrentYear () {
  * @param {Object} support - The browser support profile
  * @returns {Promise} resolves on success (or no sw), reject on failure
  */
-function updateVersion (support) {
+async function updateVersion (support) {
   if (support.serviceWorker) {
     const versionEl = document.querySelector('.version-buildtime');
-    return navigator.serviceWorker.ready.then(reg => {
-      return new Promise(resolve => {
-        navigator.serviceWorker.addEventListener('message', event => {
-          const { action, version } = event.data;
-          if (action === 'ln-version-buildstamp') {
-            versionEl.innerText = version;
-            resolve();
-          }
-        }, {
-          once: true
-        });
-        reg.active.postMessage({ action: 'version' });
-      });
+
+    const reg = await navigator.serviceWorker.ready;
+
+    return new Promise(resolve => {
+      navigator.serviceWorker.addEventListener('message', event => {
+        const { action, version } = event.data;
+        if (action === 'ln-version-buildstamp') {
+          versionEl.innerText = version;
+          resolve();
+        }
+      }, { once: true });
+
+      reg.active.postMessage({ action: 'version' });
     });
   }
-  return Promise.resolve();
 }
 
 /**
@@ -62,9 +62,11 @@ function updateVersion (support) {
  */
 async function setupPage (support) {
   const { content:page } = document.querySelector('meta[name="page"]');
+
   if (window.App.pageModules.includes(page)) {
     const module = await import(`./pages/${page}.js`);
     const { default: setup } = module;
+
     return setup(support);
   }
 }
@@ -97,13 +99,13 @@ async function setup () {
   }
 
   setupPrompts(support);
-  setupLogin(support);
   setupHeartbeat(support);
   updateCurrentYear();
 
   return Promise.all([
     updateVersion(support),
-    setupPage(support)
+    setupPage(support),
+    setupLogin(support)
   ]);
 }
 
@@ -112,9 +114,7 @@ async function setup () {
  */
 function start () {
   if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', setup, {
-      once: true
-    });
+    window.addEventListener('DOMContentLoaded', setup, { once: true });
   }
   else {
     setup();
