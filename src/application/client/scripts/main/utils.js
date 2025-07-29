@@ -44,18 +44,26 @@ export async function hashDigest (input) {
   return hashHex;
 }
 
-/**
- * Get the storeType delimiter.
- * 
- * @returns {String} The storeType delimiter
- */
-export function getStoreTypeDelim () {
-  return ':';
-}
+// -------------------
+// storeType utilities
+// -------------------
+
+const storeTypeDelim = ':';
 
 /**
  * Make storeType from store and scope
  */
 export function makeStoreType (store, scope) {
-  return `${store}${getStoreTypeDelim()}${scope}`;
+  return `${store}${storeTypeDelim}${scope}`;
+}
+
+/**
+ * Convert storeType to an array of tokens.
+ * Strip any hex userId from storeType if it is there.
+ * 
+ * @param {String} storeType - The storeType path to a document
+ * @returns {Array} an Array of the storeType tokens
+ */
+export function storeTypeToArray (storeType) {
+  return storeType.split(storeTypeDelim).filter(t => !/^[0-9a-fA-F]+$/.test(t));
 }

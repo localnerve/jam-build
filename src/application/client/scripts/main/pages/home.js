@@ -8,16 +8,15 @@
 import debugLib from '@localnerve/debug';
 import '@localnerve/editable-object';
 
-import { storeEvents } from '../data.js';
+import { storeEvents, buildNewDocumentIfRequired } from '../data.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
 import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
-import { makeStoreType, getStoreTypeDelim } from '../utils.js';
+import { makeStoreType, storeTypeToArray } from '../utils.js';
 
 const store = {};
 const page = 'home';
 const noDataMarkup = '<strong>** No Data **</strong>'; 
-const storeTypeDelim = getStoreTypeDelim();
 const appStoreType = makeStoreType('app', 'public');
 const debug = debugLib(page);
 const updateDataHandlers = Object.create(null);
@@ -88,35 +87,6 @@ function connectEditableObject (ctrl, storeType, doc, col) {
 }
 
 /**
- * Build a new store or document for the given storeType.
- * This causes a new document and/or collection to be created on the remote data service.
- * 
- * This is the glory and simplicity of idb/service-worker backed persistent nanostores.
- * If the app needed a mandatory initial user state, that could've been sent down with app data and assigned here.
- * 
- * @param {String} storeType - The storeType to build a new document on
- * @param {String} document - The document to create
- * @param {String} [collection] - The collection to create
- * @return {Boolean} true if data was created, false otherwise
- */
-function buildNewDocumentIfRequired (storeType, document, collection = '') {
-  debug('buildNewDocumentIfRequired: ', storeType, document, collection);
-
-  let result = false;
-  if (document && !store[storeType][document]) {
-    store[storeType][document] = {};
-    if (collection) {
-      store[storeType][document][collection] = {};
-    }
-    result = true;
-  } else if (document && collection && !store[storeType][document][collection]) {
-    store[storeType][document][collection] = {};
-    result = true;
-  }
-  return result;
-}
-
-/**
  * Store 'update' event handler.
  * On the store 'update' event, update the UI for application and user data.
  * Looks for collections named:
@@ -136,11 +106,7 @@ function updatePage ({ key, value: object }) {
   }
 
   let el;
-  // strip any hex hash key in storeType so you don't need user ids in markup ids. user is user.
-  let predicate = [
-    ...key[0].split(storeTypeDelim).filter(t => !/^[0-9a-fA-F]+$/.test(t)),
-    ...key.slice(1)
-  ].join('-');
+  let predicate = [...storeTypeToArray(key[0]), ...key.slice(1)].join('-');
   const storeType = key[0];
   const doc = key[1];
   const collection = key[2];
@@ -197,14 +163,14 @@ async function setupUser () {
 
   store[userStoreType] = await getUserStore(page, userStoreType);
 
-  let updated = buildNewDocumentIfRequired(userStoreType, page, 'state');
+  let updated = buildNewDocumentIfRequired(store, userStoreType, page, 'state');
   if (updated) {
     userStateControl.object = {};
     connectEditableObject(userStateControl, userStoreType, page, 'state');
   }
 
   if (profile?.isAdmin) {
-    updated = buildNewDocumentIfRequired(appStoreType, page, 'state');
+    updated = buildNewDocumentIfRequired(store, appStoreType, page, 'state');
     if (updated) {
       appPublicStateControl.object = {};
       connectEditableObject(appPublicStateControl, appStoreType, page, 'state');

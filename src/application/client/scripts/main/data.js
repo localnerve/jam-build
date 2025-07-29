@@ -77,6 +77,37 @@ async function dataUpdate ({ dbname, storeType, storeName, scope, keys }) {
 }
 
 /**
+ * Build a new store or document for the given storeType.
+ * This causes a new document and/or collection to be created on the remote data service.
+ * 
+ * This is the glory and simplicity of idb/service-worker backed persistent nanostores.
+ * 
+ * @param {Object} connectedStore - The object with connected, proxied stores
+ * @param {String} storeType - The storeType to build a new document on
+ * @param {String} document - The document to create
+ * @param {String} [collection] - The collection to create
+ * @return {Boolean} true if data was created, false otherwise
+ */
+export function buildNewDocumentIfRequired (connectedStore, storeType, document, collection = '') {
+  let result = false;
+
+  debug('buildNewDocumentIfRequired: ', storeType, document, collection);
+
+  if (document && !connectedStore[storeType][document]) {
+    connectedStore[storeType][document] = {};
+    if (collection) {
+      connectedStore[storeType][document][collection] = {};
+    }
+    result = true;
+  } else if (document && collection && !connectedStore[storeType][document][collection]) {
+    connectedStore[storeType][document][collection] = {};
+    result = true;
+  }
+
+  return result;
+}
+
+/**
  * Compare proposedProperties with existing properties on the keyPath.
  * 
  * @param {String} storeName - The storeName
@@ -268,6 +299,8 @@ function queueMutation (op, key) {
 
 /**
  * Notify the listeners and schedule work for mutation ops.
+ * Incoming 'put' and 'delete' from the proxy go to the remote data service.
+ * All go out to listeners in the UI.
  * 
  * @param {String} op - 'update', 'put', or 'delete'
  * @param {Array} key - The keypath of the update [storeType, document, collection, property]
