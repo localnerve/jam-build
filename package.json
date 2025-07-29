@@ -70,7 +70,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@localnerve/csp-hashes": "^5.1.1",
+    "@localnerve/csp-hashes": "^5.1.2",
     "@localnerve/editable-object": "^0.3.7",
     "@localnerve/fast-is-equal": "^1.0.2",
     "@localnerve/gulp-imagemin": "^11.6.0",
@@ -110,7 +110,7 @@
     "plugin-error": "^2.0.1",
     "puppeteer": "^24.15.0",
     "rimraf": "^6.0.1",
-    "rollup": "^4.46.1",
+    "rollup": "^4.46.2",
     "rollup-plugin-istanbul": "^5.0.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
