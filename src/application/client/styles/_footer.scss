@@ -22,7 +22,7 @@
 
     // Keep old sass behavior for properties that appear after nested rules [mixed-decls]
     // These override the logo-block output above
-    & { // stylelint-disable-line no-duplicate-selectors
+    & { // stylelint-disable-line block-no-redundant-nested-style-rules,no-duplicate-selectors
       margin: inherit;
       width: 100%;
     }

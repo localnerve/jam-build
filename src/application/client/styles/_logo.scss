@@ -34,10 +34,14 @@
     --logo-size: 2;
   }
 
+  /* stylelint-disable no-invalid-position-declaration */
+
   @media (prefers-color-scheme: dark) {
     --logo-blue: #{c.$logo-blue-light};
     --logo-red: #{c.$logo-red-light};
   }
+
+  /* stylelint-enable no-invalid-position-declaration */
 
   .logo {
     display: flex;
