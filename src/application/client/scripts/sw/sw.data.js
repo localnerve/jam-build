@@ -181,6 +181,13 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
 }
 
 /**
+ * Export a way to force the queue to replay.
+ */
+export async function __forceReplay () {
+  await replayQueueRequestsWithDataAPI({ queue });
+}
+
+/**
  * Make the storeName from the storeType.
  * 
  * @param {String} storeType - store:scope path to document

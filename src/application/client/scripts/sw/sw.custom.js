@@ -17,7 +17,8 @@ import {
   batchUpdate,
   mayUpdate,
   logout,
-  setupBackgroundRequests
+  setupBackgroundRequests,
+  __forceReplay
 } from './sw.data.js';
 import { sendMessage } from './sw.utils.js';
 
@@ -155,7 +156,14 @@ self.addEventListener('message', event => {
         })
       );
       break;
-  
+
+    case '__forceReplay__':
+      debug('__forceReplay__ message');
+      waitOrPassThru(
+        __forceReplay()
+      );
+      break;
+
     default:
       break;
   }
