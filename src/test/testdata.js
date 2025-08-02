@@ -20,7 +20,7 @@ export async function createTestDataApp (url, adminRequest) {
       version = json.home.__version
     });
   } catch (e) {
-    console.warn('no existing app home data');
+    // console.warn('get - no existing app home data');
   }
 
   await postData(adminRequest, `${url}/api/data/app/home`, {
@@ -63,7 +63,7 @@ export async function createTestDataUser (url, userRequest) {
       version = json.home.__version
     });
   } catch (e) {
-    console.warn('no existing user home data');
+    // console.warn('get - no existing user home data');
   }
 
   await postData(userRequest, `${url}/api/data/user/home`, {
@@ -111,7 +111,7 @@ export async function deleteTestDataApp (url, adminRequest) {
       deleteDocument: true
     });
   } catch (e) {
-    console.warn('no existing app home data');
+    console.warn('delete - no existing app home data');
   }
 }
 
@@ -134,6 +134,6 @@ export async function deleteTestDataUser (url, userRequest) {
       deleteDocument: true
     });
   } catch (e) {
-    console.warn('no existing user home data');
+    console.warn('delete - no existing user home data');
   }
 }
