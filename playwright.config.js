@@ -29,6 +29,7 @@ export default defineConfig({
   }, {
     name: 'api',
     testMatch: 'api/**/*.test.js',
+    workers: 6,
     dependencies: ['fixtures']
   }, {
     name: 'api-debug',
@@ -36,8 +37,16 @@ export default defineConfig({
     dependencies: ['fixtures']
   }, {
     name: 'pages',
-    testMatch: 'pages/**/*.test.js',
-    dependencies: ['fixtures', 'api']
+    testMatch: 'pages/**/*.test.js'
+  }, {
+    name: 'data',
+    testMatch: 'data/**/*.test.js',
+    workers: 1,
+    dependencies: ['fixtures', 'api', 'pages']
+  }, {
+    name: 'data-debug',
+    testMatch: 'data/page.mutation.test.js',
+    workers: 1
   }, {
     name: 'Chrome',
     use: {

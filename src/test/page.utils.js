@@ -4,7 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { makeStoreType } from '../../application/client/scripts/main/utils.js';
+import { makeStoreType } from '../application/client/scripts/main/utils.js';
 
 /**
  * Browser init script to pre-hook 'database-data-update' and record the last keys sent by storeType.
