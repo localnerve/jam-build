@@ -47,6 +47,7 @@ const storeTypeDelim = ':';
 
 const csMayUpdate = new CriticalSection();
 const csBatchUpdate = new CriticalSection();
+const isObj = thing => Object.prototype.toString.call(thing) === '[object Object]';
 
 const jsonDiffPatch = jsonDiffPatchLib.create({ omitRemovedValues: true });
 
@@ -71,7 +72,7 @@ export function setupBackgroundRequests (syncSupport) {
       queue = new Queue(queueName, {
         forceSyncFallback: !syncSupport,
         maxRetentionTime: 60 * 72, // 72 hours
-        onSync: replayQueueRequestsWithDataAPI
+        onSync: replayRequestQueue
       });
       debug('Sync queue created: ', queue);
       canSync = true;
@@ -84,7 +85,7 @@ export function setupBackgroundRequests (syncSupport) {
   }
 
   if (canSync && !syncSupport && queue) {
-    replayQueueRequestsWithDataAPI({ queue }); // replay now if artificial sync support
+    replayRequestQueue({ queue }); // replay now if artificial sync support
   }
 }
 
@@ -93,7 +94,7 @@ export function setupBackgroundRequests (syncSupport) {
  * Synchonrizes local/remote data, sends notifications to the app.
  * Processes any left over versionConflicts and batchUpdates.
  */
-async function replayQueueRequestsWithDataAPI ({ queue }) {
+async function replayRequestQueue ({ queue }) {
   debug('Replaying queue requests...', queue);
 
   if (!queue) {
@@ -101,6 +102,8 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
   }
 
   const getRequests = [];
+  const getConflicts = [];
+
   const getResponseHandler = async (metadata, data) => {
     const { storeType, op, collections } = metadata;
     if (op === 'put' || op === 'delete') {
@@ -108,47 +111,64 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
     }
     await storeData(storeType, data);
   };
-  const mutationResponseHandler = async (metadata, data) => {
-    const { storeType, document, op } = metadata;
-    await storeMutationResult(storeType, document, data);
-    await clearBaseStoreRecords(storeType, document, op);
-  };
 
-  // Service mutation requests in fifo order, defer true GETs
+  // Batch mutation requests in fifo order, defer GETs
   let entry;
   while ((entry = await queue.shiftRequest())) {
-    try {
-      const meta = entry.metadata;
-      const method = entry.request.method;
+    const meta = entry.metadata;
+    const method = entry.request.method;
 
-      if (method === 'GET' && meta.op === 'get') {
-        getRequests.push(entry);
-      } else {
-        await dataAPICall(entry.request, {
-          asyncResponseHandler: method === 'GET' ?
-            getResponseHandler.bind(null, meta) : mutationResponseHandler.bind(null, meta),
-          metadata: meta,
-          retry: false
-        });
+    if (method === 'GET') {
+      const queue = meta.op === 'get' ? getRequests : getConflicts;
+      queue.push(entry);
+    } else {
+      const { storeType, document, collections, op } = meta;
+  
+      if (Array.isArray(collections) && collections.length > 0) {
+        for (const coll of collections) {
+          if (isObj(coll)) {
+            const { collection, properties } = coll;
+            await mayUpdate({ storeType, document, collection });
+            if (Array.isArray(properties) && properties.length > 0) {
+              for (const propertyName of properties) {
+                await conditionalBatchUpdate({ storeType, document, op, collection, propertyName });
+              }
+            } else { // obj, no properties
+              await conditionalBatchUpdate({ storeType, document, op, collection });
+            }
+          } else { // coll as string
+            await mayUpdate({ storeType, document, collection: coll });
+            await conditionalBatchUpdate({ storeType, document, op, collection: coll });
+          }
+        } // for - meta.collections
+      } else { // take collections as a value
+        await mayUpdate({ storeType, document, collection: collections });
+        await conditionalBatchUpdate({ storeType, document, collection: collections });
       }
-    } catch {
-      debug('Failed to replay mutation request: ', entry.request.url);
+    } // else - mutations
+  } // while - mutations
 
-      await queue.unshiftRequest(entry);
+  // Store any incomplete version conflict GETs for prior mutations
+  for (const conflict of getConflicts) {
+    const meta = conflict.metadata;
+    const { storeType, document, collection } = meta;
+    await mayUpdate({ storeType, document, collection });
+    await dataAPICall(entry.request, {
+      asyncResponseHandler: getResponseHandler.bind(null, meta),
+      metadata: meta,
+      retry: false
+    }); // TODO: service repeat failures
+  } // for - conflict GETs
 
-      for (const get of getRequests) await queue.pushRequest(get);
-
-      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
-    }
-  } // while - mutation requests
-
+  // Process any/all left over conflicts into the batch queue
   await processVersionConflicts();
 
+  // Rerun the updated batch queue
   await processBatchUpdates();
 
+  // Service ordinary GET requests, discard repeats
   let reqKey;
   const completed = {};
-  // Service ordinary GET requests, discard repeats
   for (const getEntry of getRequests) {
     try {
       const meta = getEntry.metadata;
@@ -184,7 +204,7 @@ async function replayQueueRequestsWithDataAPI ({ queue }) {
  * Export a way to force the queue to replay.
  */
 export async function __forceReplay () {
-  await replayQueueRequestsWithDataAPI({ queue });
+  await replayRequestQueue({ queue });
 }
 
 /**
@@ -617,7 +637,7 @@ async function upsertData ({ storeType, document, collections = null }) {
   const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
-      await clearBaseStoreRecords(storeType, document, 'put');
+      await clearBaseStoreRecords(storeType, document);
     },
     metadata: {
       storeType,
@@ -689,7 +709,7 @@ async function deleteData ({ storeType, document, collections }) {
   const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
-      await clearBaseStoreRecords(storeType, document, 'delete');
+      await clearBaseStoreRecords(storeType, document);
     },
     metadata: {
       storeType,
@@ -754,7 +774,7 @@ export async function logout ({ storeType }) {
     }
 
     if (!exists) {
-      await _batchUpdate({ storeType, op: 'logout' }, true);
+      await batchUpdate({ storeType, op: 'logout' }, true);
       serviceAllTimers();
     }
   } else {
@@ -767,15 +787,14 @@ export async function logout ({ storeType }) {
  * 
  * @param {String} storeType - store:scope path to document
  * @param {String} document - The document that was updated
- * @param {String} op - 'put' or 'delete'
  */
-async function clearBaseStoreRecords (storeType, document, op) {
+async function clearBaseStoreRecords (storeType, document) {
   const baseStoreName = makeStoreName(baseStoreType);
   const db = await getDB();
 
   let count = 0;
   const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
-  for await (const cursor of documents.iterate([storeType, document, op])) {
+  for await (const cursor of documents.iterate([storeType, document])) {
     count++;
     await cursor.delete();
   }
@@ -791,11 +810,10 @@ async function clearBaseStoreRecords (storeType, document, op) {
  * @param {Object} payload - The message payload object
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to be updated
- * @param {String} payload.op - The mutation operation, 'put' or 'delete'
  * @param {String} [payload.collection] - The collection to be updated
  * @param {Boolean} [clearOnly] - True to clear the record only, default false
  */
-async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = false) {
+async function _mayUpdate ({ storeType, document, collection }, clearOnly = false) {
   if (!storeType || !document) {
     throw new Error('Bad input passed to mayUpdate');
   }
@@ -810,7 +828,7 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
   const db = await getDB();
 
   if (collection) {
-    const baseCopy = await db.getFromIndex(baseStoreName, 'collection', [storeType, document, collection, op]);
+    const baseCopy = await db.getFromIndex(baseStoreName, 'collection', [storeType, document, collection]);
     const staleBase = baseCopy && (Date.now() - baseCopy.timestamp) >= STALE_BASE_LIFESPAN;
 
     if (!baseCopy || staleBase || clearOnly) {
@@ -825,17 +843,17 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
 
         if (original) {
           await db.add(baseStoreName, {
-            storeType, document, collection, op, timestamp: Date.now(), properties: original.properties
+            storeType, document, collection, timestamp: Date.now(), properties: original.properties
           });
         }
       }
     }
   } else {
     const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
-    const docCount = await documents.count([storeType, document, op]);
+    const docCount = await documents.count([storeType, document]);
     let deleteCount = 0;
 
-    for await (const cursor of documents.iterate([storeType, document, op])) {
+    for await (const cursor of documents.iterate([storeType, document])) {
       const item = cursor.value;
       const staleBase = Date.now() - item.timestamp >= STALE_BASE_LIFESPAN;
 
@@ -856,7 +874,6 @@ async function _mayUpdate ({ storeType, document, collection, op }, clearOnly = 
             storeType,
             document,
             collection: orig.collection_name,
-            op,
             timestamp: Date.now(),
             properties: orig.properties
           });
@@ -1151,6 +1168,7 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
 
   /* eslint-disable no-param-reassign */
   collection = collection ?? '';
+  propertyName = propertyName ?? '';
   /* eslint-enable no-param-reassign */
 
   debug(`conditionalBatchUpdate ${storeType}:${document}:${collection}:${op}`);
@@ -1158,11 +1176,11 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
   const batchStoreName = makeStoreName(batchStoreType);
   const batchRecordIndex = await db.transaction(batchStoreName).store.index('record');
   const count = await batchRecordIndex.count([
-    storeType, document, collection, op
+    storeType, document, collection, propertyName, op
   ]);
 
   if (count === 0) {
-    await _batchUpdate({ storeType, document, op, collection, propertyName }, true);
+    await batchUpdate({ storeType, document, op, collection, propertyName }, true);
   } else {
     debug('batchUpdate SKIPPED');
   }
@@ -1331,7 +1349,7 @@ async function processVersionConflicts () {
         op,
         collections
       };
-      baseKeys.push([storeType, doc, col, op]);
+      baseKeys.push([storeType, doc, col]);
 
       remoteData[storeType] = remoteData[storeType] ?? {};
       remoteData[storeType][doc] = remoteData[storeType][doc] ?? {};
@@ -1452,8 +1470,6 @@ async function processVersionConflicts () {
   }
 
   debug('processVersionConflicts updated version store', versions);
-
-  const isObj = thing => Object.prototype.toString.call(thing) === '[object Object]';
 
   // Queue the batch commands, if required
   debug('processVersionConflicts processing batch...', batch);
@@ -1700,7 +1716,7 @@ export async function installDatabase () {
         store.createIndex('delete', ['storeType', 'document', 'op'], {
           unique: false
         });
-        store.createIndex('record', ['storeType', 'document', 'collection', 'op'], {
+        store.createIndex('record', ['storeType', 'document', 'collection', 'propertyName', 'op'], {
           unique: false
         });
         store.createIndex('ops', 'op', {
@@ -1728,10 +1744,10 @@ export async function installDatabase () {
           keyPath: 'id',
           autoIncrement: true
         });
-        store.createIndex('collection', ['storeType', 'document', 'collection', 'op'], {
+        store.createIndex('collection', ['storeType', 'document', 'collection'], {
           unique: true
         });
-        store.createIndex('document', ['storeType', 'document', 'op'], {
+        store.createIndex('document', ['storeType', 'document'], {
           unique: false
         });
       }

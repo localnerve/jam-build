@@ -269,8 +269,7 @@ function queueMutation (op, key) {
       payload: {
         storeType,
         document,
-        collection,
-        op
+        collection
       }
     });
   }
