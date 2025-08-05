@@ -175,6 +175,7 @@ async function replayRequestQueue ({ queue }) {
   await processVersionConflicts({
     processBatchUpdates, addToBatch: conditionalBatchUpdate
   });
+  await processBatchUpdates();
 
   // Service ordinary GET requests, discard repeats
   let reqKey;
