@@ -36,6 +36,9 @@
     "test:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
     "test:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000"
   },
+  "imports": {
+    "#client-utils/*": "./src/application/client/scripts/utils/*"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/localnerve/jam-build.git"
@@ -115,7 +118,7 @@
     "rollup-plugin-output-manifest": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
     "rollup-plugin-visualizer": "^6.0.3",
-    "sass": "^1.89.2",
+    "sass": "^1.90.0",
     "sitemap": "^8.0.0",
     "stylelint": "^16.23.0",
     "stylelint-config-standard": "^39.0.0",

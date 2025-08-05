@@ -6,8 +6,9 @@
  */
 import { test, expect } from './fixtures.js';
 import { acquireAccount } from './authz.js';
-import { makeStoreType, hashDigest } from '../application/client/scripts/main/utils.js';
 import { initScriptDataUpdate, waitForDataUpdate } from './page.utils.js';
+import { hashDigest } from '#client-utils/browser.js';
+import { makeStoreType } from '#client-utils/storeType.js';
 
 /**
  * Do a manual login using the top login button.

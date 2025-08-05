@@ -4,8 +4,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Copyrights licensed under the BSD License. See the accompanying LICENSE file for terms.
  */
-
-import { getNumber } from './utils.js';
+import { getNumber } from '#client-utils/browser.js';
 
 const headerClass = 'fixed';
 const offscreenNavClass = 'show';

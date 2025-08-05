@@ -10,7 +10,8 @@
  */
 import { Authorizer } from '@localnerve/authorizer-js';
 import debugLib from '@localnerve/debug';
-import { hashDigest, makeStoreType } from './utils.js';
+import { hashDigest } from '#client-utils/browser.js';
+import { makeStoreType } from '#client-utils/storeType.js';
 
 const debug = debugLib('login');
 

@@ -5,8 +5,8 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import debugLib from '@localnerve/debug';
+import { makeStoreType } from '#client-utils/storeType.js';
 import { filterSeed } from './seed.js';
-import { makeStoreType } from './utils.js';
 
 const appPublic = makeStoreType('app', 'public');
 const debug = debugLib('request');

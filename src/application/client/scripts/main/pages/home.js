@@ -7,12 +7,11 @@
  */
 import debugLib from '@localnerve/debug';
 import '@localnerve/editable-object';
-
+import { makeStoreType, storeTypeToArrayWithoutUserId } from '#client-utils/storeType.js';
 import { storeEvents, buildNewDocumentIfRequired } from '../data.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
 import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
-import { makeStoreType, storeTypeToArray } from '../utils.js';
 
 const store = {};
 const page = 'home';
@@ -106,7 +105,7 @@ function updatePage ({ key, value: object }) {
   }
 
   let el;
-  let predicate = [...storeTypeToArray(key[0]), ...key.slice(1)].join('-');
+  let predicate = [...storeTypeToArrayWithoutUserId(key[0]), ...key.slice(1)].join('-');
   const storeType = key[0];
   const doc = key[1];
   const collection = key[2];
