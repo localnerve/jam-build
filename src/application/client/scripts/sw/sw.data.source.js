@@ -5,6 +5,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { openDB } from 'idb';
+import { getStoreTypeStore, makeStoreType } from '#client-utils/storeType.js';
 import { sendMessage } from './sw.utils';
 import {
   baseStoreType,
@@ -15,7 +16,6 @@ import {
   schemaVersion,
   versionStoreType
 } from './sw.data.constants';
-import { getStoreTypeStore, makeStoreType } from '#client-utils/storeType.js';
 
 // The per-thread database references
 let db;

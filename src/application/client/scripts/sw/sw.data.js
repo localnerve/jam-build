@@ -43,6 +43,9 @@ import {
   makeStoreName
 } from './sw.data.source.js';
 export { installDatabase } from './sw.data.source.js';
+export async function activateDatabase () {
+  await _activateDatabase(refreshData);
+}
 import {
   clearBaseStoreRecords,
   hasPendingUpdates,
@@ -57,13 +60,6 @@ export { mayUpdate } from './sw.data.helpers.js';
 import { processVersionConflicts } from './sw.data.conflicts.js';
 
 const csBatchUpdate = new CriticalSection();
-
-/**
- * Export the service worker activate lifecycle handler
- */
-export async function activateDatabase () {
-  await _activateDatabase(refreshData);
-}
 
 /**
  * RE: background sync setup -

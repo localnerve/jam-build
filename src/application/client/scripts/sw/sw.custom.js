@@ -9,7 +9,7 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { cacheNames, setCacheNameDetails, _private } from 'workbox-core';
+import { cacheNames, setCacheNameDetails } from 'workbox-core';
 import {
   installDatabase,
   activateDatabase,
@@ -20,9 +20,7 @@ import {
   setupBackgroundRequests,
   __forceReplay
 } from './sw.data.js';
-import { sendMessage } from './sw.utils.js';
-
-const { debug } = _private.logger || { debug: ()=> {} };
+import { debug, sendMessage } from './sw.utils.js';
 
 setCacheNameDetails({
   prefix: CACHE_PREFIX // eslint-disable-line
