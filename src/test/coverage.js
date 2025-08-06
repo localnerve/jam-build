@@ -21,12 +21,14 @@ export async function createReport (map, testInfo) {
 
   let i = 0, exists = true;
   const basename = `coverage`;
-  let outputPath = `${coverageDir}/${basename}-${i}`;
+  // title is the describe suite name in the file [1]
+  const title = testInfo.titlePath[1].replaceAll(/\s+/g, '-');
+  let outputPath = `${coverageDir}/${basename}-${title}-${i}`;
 
   while (exists) {
     try {
       exists = await fs.access(outputPath).then(() => true);
-      outputPath = path.join(coverageDir, `${basename}-${++i}`);
+      outputPath = path.join(coverageDir, `${basename}-${title}-${++i}`);
     } catch {
       exists = false;
     }

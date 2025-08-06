@@ -14,7 +14,7 @@ import {
 } from '../testdata.js';
 import { startJS, stopJS, createMap, createReport } from '../coverage.js';
 
-test.describe('data mutation tests', () => {
+test.describe('mutation tests', () => {
   let baseUrl;
   let map;
   let needLogout;
