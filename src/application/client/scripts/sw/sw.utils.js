@@ -4,6 +4,10 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import { _private } from 'workbox-core';
+
+// WorkboxJS debug logger
+export const { debug } = _private.logger || { debug: ()=>{} };
 
 /**
  * Send a message to all the open application tabs.

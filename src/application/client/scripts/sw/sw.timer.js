@@ -6,10 +6,8 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
-import { _private } from 'workbox-core';
-import { sendMessage } from './sw.utils.js';
+import { debug, sendMessage } from './sw.utils.js';
 
-const { debug } = _private.logger || { debug: ()=> {} };
 const timers = Object.create(null);
 const heartbeat = Object.create(null);
 

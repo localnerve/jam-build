@@ -4,9 +4,9 @@
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
+import { makeStoreType } from '#client-utils/storeType.js';
 import { updatePageData } from './request.js';
 import { createStore } from './data.js';
-import { makeStoreType } from './utils.js';
 
 const appPublic = makeStoreType('app', 'public');
 

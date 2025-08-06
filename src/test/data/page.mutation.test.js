@@ -238,6 +238,7 @@ test.describe('data mutation tests', () => {
     const mutations = await doMutations(userStateControl);
 
     // trigger batch execution
+    await stopJS(page, map);
     await page.close();
 
     // let it cook
@@ -246,6 +247,7 @@ test.describe('data mutation tests', () => {
     await context.close();
     context = await browser.newContext();
     page = await context.newPage();
+    await startJS(page);
 
     await manualLogin(baseUrl, page);
 
@@ -255,6 +257,8 @@ test.describe('data mutation tests', () => {
     await testMutations(page, userStateControl, mutations);
 
     await manualLogout(baseUrl, page);
+    await stopJS(page, map);
+  
     await context.close();
   });
 
@@ -270,6 +274,8 @@ test.describe('data mutation tests', () => {
 
     const context = await browser.newContext();
     const page = await context.newPage();
+    await startJS(page);
+
     await manualLogin(baseUrl, page);
     
     // TODO: fix this. This should not be required.
@@ -303,6 +309,7 @@ test.describe('data mutation tests', () => {
     await testMutations(page, userStateControl, mutations);
 
     // await new Promise(res => setTimeout(res, 5000)); // increase this to visually debug
+    await stopJS(page, map);
     await context.close();
   });
 
@@ -311,6 +318,8 @@ test.describe('data mutation tests', () => {
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
+    await startJS(page1);
+
     await manualLogin(baseUrl, page1);
     const userStateControl1 = page1.locator('#user-home-state');
     const mutations1 = await doMutations(userStateControl1);
@@ -326,6 +335,7 @@ test.describe('data mutation tests', () => {
 
     const context2 = await browser.newContext();
     const page2 = await context2.newPage();
+    await startJS(page2);
     await manualLogin(baseUrl, page2);
     const userStateControl2 = page2.locator('#user-home-state');
     const mutations2 = await doMutations(userStateControl2, {
@@ -387,6 +397,11 @@ test.describe('data mutation tests', () => {
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
 
     expect(object1).toEqual(mergeResult);
+
+    await stopJS(page2, map);
+    await stopJS(page1, map);
+    context1.close();
+    context2.close();
   });
 
 });

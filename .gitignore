@@ -152,3 +152,6 @@ coverage
 
 # no stats output
 stats
+
+# no authorizer-dev-docker-compose.yml for now
+authorizer-dev-docker-compose.yml
