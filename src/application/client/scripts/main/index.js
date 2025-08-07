@@ -62,7 +62,7 @@ async function updateVersion (support) {
  * @param {Object} support - The browser support profile
  */
 async function setupPage (support) {
-  const { content:page } = document.querySelector('meta[name="page"]');
+  const { content: page } = document.querySelector('meta[name="page"]');
 
   if (window.App.pageModules.includes(page)) {
     const module = await import(`./pages/${page}.js`);
