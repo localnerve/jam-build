@@ -67,7 +67,7 @@ export async function manualAdminLogin (baseUrl, page) {
   // Get button, ensure state
   const loginButton = page.locator('#admin-login-form [type="submit"]');
   const loginText = await loginButton.innerText();
-  expect(loginText).toEqual('Log In');
+  expect(loginText).toEqual('Admin Log In');
 
   // Fill admin credentials
   const account = await acquireAccount(test, 'admin');

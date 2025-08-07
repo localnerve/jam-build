@@ -181,9 +181,13 @@ function updateUI (profile, { hdrStatusText, loginButtons, main }) {
  * @param {Object} login - The login data returned from authorizerDev API call
  * @param {Object} [login.user] - The login user profile
  * @param {String} login.expires_in - The timespan of expiry in milliseconds
+ * @param {Boolean} [adminLogin] - True if admin login, false otherwise, defaults to false
  * @returns {Boolean} true on success, false otherwise
  */
-export async function processLogin (login) {
+export async function processLogin (login, adminLogin = false) {
+  const pageSpinner = document.querySelector('.page-spinner');
+  pageSpinner.classList.remove('show');
+
   if (login && !login.user) {
     const { data: profile, errors: profileErrors } = await authRef.getProfile({
       Authorization: `Bearer ${login.access_token}`,
@@ -208,7 +212,7 @@ export async function processLogin (login) {
       email: login.user.email,
       userId,
       storeType: makeStoreType('user', userId),
-      isAdmin: login.user.roles.includes('admin')
+      isAdmin: adminLogin
     }));
 
     window.App.exec('login-action-login');
@@ -301,7 +305,10 @@ async function loginHandler (event) {
     debug('loginHandler detected NOT ACTIVE login');
 
     history.pushState(null, '', window.location.url); // without this, back button from login goes nowhere
-    
+
+    const pageSpinner = document.querySelector('.page-spinner');
+    pageSpinner.classList.add('show');
+
     const { data: login, errors: loginErrors } = await authRef.authorize({
       response_type: 'code',
       use_refresh_token: false

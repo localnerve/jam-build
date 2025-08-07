@@ -59,8 +59,11 @@ async function handleLogin (e) {
   e.preventDefault();
 
   if (e.target?.checkValidity()) {
+    const pageSpinner = document.querySelector('.page-spinner');
     const formData = new FormData(e.target);
     const values = Object.fromEntries(formData);
+
+    pageSpinner.classList.add('show');
 
     try {
       const { data, errors } = await authRef.login({
@@ -70,7 +73,7 @@ async function handleLogin (e) {
       
       debug({ data, errors });
 
-      const result = await processLogin(data);
+      const result = await processLogin(data, true);
 
       if (result) {
         window.location.replace('/');
