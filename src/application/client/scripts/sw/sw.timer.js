@@ -93,6 +93,8 @@ async function stopHeartbeat (timerName) {
  * @returns {Boolean} true if timer should continue, false otherwise.
  */
 function checkHeartbeat (timerName, resolution) {
+  debug(`checkHeartbeat ${timerName}`, heartbeat);
+
   const clientCount = heartbeat[timerName].size;
   let lastTime = Number.MAX_SAFE_INTEGER;
   let inactiveCount = 0;
