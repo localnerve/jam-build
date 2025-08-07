@@ -26,8 +26,45 @@ if ('serviceWorker' in navigator) {
 }
 
 /**
- * Main handler for 'database-data-update' message from the service worker.
- * Updates memory store backing, and sends the 'update' notifications.
+ * 'page-data-update' handler for messages from the service worker.
+ * 
+ * @param {Object} payload - The pageDataUpdate payload
+ * @param {String} payload.dbname - The database name
+ * @param {String} payload.storeName - The full store name
+ * @param {String} payload.storeType - A keyPath to the document
+ * @param {Array} payload.keys - An array of the [doc, collection] keyPaths to the data that were updated
+ * @param {Boolean} [payload.local] - Local db, no new data. Only uses local if no objectStore has been created
+ * @param {Object} [payload.message] - If present, sends message to the UI
+ * @param {String} [payload.message.text] - The text of the message
+ * @param {String} [payload.message.class] - The presentation class
+ */
+async function handlePageDataUpdate (payload) {
+  debug(`Got "page-data-update" for ${payload.storeType}`, payload);
+
+  // Update the store, sends onChange 'update'
+  await updateStore(payload);
+
+  // Queue any outgoing user message
+  if (payload.message) {
+    setTimeout(window.App.exec.bind(window.App, 'pageGeneralMessage', {
+      args: {
+        message: payload.message.text,
+        class: payload.message.class,
+        duration: 1500
+      }
+    }), 17);
+  }
+
+  // Release storeType waiter
+  const releaseWaiter = waiters[payload.storeType];
+  if (typeof releaseWaiter === 'function') {
+    debug(`pageDataUpdate releasing waiter for ${payload.storeType}`);
+    releaseWaiter();
+  }
+}
+
+/**
+ * Update the store from the 'database-data-update' sw message, dispatch 'update' notifications.
  *
  * @param {Object} params - window.App 'database-data-update' event payload
  * @param {String} params.dbname - The database name
@@ -36,8 +73,8 @@ if ('serviceWorker' in navigator) {
  * @param {String} params.scope - The data scope part of the key
  * @param {Array} params.keys - The document part of the key [doc, col]
  */
-async function dataUpdate ({ dbname, storeType, storeName, scope, keys }) {
-  debug('"database-data-update" dataUpdate', dbname, storeType, storeName, scope, keys);
+async function updateStore ({ dbname, storeType, storeName, scope, keys }) {
+  debug('"database-data-update" updateStore', dbname, storeType, storeName, scope, keys);
 
   if (!db) {
     db = await openDB(dbname);
@@ -77,65 +114,6 @@ async function dataUpdate ({ dbname, storeType, storeName, scope, keys }) {
 }
 
 /**
- * Build a new store or document for the given storeType.
- * This causes a new document and/or collection to be created on the remote data service.
- * 
- * This is the glory and simplicity of idb/service-worker backed persistent nanostores.
- * 
- * @param {Object} connectedStore - The object with connected, proxied stores
- * @param {String} storeType - The storeType to build a new document on
- * @param {String} document - The document to create
- * @param {String} [collection] - The collection to create
- * @return {Boolean} true if data was created, false otherwise
- */
-export function buildNewDocumentIfRequired (connectedStore, storeType, document, collection = '') {
-  let result = false;
-
-  debug('buildNewDocumentIfRequired: ', storeType, document, collection);
-
-  if (document && !connectedStore[storeType][document]) {
-    connectedStore[storeType][document] = {};
-    if (collection) {
-      connectedStore[storeType][document][collection] = {};
-    }
-    result = true;
-  } else if (document && collection && !connectedStore[storeType][document][collection]) {
-    connectedStore[storeType][document][collection] = {};
-    result = true;
-  }
-
-  return result;
-}
-
-/**
- * Compare proposedProperties with existing properties on the keyPath.
- * 
- * @param {String} storeName - The storeName
- * @param {String} keyPath - [scope, document, collection] keyPath
- * @param {Object} proposedProperties - The new, proposedProperties
- * @returns {Boolean} true if the proposedProperties are different than existing, false otherwise
- */
-async function isDifferent(storeName, keyPath, proposedProperties) {
-  let existing = { properties: { __alwaysDifferent__: true } };
-
-  try {
-    existing = await db.get(storeName, keyPath);
-  } catch (e) {
-    debug(`isDifferent could not get from ${storeName}, keyPath: ${keyPath}`, e);
-  }
-
-  let different = true;
-  if (existing) {
-    const { properties: existingProperties } = existing;
-    different = !fastIsEqual(existingProperties, proposedProperties);
-  }
-
-  debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
-
-  return different;
-}
-
-/**
  * Perform the update(s) required to reflect the in memory store in idb.
  *   'put' only writes entire documents or [document, collections]
  *   'delete' allows document, collection, or property removal
@@ -146,8 +124,8 @@ async function isDifferent(storeName, keyPath, proposedProperties) {
  * @param {String|Nullish} [propertyName] - The propertyName (required for property deletes)
  * @returns 
  */
-async function performDatabaseUpdate (op, storeType, keyPath, propertyName = null) {
-  debug('performDatabaseUpdate', op, storeType, keyPath, propertyName);
+async function updateDatabase (op, storeType, keyPath, propertyName = null) {
+  debug('updateDatabase', op, storeType, keyPath, propertyName);
 
   const scope = dataScopes.get(storeType);
   const document = keyPath[0];
@@ -276,7 +254,7 @@ function queueMutation (op, key) {
 
   // Schedule task to update db, queue remote sync
   mutationQueue.push(async () => {
-    const result = await performDatabaseUpdate(op, storeType, keyPath, propertyName);
+    const result = await updateDatabase(op, storeType, keyPath, propertyName);
     if (swActive && result) {
       debug('Sending batch-update...', op, key);
 
@@ -305,7 +283,7 @@ function queueMutation (op, key) {
  * @param {Array} key - The keypath of the update [storeType, document, collection, property]
  * @param {Object} [value] - Undefined for deletes
  */
-function onChange(op, key, value) {
+function onChange (op, key, value) {
   debug('onChange: ', op, key, value);
 
   const event = { op, key, value };
@@ -356,7 +334,7 @@ function createHandler (path = []) {
  * @param {Array} subArray - The subarray to find
  * @returns {Boolean} true if found, false otherwise
  */
-function containsSubarray(mainArray, subArray) {
+function containsSubarray (mainArray, subArray) {
   const n = mainArray?.length ?? -2;
   const m = subArray?.length ?? -1;
 
@@ -375,6 +353,65 @@ function containsSubarray(mainArray, subArray) {
   }
 
   return false;
+}
+
+/**
+ * Compare proposedProperties with existing properties on the keyPath.
+ * 
+ * @param {String} storeName - The storeName
+ * @param {String} keyPath - [scope, document, collection] keyPath
+ * @param {Object} proposedProperties - The new, proposedProperties
+ * @returns {Boolean} true if the proposedProperties are different than existing, false otherwise
+ */
+async function isDifferent (storeName, keyPath, proposedProperties) {
+  let existing = { properties: { __alwaysDifferent__: true } };
+
+  try {
+    existing = await db.get(storeName, keyPath);
+  } catch (e) {
+    debug(`isDifferent could not get from ${storeName}, keyPath: ${keyPath}`, e);
+  }
+
+  let different = true;
+  if (existing) {
+    const { properties: existingProperties } = existing;
+    different = !fastIsEqual(existingProperties, proposedProperties);
+  }
+
+  debug(`${keyPath} update was ${different ? 'different' : 'NOT different'}`);
+
+  return different;
+}
+
+/**
+ * Build a new store or document for the given storeType.
+ * This causes a new document and/or collection to be created on the remote data service.
+ * 
+ * This is the glory and simplicity of idb/service-worker backed persistent nanostores.
+ * 
+ * @param {Object} connectedStore - The object with connected, proxied stores
+ * @param {String} storeType - The storeType to build a new document on
+ * @param {String} document - The document to create
+ * @param {String} [collection] - The collection to create
+ * @return {Boolean} true if data was created, false otherwise
+ */
+export function buildNewDocumentIfRequired (connectedStore, storeType, document, collection = '') {
+  let result = false;
+
+  debug('buildNewDocumentIfRequired: ', storeType, document, collection);
+
+  if (document && !connectedStore[storeType][document]) {
+    connectedStore[storeType][document] = {};
+    if (collection) {
+      connectedStore[storeType][document][collection] = {};
+    }
+    result = true;
+  } else if (document && collection && !connectedStore[storeType][document][collection]) {
+    connectedStore[storeType][document][collection] = {};
+    result = true;
+  }
+
+  return result;
 }
 
 /**
@@ -419,8 +456,8 @@ export const storeEvents = {
 
 /**
  * Creates or retrieves the connected data store for the given storeType.
- * Sets up data service worker data update handling.
- * For a new store, this will block until 'database-data-update' message is sent.
+ * Sets up data update handling by creating a peristent nanostore proxy.
+ * For a new store, this will block until 'database-data-update' message is sent from the service worker.
  *
  * @param {String} storeType - store:scope
  * @returns {Object} - The connected data store for the storeType
@@ -446,44 +483,10 @@ export async function createStore (storeType) {
 }
 
 /**
- * 'page-data-update' handler for pageDataUpdate network callbacks from the service worker.
- * 
- * @param {Object} payload - The pageDataUpdate object
- * @param {String} payload.dbname - The database name
- * @param {String} payload.storeName - The full store name
- * @param {String} payload.storeType - A keyPath to the document
- * @param {Array} payload.keys - An array of the [doc, collection] keyPaths to the data that were updated
- * @param {Boolean} [payload.local] - Local db, no new data. Only uses local if no objectStore has been created
- * @param {Object} [payload.message] - If present, sends message to the UI
- * @param {String} [payload.message.text] - The text of the message
- * @param {String} [payload.message.class] - The presentation class
+ * Default module setup.
+ * Wire-up the page-data-update event from ./data.js
  */
-async function pageDataUpdate (payload) {
-  debug(`Got "page-data-update" for ${payload.storeType}`, payload);
-
-  // Update the store, sends onChange 'update'
-  await dataUpdate(payload);
-
-  // Queue any outgoing user message
-  if (payload.message) {
-    setTimeout(window.App.exec.bind(window.App, 'pageGeneralMessage', {
-      args: {
-        message: payload.message.text,
-        class: payload.message.class,
-        duration: 1500
-      }
-    }), 17);
-  }
-
-  // Release storeType waiter
-  const releaseWaiter = waiters[payload.storeType];
-  if (typeof releaseWaiter === 'function') {
-    debug(`pageDataUpdate releasing waiter for ${payload.storeType}`);
-    releaseWaiter();
-  }
-}
-
 export default function setup () {
   debug('setup...');
-  dataEvents.addEventListener('page-data-update', pageDataUpdate);
+  dataEvents.addEventListener('page-data-update', handlePageDataUpdate);
 }

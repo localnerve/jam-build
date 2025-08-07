@@ -8,7 +8,7 @@
 import debugLib from '@localnerve/debug';
 import '@localnerve/editable-object';
 import { makeStoreType, storeTypeToArrayWithoutUserId } from '#client-utils/storeType.js';
-import setupPageData, { storeEvents, buildNewDocumentIfRequired } from '../page-data.js';
+import setupStores, { storeEvents, buildNewDocumentIfRequired } from '../stores.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
 import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
@@ -189,7 +189,7 @@ async function setupUser () {
 export default async function setup (support) {
   debug('setup...', support);
 
-  setupPageData(support);
+  setupStores(support);
 
   const appPublicStateControl = document.getElementById(`app-public-${page}-state`);
 

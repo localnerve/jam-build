@@ -6,7 +6,7 @@
  */
 import { makeStoreType } from '#client-utils/storeType.js';
 import { updatePageData } from './request.js';
-import { createStore } from './page-data.js';
+import { createStore } from './stores.js';
 
 const appPublic = makeStoreType('app', 'public');
 

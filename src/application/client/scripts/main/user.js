@@ -6,7 +6,7 @@
  */
 import { pageSeed } from './seed.js';
 import { updatePageData } from './request.js';
-import { createStore } from './page-data.js';
+import { createStore } from './stores.js';
 
 /**
  * Get the user store.

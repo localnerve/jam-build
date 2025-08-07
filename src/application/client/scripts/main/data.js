@@ -37,18 +37,20 @@ export const dataEvents = {
  * Wire-up data events to application mediator
  */
 function setupDataEvents () {
+  const { content: page } = document.querySelector('meta[name="page"]');
   const fireEvents = (type, payload) => {
     for (const listener of listeners) {
       if (listener.type === type) listener.callback(payload);
     }
   };
-  const { content: page } = document.querySelector('meta[name="page"]');
   
   debug(`setupDataEvents setting up events for ${page}`);
 
   /**
-   * Install the handler for pageDataUpdate network callbacks from the service worker
+   * Install the handler for 'database-data-update' messages from the service worker.
    *   (window.App.add discards duplicate adds)
+   * High priority event, executed in the application mediator inline in each page.
+   *   @see inline/sw.js
    * This either gets called immediately bc the service worker installed and has init data ready,
    * or called shortly after a page calls to requestPageData and is called back.
    */
