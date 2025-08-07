@@ -6,7 +6,7 @@
  */
 import { pageSeed } from './seed.js';
 import { updatePageData } from './request.js';
-import { createStore } from './data.js';
+import { createStore } from './page-data.js';
 
 /**
  * Get the user store.
@@ -27,5 +27,5 @@ export async function getUserStore (page, storeType) {
     storeTypes: [storeType]
   });
 
-  return createStore(storeType, page);
+  return createStore(storeType);
 }

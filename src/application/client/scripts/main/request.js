@@ -32,7 +32,7 @@ export async function updatePageData (page, filter = {
   if ('serviceWorker' in navigator && filteredSeed) {
     const reg = await navigator.serviceWorker.ready;
     for (const [, payload] of Object.entries(filteredSeed)) {
-      debug(`${page} Sending 'refresh-data' action to service worker`, payload);
+      debug(`${page} Sending 'refresh-data' to sw for '${payload.storeType}'`, payload);
 
       reg.active.postMessage({ 
         action: 'refresh-data',
@@ -40,6 +40,6 @@ export async function updatePageData (page, filter = {
       });
     }
   } else {
-    debug(`${page} will not send refresh-data`);
+    debug(`${page} will not send refresh-data for ${filter.storeTypes}`);
   }
 }

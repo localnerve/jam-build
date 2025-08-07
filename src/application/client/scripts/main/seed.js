@@ -13,9 +13,9 @@ const appStoreType = makeStoreType('app', 'public');
  * A page request seed object is a persistent momento that contains enough info to
  * make data requests and keep the local persistent copy consistent.
  *
- * It contains key, val pairs for app and user data requests:
- *   'app:page-name' => { storeType, document, collections ['name1', 'name2'...] }
- *   'user:page-name' => { storeType, document, collections ['name1', 'name2'...] }
+ * It contains key, val pairs for app and user data requests by storeType:
+ *   storeType => { storeType, document, collections ['name1', 'name2'...] }
+ *   storeType => { storeType, document, collections ['name1', 'name2'...] }
  *   
  * @param {String} page - The page, document name
  * @param {Object} seed - The previous request seed object
@@ -34,7 +34,7 @@ export function pageSeed (page, seed = {}, next = null) {
     return acc;
   }, []);
 
-  seed[`${next.storeType}-${page}`] = {
+  seed[`${next.storeType}`] = {
     storeType: next.storeType,
     document: page,
     collections: newCollections
@@ -65,14 +65,14 @@ export function filterSeed (page, seed, {
 
   return Object.entries(seed).reduce((acc, [key, payload]) => {
     const payloadColl = new Set(payload.collections);
-    const [keyType, keyPage] = key.split('-');
+    const storeType = key;
 
-    if (storeTypes.includes(keyType) && page === keyPage) {
+    if (storeTypes.includes(storeType)) {
       const filteredColl = [...payloadColl.intersection(inputColl)];
 
-      acc[`${keyType}-${keyPage}`] = {
-        storeType: keyType,
-        document: keyPage,
+      acc[storeType] = {
+        storeType,
+        document: page,
         collections: !filteredColl.length ? undefined : filteredColl
       };
     }

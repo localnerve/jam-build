@@ -13,6 +13,7 @@ import createSupport from './support.js';
 import setupHeader from './header.js';
 import setupPrompts from './prompts.js';
 import setupLogin from './login.js';
+import setupData from './data.js';
 import setupHeartbeat from './heartbeat.js';
 
 const debug = debugLib('main');
@@ -98,6 +99,7 @@ async function setup () {
     });
   }
 
+  setupData(support);
   setupPrompts(support);
   setupHeartbeat(support);
   updateCurrentYear();

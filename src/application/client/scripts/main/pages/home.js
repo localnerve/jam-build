@@ -8,7 +8,7 @@
 import debugLib from '@localnerve/debug';
 import '@localnerve/editable-object';
 import { makeStoreType, storeTypeToArrayWithoutUserId } from '#client-utils/storeType.js';
-import { storeEvents, buildNewDocumentIfRequired } from '../data.js';
+import setupPageData, { storeEvents, buildNewDocumentIfRequired } from '../page-data.js';
 import { getUserStore } from '../user.js';
 import { getApplicationStore } from '../app.js';
 import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
@@ -19,6 +19,7 @@ const noDataMarkup = '<strong>** No Data **</strong>';
 const appStoreType = makeStoreType('app', 'public');
 const debug = debugLib(page);
 const updateDataHandlers = Object.create(null);
+let appStoreReady;
 
 /**
  * Listen for updates coming off the web component, update the data store(s) (and databases) on change.
@@ -162,6 +163,8 @@ async function setupUser () {
 
   store[userStoreType] = await getUserStore(page, userStoreType);
 
+  debug('setupUser, store:', store);
+
   let updated = buildNewDocumentIfRequired(store, userStoreType, page, 'state');
   if (updated) {
     userStateControl.object = {};
@@ -169,6 +172,7 @@ async function setupUser () {
   }
 
   if (profile?.isAdmin) {
+    await appStoreReady;
     updated = buildNewDocumentIfRequired(store, appStoreType, page, 'state');
     if (updated) {
       appPublicStateControl.object = {};
@@ -184,6 +188,8 @@ async function setupUser () {
  */
 export default async function setup (support) {
   debug('setup...', support);
+
+  setupPageData(support);
 
   const appPublicStateControl = document.getElementById(`app-public-${page}-state`);
 
@@ -209,12 +215,13 @@ export default async function setup (support) {
   debug('requesting app (and user) data...');
   await Promise.all([
     (async () => {
-      store[appStoreType] = await getApplicationStore(page, appStoreType);
+      appStoreReady = getApplicationStore(page, appStoreType);
+      store[appStoreType] = await appStoreReady;
     })(),
     (async () => {
       if (isLoginActive()) {
         await setupUser();
-      }    
+      }
     })()
   ]);
 }

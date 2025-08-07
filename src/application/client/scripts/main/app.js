@@ -6,7 +6,7 @@
  */
 import { makeStoreType } from '#client-utils/storeType.js';
 import { updatePageData } from './request.js';
-import { createStore } from './data.js';
+import { createStore } from './page-data.js';
 
 const appPublic = makeStoreType('app', 'public');
 
@@ -20,5 +20,5 @@ const appPublic = makeStoreType('app', 'public');
 export async function getApplicationStore (page, storeType = appPublic) {
   await updatePageData(page);
 
-  return createStore(storeType, page);
+  return createStore(storeType);
 }
