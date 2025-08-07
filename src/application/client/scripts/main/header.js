@@ -2,7 +2,7 @@
  * Header intersection transitions, offscreen navigation
  *
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Copyrights licensed under the BSD License. See the accompanying LICENSE file for terms.
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { getNumber } from '#client-utils/browser.js';
 

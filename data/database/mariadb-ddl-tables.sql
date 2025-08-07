@@ -1,10 +1,14 @@
 --
--- Creates the database structure for a jam-build application.
--- It's a two user, generic document 1=< collections *=< properties relation, one for application properties, one for user properties.
+-- Jam-build database structure.
+-- A two role, generic property relation [document 1=< collections *=< properties].
+-- One for application properties, one for user properties.
 --
 -- Prerequisistes:
 -- The jam-build database, jbadmin and jbuser users should have already been created.
 -- The authorizer database should already exist on this instance.
+--
+-- Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+-- Private use for LocalNerve, LLC only. Unlicensed for any other use.
 --
 
 -- The database should have been created at image creation in docker-compose.yml

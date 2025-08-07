@@ -1,5 +1,8 @@
 /**
  * Populate the local database with a couple of dummy collections.
+ * 
+ * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 
 import { test } from './fixtures.js';

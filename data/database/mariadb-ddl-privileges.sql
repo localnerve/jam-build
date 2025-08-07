@@ -1,3 +1,10 @@
+--
+-- Jam-build database privilege grants.
+--
+-- Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+-- Private use for LocalNerve, LLC only. Unlicensed for any other use.
+--
+
 -- Grant SELECT, INSERT, UPDATE, DELETE permissions on the application_documents and user_documents tables to jbadmin
 -- Grant SELECT permissions on application_documents to jbuser
 -- Grant SELECT, INSERT, UPDATE, DELETE on user_documents to jbuser

@@ -1,5 +1,8 @@
 /**
  * Create a user on local instance.
+ * 
+ * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { Authorizer } from '@authorizerdev/authorizer-js';
 import debugLib from '@localnerve/debug';

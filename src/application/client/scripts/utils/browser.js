@@ -2,7 +2,7 @@
  * Utility functions suitable for use within a browser context.
  * 
  * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Copyrights licensed under the BSD License. See the accompanying LICENSE file for terms.
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 
 /**

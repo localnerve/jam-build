@@ -1,5 +1,8 @@
 --
--- Stored procedures for jam_build database
+-- Jam-build database stored procedures.
+--
+-- Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+-- Private use for LocalNerve, LLC only. Unlicensed for any other use.
 --
 
 DELIMITER //

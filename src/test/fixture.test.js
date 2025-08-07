@@ -1,6 +1,8 @@
 /**
  * A check project to exercise the fixtures
  * 
+ * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import debugLib from '@localnerve/debug';
 import { expect, test } from './fixtures.js';

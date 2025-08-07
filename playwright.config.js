@@ -1,3 +1,9 @@
+/**
+ * Playwright.dev config.
+ * 
+ * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
+ * Private use for LocalNerve, LLC only. Unlicensed for any other use.
+ */
 import path from 'node:path';
 import { devices, defineConfig } from '@playwright/test';
 const desktopViewport = {
