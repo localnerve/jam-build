@@ -5,6 +5,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { makeStoreType } from '#client-utils/storeType.js';
+import { expect } from './fixtures.js';
 
 /**
  * Browser init script to pre-hook 'database-data-update' and record the last keys sent by storeType.
@@ -69,4 +70,36 @@ export function waitForDataUpdate (page, {
 
     return waiter;
   }, [storeType, timeout]);
+}
+
+/**
+ * Start the navigation to an application page for some other purpose.
+ * 
+ * @param {String} url - The url to navigate to
+ * @param {Page} page - The playwright.dev Page object
+ * @returns {String} The application public storeType successfully waited for
+ */
+export async function startPage (url, page) {
+  await page.addInitScript(
+    initScriptDataUpdate, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID]
+  );
+
+  await page.goto(url);
+
+  // For headed debugging
+  await page.addScriptTag({
+    content: 'localStorage.setItem("debug", "*");'
+  });
+
+  const storeType = makeStoreType('app', 'public');
+
+  // Wait for the app to setup
+  let payload = await waitForDataUpdate(page, {
+    storeType,
+    timeout: 8000
+  });
+
+  expect(payload.storeType).toEqual(storeType); // App loaded properly
+
+  return storeType;
 }

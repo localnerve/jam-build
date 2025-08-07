@@ -5,7 +5,7 @@
  * Private use for LocalNerve, LLC only. Unlicensed for any other use.
  */
 import { test, expect } from '../fixtures.js';
-import { manualLogin, manualLogout } from '../login.utils.js';
+import { manualAdminLogin, manualLogin, manualLogout } from '../login.utils.js';
 import {
   createTestDataApp,
   createTestDataUser,
@@ -108,16 +108,23 @@ test.describe('mutation tests', () => {
   }
 
   /**
-   * Verify the mutations from doMutations were successful at this moment.
+   * Quick test to see if a stale data message exists.
    */
-  async function testMutations (page, control, mutations, messageExists = false) {
+  async function testMessageExists (page, expectMessageExists = false) {
     // Check for an app message.
     const message = page.locator('.pp-message');
-    if (!messageExists) {
+    if (!expectMessageExists) {
       await expect(message).toBeHidden();
     } else {
       await expect(message).toBeVisible();
     }
+  }
+
+  /**
+   * Verify the mutations from doMutations were successful at this moment.
+   */
+  async function testMutations (page, control, mutations, messageExists = false) {
+    await testMessageExists(page, messageExists);
 
     // Test updates
     for (const [propName, propValue] of Object.entries(mutations.updateProps)) {
@@ -262,12 +269,63 @@ test.describe('mutation tests', () => {
     await context.close();
   });
 
+  test('mutations, whole document creation, clean admin login', async ({ browser, adminRequest }, testInfo) => {
+    test.setTimeout(testInfo.timeout + 20000);
+
+    // Clean the app test data
+    await deleteTestDataApp(baseUrl, adminRequest);
+
+    // Admin login context
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await startJS(page);
+
+    await manualAdminLogin(baseUrl, page);
+
+    // Add a new app property
+    const newPropName = 'Property1';
+    let appState = page.locator('#app-public-home-state');
+    const appNewPropInput = appState.getByLabel('New Property and Value');
+    await appNewPropInput.fill(`${newPropName}: app value1`);
+    await appNewPropInput.press('Enter');
+    // wait for timers to settle like doMutations
+    await new Promise(res => setTimeout(res, 167));
+
+    // Navigate away to force mutation terminus
+    const contacts = await page.getByLabel('Contact').all();
+    await contacts[1].click();
+
+    await page.waitForURL(`${baseUrl}/contact`, {
+      timeout: 5000
+    });
+
+    // Let it cook
+    await new Promise(res => setTimeout(res, 1000));
+
+    // navigate back
+    const homes = await page.getByLabel('Home').all();
+    await homes[1].click();
+
+    await page.waitForURL(baseUrl, {
+      timeout: 5000
+    });
+
+    // Should reflect live service data and have the new property
+    await testMessageExists(page, false);
+
+    appState = page.locator('#app-public-home-state');
+    await expect(appState.locator(`input[name="${newPropName}"]`)).toHaveCount(1);
+
+    await stopJS(page, map);
+    await context.close();
+  });
+
   test('mutations offline', async ({ browser, browserName }, testInfo) => {
     // we can only test this with chromium
     testInfo.skip(browserName !== 'chromium', 'Offline emulation is only supported in playwright.dev chromium browser');
 
     // must be run properly, too
-    // This allows route to abort service worker requests
+    // This allows 'route' to abort service worker requests
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
     test.setTimeout(testInfo.timeout + 20000);

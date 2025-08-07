@@ -6,37 +6,96 @@
  */
 import { test, expect } from './fixtures.js';
 import { acquireAccount } from './authz.js';
-import { initScriptDataUpdate, waitForDataUpdate } from './page.utils.js';
+import { waitForDataUpdate, startPage } from './page.utils.js';
 import { hashDigest } from '#client-utils/browser.js';
 import { makeStoreType } from '#client-utils/storeType.js';
 
 /**
- * Do a manual login using the top login button.
+ * Verify a user was in fact logged in.
+ * Check the data update event for the user id, check the login UI state, check the session cookie.
+ *
+ * @param {String} baseUrl - The origin logged into
+ * @param {Page} page - The playwright.dev Page object logged in with
+ * @param {Object} account - The account object logged in with
  */
-export async function manualLogin (baseUrl, page) {
-  await page.addInitScript(
-    initScriptDataUpdate, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID]
-  );
+async function verifyLoggedIn (baseUrl, page, account) {
+  const userId = await hashDigest(account.username);
+  const storeType = makeStoreType('user', userId);
 
-  await page.goto(baseUrl);
-
-  // For debugging
-  await page.addScriptTag({
-    content: 'localStorage.setItem("debug", "data,request,home,login");'
-  });
-
-  let storeType = makeStoreType('app', 'public');
-
-  // Wait for the app to setup
-  let payload = await waitForDataUpdate(page, {
+  // Start waiting for user data
+  const promiseForUser = waitForDataUpdate(page, {
     storeType,
     timeout: 8000
   });
+
+  // Verify login state changed
+  const logins = await page.getByLabel('Log In').all();
+  const topLogin = logins[1];
+  await topLogin.locator('.alt-label').waitFor({
+    timeout: 5000
+  });
+  const logoutText = await topLogin.innerText();
+  expect(logoutText).toEqual('Log Out');
+
+  // Finish waiting for user data and verify type received
+  const payload = await promiseForUser;
   expect(payload.storeType).toEqual(storeType);
 
+  // Check the authorizer session cookie is there
+  let hasCookie = false;
+  const context = page.context();
+  const cookies = await context.cookies(baseUrl);
+  for (const cookie of cookies) {
+    if (cookie.name.includes('session')) {
+      expect(cookie.name).toEqual(expect.stringContaining('cookie_session'));
+      expect(cookie.value).toBeTruthy();
+      hasCookie = true;
+    }
+  }
+  expect(hasCookie).toBeTruthy();
+}
+
+/**
+ * Do a manual admin login.
+ * 
+ * @param {String} baseUrl - The origin to login to
+ * @param {Page} page - The playwright.dev Page object to login with
+ */
+export async function manualAdminLogin (baseUrl, page) {
+  await startPage(`${baseUrl}/_admin`, page);
+
+  // Get button, ensure state
+  const loginButton = page.locator('#admin-login-form [type="submit"]');
+  const loginText = await loginButton.innerText();
+  expect(loginText).toEqual('Log In');
+
+  // Fill admin credentials
+  const account = await acquireAccount(test, 'admin');
+  await page.locator('#login-email-or-phone-number').fill(account.username);
+  await page.locator('#login-password').fill(account.password);
+
+  // Go, expect redirect to /
+  await loginButton.click();
+  await page.waitForURL(baseUrl, {
+    timeout: 5000
+  });
+
+  await verifyLoggedIn(baseUrl, page, account);
+}
+
+/**
+ * Do a manual login for a user using the authorizer service via the top login button.
+ * 
+ * @param {String} baseUrl - The url to navigate to
+ * @param {Page} page - The playwright.dev Page object
+ * @returns {Page} The logged in page
+ */
+export async function manualLogin (baseUrl, page) {
+  await startPage(baseUrl, page);
+
   // Login
-  let logins = await page.getByLabel('Log In').all();
-  let topLogin = logins[1];
+  const logins = await page.getByLabel('Log In').all();
+  const topLogin = logins[1];
 
   // make sure button is in the expected state
   await topLogin.locator('.label').waitFor({
@@ -72,46 +131,17 @@ export async function manualLogin (baseUrl, page) {
     timeout: 8000
   });
 
-  const userId = await hashDigest(account.username);
-  storeType = makeStoreType('user', userId);
-
-  // Start waiting for user data
-  const promiseForUser = waitForDataUpdate(page, {
-    storeType,
-    timeout: 8000
-  });
-
-  // Verify login state changed
-  logins = await page.getByLabel('Log In').all();
-  topLogin = logins[1];
-  await topLogin.locator('.alt-label').waitFor({
-    timeout: 5000
-  });
-  const logoutText = await topLogin.innerText();
-  expect(logoutText).toEqual('Log Out');
-
-  // Finish waiting for user data and verify type received
-  payload = await promiseForUser;
-  expect(payload.storeType).toEqual(storeType);
-
-  // Check the authorizer session cookie is there
-  let hasCookie = false;
-  const context = page.context();
-  const cookies = await context.cookies(baseUrl);
-  for (const cookie of cookies) {
-    if (cookie.name.includes('session')) {
-      expect(cookie.name).toEqual(expect.stringContaining('cookie_session'));
-      expect(cookie.value).toBeTruthy();
-      hasCookie = true;
-    }
-  }
-  expect(hasCookie).toBeTruthy();
+  await verifyLoggedIn(baseUrl, page, account);
 
   return page;
 }
 
 /**
  * Log a manual logout using the top logout button.
+ * 
+ * @param {String} baseUrl - origin to log out from
+ * @param {Page} loggedInPage - The playwright.dev Page object logged in to
+ * @returns {Page} The logged out Page
  */
 export async function manualLogout (baseUrl, loggedInPage) {
   const page = loggedInPage;
