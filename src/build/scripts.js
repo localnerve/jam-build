@@ -12,7 +12,11 @@
  * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU Affero General Public License for more details.
  * You should have received a copy of the GNU Affero General Public License along with Jam-build.
- * If not, see <https://www.gnu.org/licenses/>
+ * If not, see <https://www.gnu.org/licenses/>.
+ * Additional terms under GNU AGPL version 3 section 7:
+ * a) The reasonable legal notice of original copyright and author attribution must be preserved
+ *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com>, LocalNerve LLC"
+ *    in this material, copies, or source code of derived works.
  */
 import fs from 'node:fs/promises';
 import { rollup } from 'rollup';
