@@ -3,7 +3,7 @@
 > A web application project reference for a jam-stack service-worker first offline MPA
 
 ## Summary
-This is a reference repository for starting a webapp. The project is a versionable, service worker first, offline, multi-page JAM app. Vanillajs, just files, libs, and services. It is easily extended and modified, and the underlying data design lends itself to most applicatons.
+This is a reference repository for starting a webapp. The project builds a versionable, service worker first, offline, multi-page JAM webapp. Vanillajs, just files, libs, and services. It is easily extended and modified, and the underlying data design (optimistically concurrent, multi-region, Document > Collection > Property) lends itself to most applicatons.
 
 ### Background
 This project is based on a [localnerve](https://www.localnerve.com) sassy-handlebars static site generator (Branch `front-only`) that uses image processors that generate metadata used to render preload tags and performance-oriented styles and markup.
@@ -13,7 +13,7 @@ This project design is different from most web apps. This project builds an offl
 
 User and application dynamic data is network-first with local fallback. The data stores the application subscribes to are vanillajs persistent nanostores backed by IndexedDB. All data mutations are staged in IndexedDB and committed to the API in a batch process in the service worker for optimal network usage. Batches are automatically committed to the API on user inactivity, page navigation, page close, or logout (user data is also purged from IndexedDB on logout).
 
-The data service API is versioned and uses optimistic concurrency. Any conflicts on the remote data service are resolved automatically in the service worker by a three way merge favoring the latest local changes. There is role based access control, and this reference uses two roles [user, admin] to control data access.
+The data service API is versioned and uses optimistic concurrency. Any conflicts on the remote data service are resolved automatically in the service worker by a three way merge favoring the latest local changes. There is role based access control, and this reference demonstrates two roles [user, admin].
 
 Using a minimal javascript, progressively enhanced approach, each navigation runs a stateless page start then supplies an optional page module that can participate in application and user state for a given page.
 
