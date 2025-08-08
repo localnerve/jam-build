@@ -1,14 +1,21 @@
 # Jam Build
 
-> A high-performance project template for custom hybrid jam-stack offline MPA webapps
+> A web application project reference for a jam-stack service-worker first offline MPA
 
 ## Summary
-This is a template repository for starting a webapp. It renders a versionable, service worker first, offline multi-page JAM app. No frameworks, just files and libs. it is easily extended with server side subapps and apis.
+This is a reference repository for starting a webapp. The project is a versionable, service worker first, offline, multi-page JAM app. Vanillajs, just files, libs, and services. It is easily extended and modified, and the underlying data design lends itself to most applicatons.
 
-## Design Points
-This project design is different from most web apps. This project builds an offline, service worker first, multi-page application. There is no client side router, all navigation requests render directly from the service worker with a stale-while-revalidate strategy that offers an update prompt system for the user to receive updates to pages and the app itself.
+### Background
+This project is based on a [localnerve](https://www.localnerve.com) sassy-handlebars static site generator (Branch `front-only`) that uses image processors that generate metadata used to render preload tags and performance-oriented styles and markup.
 
-Using a minimal javascript, progressively enhanced approach, each navigation runs a stateless page start then supplies an optional page module that can participate in application state for a given page.
+## High-Level Design Points
+This project design is different from most web apps. This project builds an offline, service worker first, multi-page application. There is no client side router, all navigation requests render directly from the service worker cache with a stale-while-revalidate strategy that offers an update prompt system for the user to receive updates to static pages and the app itself.
+
+User and application dynamic data is network-first with local fallback. The data stores the application subscribes to are vanillajs persistent nanostores backed by IndexedDB. All data mutations are staged in IndexedDB and committed to the API in a batch process in the service worker for optimal network usage. Batches are automatically committed to the API on user inactivity, page navigation, page close, or logout (user data is also purged from IndexedDB on logout).
+
+The data service API is versioned and uses optimistic concurrency. Any conflicts on the remote data service are resolved automatically in the service worker by a three way merge favoring the latest local changes. There is role based access control, and this reference uses two roles [user, admin] to control data access.
+
+Using a minimal javascript, progressively enhanced approach, each navigation runs a stateless page start then supplies an optional page module that can participate in application and user state for a given page.
 
 ## Build Process
 The build produces the application from source and data to a single directory, ideal for integration with a service vendor or optionally with a portable container (docker container supplied).
@@ -52,3 +59,10 @@ The are two main control files for directing the build and its contents.
 * [Gulp](https://gulpjs.com)
 * [Rollup](https://rollupjs.org/)
 * [Localnerve](https://localnerve.com)
+
+## Author and License
+
+Jam-build, a web application practical reference.
+Copyright (c) 2025 Alex Grant <info@localnerve.com>, LocalNerve LLC
+
+Jam-build is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU Affero General Public License](LICENSE.md) for more details.
