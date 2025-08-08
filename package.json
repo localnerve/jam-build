@@ -55,7 +55,7 @@
     "architecture"
   ],
   "author": "Alex Grant <alex@localnerve.com>",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-or-later",
   "bugs": {
     "url": "https://github.com/localnerve/jam-build/issues"
   },
@@ -120,7 +120,7 @@
     "rollup-plugin-visualizer": "^6.0.3",
     "sass": "^1.90.0",
     "sitemap": "^8.0.0",
-    "stylelint": "^16.23.0",
+    "stylelint": "^16.23.1",
     "stylelint-config-standard": "^39.0.0",
     "stylelint-config-standard-scss": "^15.0.1",
     "stylelint-no-unsupported-browser-features": "^8.0.4",
