@@ -79,8 +79,8 @@ test.describe('mutation tests', () => {
     // assist any visual debugging
     await lastProp.scrollIntoViewIfNeeded();
 
-    // mutationQueue 67ms, plus let heartbeat run once
-    await new Promise(res => setTimeout(res, 667)); // increase this to visually debug
+    // mutationQueue 67ms, plus 
+    await new Promise(res => setTimeout(res, 167)); // increase this to visually debug
 
     /**
      * Delete props
@@ -95,8 +95,8 @@ test.describe('mutation tests', () => {
       await propLI.getByTitle('Remove').click();
     }
 
-    // mutationQueue 67ms, plus let heartbeat run once
-    await new Promise(res => setTimeout(res, 667)); // increase this to visually debug
+    // mutationQueue 67ms, plus 
+    await new Promise(res => setTimeout(res, 167)); // increase this to visually debug
 
     /**
      * Create props
@@ -111,8 +111,8 @@ test.describe('mutation tests', () => {
       await newProp.press('Enter');
     }
 
-    // mutationQueue 67ms, plus let heartbeat run once
-    await new Promise(res => setTimeout(res, 667)); // increase this to visually debug
+    // mutationQueue 67ms, plus 
+    await new Promise(res => setTimeout(res, 167)); // increase this to visually debug
 
     return {
       updateProps,
@@ -198,7 +198,7 @@ test.describe('mutation tests', () => {
     });
 
     // Let it cook
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 250));
 
     // navigate back, check for stale message
     const homes = await page.getByLabel('Home').all();
@@ -225,7 +225,7 @@ test.describe('mutation tests', () => {
     await manualLogout(baseUrl, page);
 
     // let it cook
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 250));
 
     // login to verify the changes 
     await manualLogin(baseUrl, page);
@@ -269,7 +269,7 @@ test.describe('mutation tests', () => {
     await page.close();
 
     // let it cook, then kill
-    await new Promise(res => setTimeout(res, 500)); // increase this to visually debug
+    await new Promise(res => setTimeout(res, 250)); // increase this to visually debug
     await context.close();
 
     context = await browser.newContext();
@@ -314,7 +314,7 @@ test.describe('mutation tests', () => {
     });
 
     // Let it cook
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 250));
 
     // navigate back
     const homes = await page.getByLabel('Home').all();
@@ -373,7 +373,7 @@ test.describe('mutation tests', () => {
     });
 
     // wait for sync
-    await new Promise(res => setTimeout(res, 1000)); // increase this to visually debug
+    await new Promise(res => setTimeout(res, 250)); // increase this to visually debug
 
     // Verify
     await page.goto(baseUrl);
@@ -433,13 +433,13 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 100));
     let homes = await page1.getByLabel('Home').all();
     await homes[1].click();
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 100));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
 
@@ -449,13 +449,13 @@ test.describe('mutation tests', () => {
     await page2.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 100));
     homes = await page2.getByLabel('Home').all();
     await homes[1].click();
     await page2.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 100));
 
     // merge result should be:
     const mergeResult = {
@@ -475,13 +475,13 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 100));
     homes = await page1.getByLabel('Home').all();
     await homes[1].click();
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 500));
+    await new Promise(res => setTimeout(res, 100));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
     expect(object1).toEqual(mergeResult);
