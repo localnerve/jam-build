@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU Affero General Public License along with Jam-build.
  * If not, see <https://www.gnu.org/licenses/>
  */
-import { expect } from '../fixtures.js';
+import { expect } from '#test/fixtures.js';
 import {
   getData,
   deleteData

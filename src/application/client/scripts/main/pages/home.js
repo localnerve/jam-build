@@ -18,10 +18,10 @@
 import debugLib from '@localnerve/debug';
 import '@localnerve/editable-object';
 import { makeStoreType, storeTypeToArrayWithoutUserId } from '#client-utils/storeType.js';
-import setupStores, { storeEvents, buildNewDocumentIfRequired } from '../stores.js';
-import { getUserStore } from '../user.js';
-import { getApplicationStore } from '../app.js';
-import { isLoginActive, getUserProfile, loginEvents } from '../login.js';
+import setupStores, { storeEvents, buildNewDocumentIfRequired } from '#client-main/stores.js';
+import { getUserStore } from '#client-main/user.js';
+import { getApplicationStore } from '#client-main/app.js';
+import { isLoginActive, getUserProfile, loginEvents } from '#client-main/login.js';
 
 const store = {};
 const page = 'home';

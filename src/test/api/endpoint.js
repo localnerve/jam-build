@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU Affero General Public License along with Jam-build.
  * If not, see <https://www.gnu.org/licenses/>
  */
-import { test } from '../fixtures.js';
+import { test } from '#test/fixtures.js';
 import { getData, postData } from './api.js';
 
 export function basicEndpointTests (endpointPath, statusCode = 404, getNotAllowed = true) {

@@ -19,9 +19,9 @@
 import path from 'node:path';
 import { glob } from 'glob';
 import { generateSW } from 'workbox-build';
+import pkg from '#root/package.json' with { type: 'json' };
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
-import pkg from '../../package.json' with { type: 'json' };
 
 /**
  * Generate the version - build timestamp string.

@@ -14,15 +14,15 @@
  * You should have received a copy of the GNU Affero General Public License along with Jam-build.
  * If not, see <https://www.gnu.org/licenses/>
  */
-import { test, expect } from '../fixtures.js';
-import { manualAdminLogin, manualLogin, manualLogout } from '../login.utils.js';
+import { test, expect } from '#test/fixtures.js';
+import { manualAdminLogin, manualLogin, manualLogout } from '#test/login.utils.js';
 import {
   createTestDataApp,
   createTestDataUser,
   deleteTestDataApp,
   deleteTestDataUser
-} from '../testdata.js';
-import { startJS, stopJS, createMap, createReport } from '../coverage.js';
+} from '#test/testdata.js';
+import { startJS, stopJS, createMap, createReport } from '#test/coverage.js';
 
 test.describe('mutation tests', () => {
   let baseUrl;

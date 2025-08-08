@@ -15,7 +15,7 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 /* eslint-disable playwright/expect-expect */
-import { expect, test } from '../fixtures.js';
+import { expect, test } from '#test/fixtures.js';
 import {
   getData,
   postData,

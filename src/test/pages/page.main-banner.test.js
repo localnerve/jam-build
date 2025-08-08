@@ -16,8 +16,8 @@
  */
 /* eslint-disable playwright/expect-expect */
 
-import { test, expect } from '../fixtures.js';
-import { startJS, stopJS, createMap, createReport } from '../coverage.js';
+import { test, expect } from '#test/fixtures.js';
+import { startJS, stopJS, createMap, createReport } from '#test/coverage.js';
 
 test.describe('main-banner tests', () => {
   let baseUrl;

@@ -15,7 +15,7 @@
  * If not, see <https://www.gnu.org/licenses/>
  */
 import debugLib from '@localnerve/debug';
-import { expect } from '../fixtures.js';
+import { expect } from '#test/fixtures.js';
 
 const debug = debugLib('test:api');
 

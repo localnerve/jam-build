@@ -10,6 +10,7 @@
     "build:debug": "npm run gulp-debug -- build",
     "build:dev": "npm run gulp-run -- dev-build",
     "build:dev:debug": "npm run gulp-debug -- dev-build",
+    "build:dev:sw": "SW_INSTRUMENT=1 npm run gulp-run -- dev-build",
     "build:env": "cross-env AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} AUTHZ_URL=${AUTHZ_URL:-http://localhost:9010}",
     "dev": "node src/application/server --PORT=5000 --ENV-PATH=private/host-env.json",
     "dev:debug": "cross-env DEBUG=server*,api* node --inspect-brk src/application/server/index.js --PORT=5000 --ENV-PATH=private/host-env.json --DEBUG",
@@ -37,7 +38,10 @@
     "test:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000"
   },
   "imports": {
-    "#client-utils/*": "./src/application/client/scripts/utils/*"
+    "#client-utils/*": "./src/application/client/scripts/utils/*",
+    "#client-main/*": "./src/application/client/scripts/main/*",
+    "#test/*": "./src/test/*",
+    "#root/*": "./*"
   },
   "repository": {
     "type": "git",

@@ -25,8 +25,8 @@ import pluginOutputManifest from 'rollup-plugin-output-manifest';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
 import { visualizer } from 'rollup-plugin-visualizer';
 import istanbul from 'rollup-plugin-istanbul';
+import pkg from '#root/package.json' with { type: 'json' };
 import { loadSiteData } from './data.js';
-import pkg from '../../package.json' with { type: 'json' };
 
 // gross
 const { default: outputManifest } = pluginOutputManifest;

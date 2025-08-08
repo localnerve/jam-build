@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU Affero General Public License along with Jam-build.
  * If not, see <https://www.gnu.org/licenses/>
  */
-import { test } from '../fixtures.js';
+import { test } from '#test/fixtures.js';
 import { basicEndpointTests } from './endpoint.js';
 
 // eslint-disable-next-line playwright/valid-describe-callback
