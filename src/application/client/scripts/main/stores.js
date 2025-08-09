@@ -23,7 +23,7 @@ import debugLib from '@localnerve/debug';
 import { fastIsEqual } from '@localnerve/fast-is-equal';
 import { dataEvents } from './data.js';
 
-const debug = debugLib('page-data');
+const debug = debugLib('stores');
 
 let db;
 let swActive;
@@ -33,11 +33,6 @@ const store = {};
 const storeNames = new Map();
 const dataScopes = new Map();
 const createdStores = new Map();
-
-if ('serviceWorker' in navigator) {
-  const reg = await navigator.serviceWorker.ready;
-  swActive = reg.active;
-}
 
 /**
  * 'page-data-update' handler for messages from the service worker.
@@ -269,9 +264,10 @@ function queueMutation (op, key) {
   // Schedule task to update db, queue remote sync
   mutationQueue.push(async () => {
     const result = await updateDatabase(op, storeType, keyPath, propertyName);
-    if (swActive && result) {
-      debug('Sending batch-update...', op, key);
 
+    debug('queued mutation', op, key, result, swActive);
+
+    if (swActive && result) {
       swActive.postMessage({
         action: 'batch-update',
         payload: {
@@ -497,10 +493,17 @@ export async function createStore (storeType) {
 }
 
 /**
- * Default module setup.
- * Wire-up the page-data-update event from ./data.js
+ * Wire-up the page-data-update event, get sw reference.
+ * 
+ * @param {Object} support - The browser support matrix
  */
-export default function setup () {
-  debug('setup...');
+export default async function setup (support) {
+  debug('setup...', support);
+
   dataEvents.addEventListener('page-data-update', handlePageDataUpdate);
+
+  if (support.serviceWorker) {
+    const reg = await navigator.serviceWorker.ready;
+    swActive = reg.active;
+  }
 }

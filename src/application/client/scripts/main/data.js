@@ -81,8 +81,8 @@ function setupDataEvents () {
   });
 }
 
-export default function setup (support) {
-  debug('setup...', support);
+export default function setup () {
+  debug('setup...');
 
   setupDataEvents();
 }

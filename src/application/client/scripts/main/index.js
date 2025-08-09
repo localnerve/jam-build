@@ -96,7 +96,7 @@ function loaded (support) {
 }
 
 /**
- * App setup main execution on DOMContentReady
+ * App setup main execution on DOMContentLoaded
  */
 async function setup () {
   debug('running setup');
@@ -113,15 +113,15 @@ async function setup () {
     });
   }
 
-  setupData(support);
   setupPrompts(support);
   setupHeartbeat(support);
   updateCurrentYear();
 
   return Promise.all([
-    updateVersion(support),
+    setupData(support),
+    setupLogin(support),
     setupPage(support),
-    setupLogin(support)
+    updateVersion(support)
   ]);
 }
 

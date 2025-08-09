@@ -344,6 +344,8 @@ async function loginHandler (event) {
  * Installs the login/logout button handler, updates the UI with login status.
  */
 export default async function setup () {
+  debug('setup...');
+
   const uiElements = getLoginUIElements();
 
   initializeAuthorizer();
