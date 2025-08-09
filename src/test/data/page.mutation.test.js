@@ -364,10 +364,12 @@ test.describe('mutation tests', () => {
       await page.waitForURL(`${baseUrl}/${otherPage}`, {
         timeout: 5000
       });
+      await new Promise(res => setTimeout(res, 100));
       await page.goto(baseUrl);
       await page.waitForURL(baseUrl, {
         timeout: 5000
       });
+      await new Promise(res => setTimeout(res, 100));
     }
     await testMutations(page, userStateControl, mutations, true);
 
@@ -383,7 +385,7 @@ test.describe('mutation tests', () => {
     });
 
     // wait for sync
-    await new Promise(res => setTimeout(res, 1000)); // increase this to visually debug
+    await new Promise(res => setTimeout(res, 1500)); // increase this to visually debug
 
     // Verify
     await page.goto(baseUrl);
