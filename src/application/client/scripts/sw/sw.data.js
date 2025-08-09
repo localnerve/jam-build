@@ -48,6 +48,11 @@ import {
   E_REPLAY,
   E_CONFLICT,
   fetchTimeout,
+  offlineRetentionTime,
+  opGet,
+  opDel,
+  opLogout,
+  opPut,
   queueName,
   versionStoreType
 } from './sw.data.constants.js';
@@ -92,7 +97,7 @@ export function setupBackgroundRequests (syncSupport) {
     if (!queue) {
       queue = new Queue(queueName, {
         forceSyncFallback: !syncSupport,
-        maxRetentionTime: 60 * 72, // 72 hours
+        maxRetentionTime: offlineRetentionTime,
         onSync: replayRequestQueue
       });
       debug('Sync queue created: ', queue);
@@ -127,7 +132,7 @@ async function replayRequestQueue ({ queue }) {
 
   const getResponseHandler = async (metadata, data) => {
     const { storeType, op, collections } = metadata;
-    if (op === 'put' || op === 'delete') {
+    if (op === opPut || op === opDel) {
       return storeVersionConflict(storeType, op, collections, data);
     }
     await storeData(storeType, data);
@@ -140,7 +145,7 @@ async function replayRequestQueue ({ queue }) {
     const method = entry.request.method;
 
     if (method === 'GET') {
-      const queue = meta.op === 'get' ? getRequests : getConflicts;
+      const queue = meta.op === opGet ? getRequests : getConflicts;
       queue.push(entry);
     } else {
       const { storeType, document, collections, op } = meta;
@@ -388,7 +393,7 @@ export async function refreshData ({ storeType, document, collections }) {
       storeType,
       document,
       collections,
-      op : 'get'
+      op : opGet
     }
   });
 }
@@ -426,13 +431,19 @@ async function upsertData ({ storeType, document, collections = null }) {
   const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
-      await clearBaseStoreRecords(storeType, document);
+      if (collections) {
+        for (const collection of collections) {
+          await clearBaseStoreRecords(storeType, document, collection);
+        }
+      } else {
+        await clearBaseStoreRecords(storeType, document);
+      }
     },
     metadata: {
       storeType,
       document,
       collections,
-      op: 'put'
+      op: opPut
     }
   });
 
@@ -498,13 +509,21 @@ async function deleteData ({ storeType, document, collections }) {
   const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
       await storeMutationResult(storeType, document, data);
-      await clearBaseStoreRecords(storeType, document);
+      if (collections) {
+        const colls = Array.isArray(collections) ? collections : [collections];
+        for (const coll of colls) {
+          const collection = isObj(coll) ? coll.collection : coll;
+          await clearBaseStoreRecords(storeType, document, collection);
+        }
+      } else {
+        await clearBaseStoreRecords(storeType, document);
+      }
     },
     metadata: {
       storeType,
       document,
       collections,
-      op: 'delete'
+      op: opDel
     }
   });
 
@@ -554,7 +573,7 @@ export async function logout ({ storeType }) {
     const batchOpsIndex = db.transaction(batchStore).store.index('ops');
 
     let exists = false;
-    for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only('logout'))) {
+    for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only(opLogout))) {
       const { storeType: existingStoreType } = cursor.value;
       if (existingStoreType === storeType) {
         exists = true;
@@ -563,7 +582,7 @@ export async function logout ({ storeType }) {
     }
 
     if (!exists) {
-      await batchUpdate({ storeType, op: 'logout' }, true);
+      await batchUpdate({ storeType, op: opLogout }, true);
       serviceAllTimers();
     }
   } else {
@@ -673,7 +692,7 @@ async function processBatchUpdates () {
       }
       if (!sameOpDuplicate && !deletedLater) {
         let properties;
-        if (item.op === 'delete') { // deletes can have properties
+        if (item.op === opDel) { // deletes can have properties
           if (item.collection) {
             properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
             properties.hasProps = item.propertyName ? true : false;
@@ -770,8 +789,8 @@ async function processBatchUpdates () {
   // If complete invocation, process any additional batch ops
   if (networkResult !== E_CONFLICT) {
     const batchOpsIndex = await db.transaction(batchStoreName, 'readwrite').store.index('ops');
-    // op === 'logout'
-    for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only('logout'))) {
+    // op === opLogout
+    for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only(opLogout))) {
       const { storeType } = cursor.value;
       await cursor.delete(); // always consume it
       const next = await cursor.continue(); // manual advance to check for last
@@ -788,14 +807,14 @@ async function processBatchUpdates () {
  * 
  * @param {Object} payload - The message payload object
  * @param {String} payload.storeType - store:scope document path
- * @param {String} payload.op - 'put' or 'delete' or 'logout'
- * @param {String} [payload.document] - The document for these updates, can be omitted if op NOT 'put' or 'delete'
+ * @param {String} payload.op - opPut or opDel or opLogout
+ * @param {String} [payload.document] - The document for these updates, can be omitted if op NOT opPut or opDel
  * @param {String} [payload.collection] - The collection to update
- * @param {String} [payload.propertyName] - The property name to delete, required for 'delete'
+ * @param {String} [payload.propertyName] - The property name to delete, required for opDel
  * @param {Boolean} [skipTimer] - true to not schedule processing, caller must schedule. Defaults to false.
  */
 async function _batchUpdate ({ storeType, document, op, collection, propertyName }, skipTimer = false) {
-  if (!storeType || !op || !(document || op === 'logout')) {
+  if (!storeType || !op || !(document || op === opLogout)) {
     throw new Error('Bad input passed to batchUpdate');
   }
 
@@ -834,9 +853,9 @@ export async function batchUpdate (...args) {
  * @param {Object} payload - The message payload object
  * @param {String} payload.storeType - store:scope document path
  * @param {String} payload.document - The document for these updates
- * @param {String} payload.op - 'put' or 'delete'
+ * @param {String} payload.op - opPut or opDel
  * @param {String} [payload.collection] - The collection to update
- * @param {String} [payload.propertyName] - The property name to delete, required for 'delete'
+ * @param {String} [payload.propertyName] - The property name to delete, required for opDel
  */
 async function conditionalBatchUpdate ({ storeType, document, op, collection, propertyName }) {
   if (!storeType || !document || !op) {
@@ -872,7 +891,7 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
  * @param {Object} payload - The parameters
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document name
- * @param {String} payload.op - 'put' or 'delete'
+ * @param {String} payload.op - opPut or opDel
  * @param {String|Array<String>|Array<Object>} payload.collections - The network request format of collections
  */
 async function versionConflict ({ storeType, document, op, collections }) {

@@ -270,21 +270,34 @@ export async function hasPendingUpdates (queue) {
 
 /**
  * Clean the base document store after mutations.
+ * The op is important because it stops base records from being deleted that are still to be referenced by pending conflicts.
  * 
  * @param {String} storeType - store:scope path to document
  * @param {String} document - The document that was updated
+ * @param {String} [collection] - The collection that was updated
  */
-export async function clearBaseStoreRecords (storeType, document) {
+export async function clearBaseStoreRecords (storeType, document, collection = '') {
+  debug(`clearBaseRecords ${document}:${collection}`, storeType);
+
   const baseStoreName = makeStoreName(baseStoreType);
   const db = await getDB();
 
-  let count = 0;
-  const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
-  for await (const cursor of documents.iterate([storeType, document])) {
-    count++;
-    await cursor.delete();
+  let deleteCount = 0;
+  const baseRecords = await db.transaction(baseStoreName, 'readwrite').store.index('collection');
+  for await (const cursor of baseRecords.iterate([storeType, document, collection])) {
+    const item = cursor.value;
+    
+    item.reference -= 1;
+    
+    if (item.reference <= 0) {
+      deleteCount++;
+      await cursor.delete();
+    } else {
+      await cursor.update(item);
+    }
   }
-  debug(`deleted ${count} base document records for ${storeType}:${document}`);
+
+  debug(`deleted ${deleteCount} base document records for ${storeType}:${document}:${collection}`);
 }
 
 /**
@@ -296,10 +309,11 @@ export async function clearBaseStoreRecords (storeType, document) {
  * @param {Object} payload - The message payload object
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to be updated
+ * @param {String} payload.op - The mutation operation
  * @param {String} [payload.collection] - The collection to be updated
  * @param {Boolean} [clearOnly] - True to clear the record only, default false
  */
-async function _mayUpdate ({ storeType, document, collection }, clearOnly = false) {
+async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = false) {
   if (!storeType || !document) {
     throw new Error('Bad input passed to mayUpdate');
   }
@@ -316,9 +330,10 @@ async function _mayUpdate ({ storeType, document, collection }, clearOnly = fals
   if (collection) {
     const baseCopy = await db.getFromIndex(baseStoreName, 'collection', [storeType, document, collection]);
     const staleBase = baseCopy && (Date.now() - baseCopy.timestamp) >= STALE_BASE_LIFESPAN;
+    const willDelete = staleBase || clearOnly;
 
-    if (!baseCopy || staleBase || clearOnly) {
-      if ((staleBase || clearOnly) && baseCopy) {
+    if (!baseCopy || willDelete) {
+      if (willDelete && baseCopy) {
         await db.delete(baseStoreName, baseCopy.id);
       }
 
@@ -329,9 +344,15 @@ async function _mayUpdate ({ storeType, document, collection }, clearOnly = fals
 
         if (original) {
           await db.add(baseStoreName, {
-            storeType, document, collection, timestamp: Date.now(), properties: original.properties
+            storeType, document, collection, op, reference: 1, timestamp: Date.now(), properties: original.properties
           });
         }
+      }
+    } else if (baseCopy) {
+      // Increment reference on additive, duplicative calls
+      if (baseCopy.op !== op) {
+        baseCopy.reference += 1;
+        await db.put(baseStoreName, baseCopy);
       }
     }
   } else {
@@ -360,9 +381,19 @@ async function _mayUpdate ({ storeType, document, collection }, clearOnly = fals
             storeType,
             document,
             collection: orig.collection_name,
+            reference: 1,
             timestamp: Date.now(),
             properties: orig.properties
           });
+        }
+      }
+    } else if (!clearOnly) {
+      // Increment the reference counts for additive, duplicative calls
+      for await (const cursor of documents.iterate([storeType, document])) {
+        const item = cursor.value;
+        if (item.op !== op) {
+          item.reference += 1;
+          await cursor.update(item);
         }
       }
     }

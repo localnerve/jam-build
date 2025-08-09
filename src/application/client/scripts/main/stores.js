@@ -21,6 +21,7 @@
 import { openDB } from 'idb';
 import debugLib from '@localnerve/debug';
 import { fastIsEqual } from '@localnerve/fast-is-equal';
+import { opPut, opDel } from '#client-utils/constants.js';
 import { dataEvents } from './data.js';
 
 const debug = debugLib('stores');
@@ -143,7 +144,7 @@ async function updateDatabase (op, storeType, keyPath, propertyName = null) {
   let result = false;
 
   switch (op) {
-    case 'delete':
+    case opDel:
       if (collection) {
         if (propertyName) { // delete single property
           debug(`deleting propertyName '${propertyName}' from '${collection}'...`);
@@ -174,7 +175,7 @@ async function updateDatabase (op, storeType, keyPath, propertyName = null) {
       }
       break;
 
-    case 'put':
+    case opPut:
       if (collection) { // put collection and/or properties
         debug(`putting collection ${collection}...`);
         if (await isDifferent(storeName, [scope, ...keyPath], store[storeType][document][collection])) {
@@ -256,7 +257,8 @@ function queueMutation (op, key) {
       payload: {
         storeType,
         document,
-        collection
+        collection,
+        op
       }
     });
   }
@@ -302,7 +304,7 @@ function onChange (op, key, value) {
   }
 
   // Must be a mutation on at least the document level
-  if (['put', 'delete'].includes(op) && key.length > 1) {
+  if ([opPut, opDel].includes(op) && key.length > 1) {
     queueMutation(op, key);
   }
 }
@@ -326,12 +328,12 @@ function createHandler (path = []) {
     },
     set: (target, key, value) => {
       target[key] = value;
-      onChange('put', [...path, key], value);
+      onChange(opPut, [...path, key], value);
       return true;
     },
     deleteProperty (target, key) {
       delete target[key];
-      onChange('delete', [...path, key], undefined);
+      onChange(opDel, [...path, key], undefined);
       return true;
     }
   };

@@ -357,8 +357,18 @@ test.describe('mutation tests', () => {
     const mutations = await doMutations(userStateControl);
     await testMutations(page, userStateControl, mutations);
 
-    // Test offline reload, show stale
-    await page.goto(baseUrl);
+    // Test offline gets with dups and reload, show stale
+    const otherPages = ['about', 'contact'];
+    for (const otherPage of otherPages) {
+      await page.goto(`${baseUrl}/${otherPage}`);
+      await page.waitForURL(`${baseUrl}/${otherPage}`, {
+        timeout: 5000
+      });
+      await page.goto(baseUrl);
+      await page.waitForURL(baseUrl, {
+        timeout: 5000
+      });
+    }
     await testMutations(page, userStateControl, mutations, true);
 
     // go online
@@ -373,7 +383,7 @@ test.describe('mutation tests', () => {
     });
 
     // wait for sync
-    await new Promise(res => setTimeout(res, 250)); // increase this to visually debug
+    await new Promise(res => setTimeout(res, 1000)); // increase this to visually debug
 
     // Verify
     await page.goto(baseUrl);
