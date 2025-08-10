@@ -1,0 +1,20 @@
+name: authorizer-dev
+services:
+  authorizer:
+    image: lakhansamani/authorizer:1.4.4
+    environment:
+      ENV: development
+      ADMIN_SECRET: deadbeefcafebabe
+      DATABASE_TYPE: mariadb
+      DATABASE_URL: admin:deadbeefcafebabe@tcp(host.docker.internal:3306)/authorizer
+      DATABASE_NAME: authorizer
+      CLIENT_ID: 'deadbeef-cafe-babe-feed-baadc0deface'
+      PORT: 9010
+      ROLES: 'admin,user'
+      DEFAULT_ROLES: 'user'
+      PROTECTED_ROLES: 'admin'
+      LOG_LEVEL: 'debug'
+      ORGANIZATION_NAME: 'Business Name'
+      ORGANIZATION_LOGO: 'http://localhost:5000/images/logo-e16f7a5e32.svg'
+    ports:
+      - "9010:9010/tcp"
