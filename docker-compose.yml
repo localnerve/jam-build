@@ -9,7 +9,7 @@ services:
         GID: ${GID}
         AUTHZ_URL: ${AUTHZ_URL}
         AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
-    image: jam-build-composition:latest # change this to `jam-build:latest` after you build with the AUTHZ_CLIENT_ID
+    image: jam-build:latest
     environment:
       DB_HOST: mariadb
       DB_DATABASE: jam_build
@@ -48,14 +48,18 @@ services:
       DATABASE_TYPE: mariadb
       DATABASE_URL: root:${DB_ROOT_PASSWORD}@tcp(mariadb:3306)/authorizer
       DATABASE_NAME: authorizer
+      CLIENT_ID: ${AUTHZ_CLIENT_ID}
       ORGANIZATION_NAME: ${AUTHZ_ORGANIZATION_NAME}
       ORGANIZATION_LOGO: ${AUTHZ_ORGANIZATION_LOGO}
+      ROLES: 'admin,user'
+      DEFAULT_ROLES: 'user'
+      PROTECTED_ROLES: 'admin'
       PORT: 9010
-#      SMTP_HOST: ${AUTHZ_SMTP_HOST}
-#      SMTP_PORT: ${AUTHZ_SMTP_PORT}
-#      SMTP_USER: ${AUTHZ_SMTP_USER}
-#      SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
-#      SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
+  #   SMTP_HOST: ${AUTHZ_SMTP_HOST}
+  #   SMTP_PORT: ${AUTHZ_SMTP_PORT}
+  #   SMTP_USER: ${AUTHZ_SMTP_USER}
+  #   SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
+  #   SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
       REDIS_URL: redis://cache:6379
     depends_on:
       mariadb:
