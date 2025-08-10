@@ -1,45 +1,43 @@
 name: jam-build-container
 services:
   # The app
-  app:
+  jam-build:
     build:
       context: .
       args:
         UID: ${UID}
         GID: ${GID}
-    image: jam-build:latest
+        AUTHZ_URL: ${AUTHZ_URL}
+        AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
+    image: jam-build-composition:latest # change this to `jam-build:latest` after you build with the AUTHZ_CLIENT_ID
     environment:
-      DB_HOST: 172.19.0.10
+      DB_HOST: mariadb
       DB_DATABASE: jam_build
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_APP_USER: ${DB_APP_USER}
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
-      AUTHZ_HOST: 172.19.0.11
-      AUTHZ_PORT: 9010
+      AUTHZ_URL: ${AUTHZ_URL}
+      AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
     depends_on:
       - mariadb
       - authorizer
     ports:
       - 5000:5000
     networks:
-      - frontend
       - backend
 
   # The cache
   cache:
-    image: redis:7.4.2
-    environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    image: redis:7.4.5
     restart: always
     ports:
       - 6379:6379
-    command: redis-server --save 20 1 --loglevel warning --requirepass $REDIS_PASSWORD
+    command: redis-server --save 20 1 --loglevel warning
     volumes:
       - cache:/data
     networks:
-      backend:
-        ipv4_address: 172.19.0.12
+      - backend
   
   # The authorizer
   authorizer:
@@ -48,15 +46,17 @@ services:
       ENV: production
       ADMIN_SECRET: ${AUTHZ_ADMIN_SECRET}
       DATABASE_TYPE: mariadb
-      DATABASE_URL: root:${DB_ROOT_PASSWORD}@tcp(172.19.0.10:3306)/authorizer
+      DATABASE_URL: root:${DB_ROOT_PASSWORD}@tcp(mariadb:3306)/authorizer
       DATABASE_NAME: authorizer
+      ORGANIZATION_NAME: ${AUTHZ_ORGANIZATION_NAME}
+      ORGANIZATION_LOGO: ${AUTHZ_ORGANIZATION_LOGO}
       PORT: 9010
-      SMTP_HOST: ${AUTHZ_SMTP_HOST}
-      SMTP_PORT: ${AUTHZ_SMTP_PORT}
-      SMTP_USER: ${AUTHZ_SMTP_USER}
-      SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
-      SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
-      REDIS_URL: redis://${REDIS_PASSWORD}@172.19.0.12:6379/0
+#      SMTP_HOST: ${AUTHZ_SMTP_HOST}
+#      SMTP_PORT: ${AUTHZ_SMTP_PORT}
+#      SMTP_USER: ${AUTHZ_SMTP_USER}
+#      SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
+#      SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
+      REDIS_URL: redis://cache:6379
     depends_on:
       mariadb:
         condition: service_healthy
@@ -65,17 +65,16 @@ services:
     ports:
       - 9010:9010
     networks:
-      backend:
-        ipv4_address: 172.19.0.11
+      - backend
 
   # The database
   mariadb:
-    image: mariadb:11.7.2
+    image: mariadb:11.8.2
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MARIADB_AUTO_UPGRADE: 1
       MARIADB_DATABASE: jam_build
-      DB_HOST: 172.19.0.10
+      DB_HOST: mariadb
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_APP_USER: ${DB_APP_USER}
@@ -89,42 +88,41 @@ services:
       - ./data/database/mariadb-ddl-procedures.sql:/docker-entrypoint-initdb.d/3.sql
       - ./data/database/mariadb-ddl-privileges.sql:/docker-entrypoint-initdb.d/4.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mariadb-admin -u root --password=$DB_ROOT_PASSWORD ping -h localhost"]
       timeout: 20s
-      retries: 10
+      retries: 5
     networks:
-      backend:
-        ipv4_address: 172.19.0.10
+      - backend
 
   # The database backup command
-  backup:
-    image: busybox:stable-uclibc
-    environment:
-      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-    depends_on:
-      mariadb:
-        condition: service_healthy
-    entrypoint: ["sh", "-c", "mariadb-dump -h 172.19.0.10 -u root --password=\"$DB_ROOT_PASSWORD\" --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
-    volumes:
-      - backup:/backup
-    command: ["tail", "-f", "/dev/null"]
-    networks:
-      - backend
+  #backup:
+  #  image: busybox:stable-uclibc
+  #  environment:
+  #    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+  #  depends_on:
+  #    mariadb:
+  #      condition: service_healthy
+  #  entrypoint: ["sh", "-c", "mariadb-dump -h 172.19.0.10 -u root --password=\"$DB_ROOT_PASSWORD\" --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
+  #  volumes:
+  #    - backup:/backup
+  #  command: ["tail", "-f", "/dev/null"]
+  #  networks:
+  #    - backend
 
   # The database hydration command
-  hydrate:
-    image: busybox:stable-uclibc
-    environment:
-      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-    depends_on:
-      mariadb:
-        condition: service_started
-    entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb -u root --password=\"$DB_ROOT_PASSWORD\" -h 172.19.0.10 < /backup/db.sql && rm /backup/db.sql"]
-    volumes:
-      - backup:/backup
-    command: ["tail", "-f", "/dev/null"]
-    networks:
-      - backend
+  #hydrate:
+  #  image: busybox:stable-uclibc
+  #  environment:
+  #    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+  #  depends_on:
+  #    mariadb:
+  #      condition: service_started
+  #  entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb -u root --password=\"$DB_ROOT_PASSWORD\" -h 172.19.0.10 < /backup/db.sql && rm /backup/db.sql"]
+  #  volumes:
+  #    - backup:/backup
+  #  command: ["tail", "-f", "/dev/null"]
+  #  networks:
+  #    - backend
 
 volumes:
   dbdata:
@@ -132,8 +130,5 @@ volumes:
   cache:
 
 networks:
-  frontend:
   backend:
-    ipam:
-      config:
-        - subnet: "172.19.0.0/16"
+    driver: bridge
