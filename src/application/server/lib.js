@@ -30,19 +30,19 @@ const debug = debugLib('server');
  * @returns {Object} parsed process arugments.
  */
 export function processArgs () {
-  const port = process.argv.reduce((dflt, item) => {
+  const port = process.argv.reduce((found, item) => {
     const groups = item.match(/--PORT=(?<port>\d+)/i)?.groups;
-    return groups?.port || dflt;
+    return groups?.port || found;
   }, 5000);
   
-  const rootDir = process.argv.reduce((dflt, item) => {
+  const rootDir = process.argv.reduce((found, item) => {
     const groups = item.match(/--ROOTDIR=(?<rootdir>[^\s]+)/i)?.groups;
-    return groups?.rootdir || dflt;
+    return groups?.rootdir || found;
   }, './dist');
 
-  const maintenance = process.argv.reduce((dflt, item) => {
+  const maintenance = process.argv.reduce((found, item) => {
     const groups = item.match(/--MAINTENANCE=(?<maintenance>.+)/i)?.groups;
-    return groups?.maintenance || dflt;
+    return groups?.maintenance || found;
   }, false);
 
   const envPath = process.argv.reduce((acc, item) => {
