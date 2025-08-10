@@ -45,9 +45,9 @@ export function processArgs () {
     return groups?.maintenance || found;
   }, false);
 
-  const envPath = process.argv.reduce((acc, item) => {
+  const envPath = process.argv.reduce((found, item) => {
     const groups = item.match(/--ENV-PATH=(?<envPath>[\w-/.]+)/i)?.groups;
-    return groups?.envPath || acc;
+    return groups?.envPath || found;
   }, '');
 
   const noCompression = process.argv.some(item => item.match('NO-COMPRESS'));
