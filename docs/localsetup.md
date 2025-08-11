@@ -1,58 +1,71 @@
-# How to run locally
+# How to Run Locally
 
-> Note: Safari will not work locally without using named SSL proxy hosts in the procedure described [below](#Ngnix-for-Local-SSL-Proxy-Hosts)
+> **Note:** Safari will not work locally without using named SSL proxy hosts in the procedure described [below](#Ngnix-for-Local-SSL-Proxy-Hosts).
 
-## Docker
+## Docker Setup
 
-### Install
+### Installation Steps
+1. **Install Docker Desktop**: Download and install Docker Desktop from the official website.
+2. **Run Docker Compose**:
+   - Execute `docker compose --env-file .env.dev up` to start the services. Wait for it to complete.
+   - Optionally, create your own `.env` file if needed.
+3. **Restart `jam-build-container`**: Restart the `jam-build-container` (The authorizer.dev service needs a restart to pickup its CLIENT_ID).
 
-1. Install Docker Desktop.
-2. Run `docker compose --env-file .env.dev up` ... Wait for it to complete (optionally, make your own .env file).
-3. Restart `jam-build-container` (The authorizer.dev service needs a restart to pickup its CLIENT_ID).
+### Configuration Steps
+1. **Remove Leftover Files**:
+   - Delete any existing `src/test/.auth` folder from previous installations.
+2. **Create Test Userids**:
+   - Run `AUTHZ_CLIENT_ID=deadbeef-cafe-babe-feed-baadc0deface npm run test:local:api` to create test userids (credentials stored in `src/test/.auth`) and verify a successful installation and startup (all API tests should pass).
+3. **Create Default App Data**:
+   - Run `AUTHZ_CLIENT_ID=deadbeef-cafe-babe-feed-baadc0deface npm run test:local:_data` to create default app data.
+   - Alternatively, log in as admin at [http://localhost:5000/_admin](http://localhost:5000/_admin) and create the data using the UI.
 
-### Setup
+Navigate to `localhost:5000` and log in. Experiment with multiple browsers and logins to test multi-user OCC and three-way merges.
 
-1. Remove any left over `src/test/.auth` folder from a previous installation.
-2. Run `AUTHZ_CLIENT_ID=deadbeef-cafe-babe-feed-baadc0deface npm run test:local:api`, to create test userids (credentials stored in `src/test/.auth`) and verify a successful installation and startup (all api tests should pass).
-3. Run `AUTHZ_CLIENT_ID=deadbeef-cafe-babe-feed-baadc0deface npm run test:local:_data` to create some default app data, or login as admin at [http://localhost:5000/_admin](http://localhost:5000/_admin) and create it with the UI.
+## Native Setup
 
-Navigate to `localhost:5000` and login. Play with multiple browsers and logins to experiment with multi-user OCC and three-way merges.
+### Prerequisites
+- **NodeJS**: Version 22.15.0 or higher.
+- **MariaDB**: Version 11.7.2 or higher.
+- **Authorizer.dev**.
 
-## Native
+### Services Setup
 
-* NodeJS 22.15.0 or higher.
-* Mariadb 11.7.2 or higher.
-* Authorizer.dev.
+#### MariaDB Setup
+- **Installation**: Use Homebrew on macOS (`brew install mariadb`) or a similar package manager on other platforms to install and manage MariaDB. By default, MariaDB sets up the service on port 3306.
+- **Database Creation**:
+  - Create databases and users using `data/database/mariadb-ddl-init.sh` or equivalent scripts.
+  - Then, navigate to the command line, change directory to `data/database`, and run the following SQL files using the `mariadb` CLI tool:
+    ```sh
+    source mariadb-ddl-tables.sql
+    source mariadb-ddl-procedures.sql
+    source mariadb-ddl-privileges.sql
+    ```
 
-### Services
+#### Authorizer.dev Setup
+- **Installation**: Use Docker to run and manage Authorizer.dev. A sample configuration file is provided in [**docker-authorizer-dev.yml**](/docker-authorizer-dev.yml) to run Authorizer.dev standalone using the local MariaDB instance.
 
-Configure authorizer.dev to use the mariadb instance to create a database in the local mariadb instance. The best way to run authorizer.dev locally is to install docker and configure a docker-compose.yml to download and run authorizer.dev from hub.docker.com. A sample authorizer.dev docker-compose.yml is provided in the file [**docker-authorizer-dev.yml**](/docker-authorizer-dev.yml);
-
-#### Mariadb
-
-On macos, use brew to install mariadb. On other platforms, use a similar package manager to install and manage mariadb. mariadb sets up the service on port 3306 by default.
-
-Once installed, create the databases and users using `data/database/mariadb-ddl-init.sh` or equivalent procedure for the data and authorizer service. Once the databases and users are setup, go to the command line, chdir to `data/database`, run the `mariadb` cli tool, and `source` the scripts:
-
-1. `data/database/mariadb-ddl-tables.sql`
-2. `data/database/mariadb-ddl-procedures.sql`
-3. `data/database/mariadb-ddl-privileges.sql`
-
-#### Authorizer.dev
-[**docker-authorizer-dev.yml**](/docker-authorizer-dev.yml) is a sample docker compose file to run authorizer.dev standalone locally on port 9010 using the locally installed mariadb instance. Generate the ADMIN_SECRET and CLIENT_ID from local cli tools (like uuidgen and openssl). You can pick any port, but the package.json scripts defaults are easiest to get going.
+- Use [**docker-authorizer-dev.yml**](/docker-authorizer-dev.yml) to run authorizer.dev locally on port 9010 using the locally installed MariaDB instance.
+- Generate `ADMIN_SECRET` and `CLIENT_ID` using local CLI tools like `uuidgen` and `openssl`.
+- Choose any port, but the default settings in `package.json` scripts are easiest to use.
 
 ##### Ngnix for Local SSL Proxy Hosts
-If you want to setup behind a named proxy for local ssl [using duckdns.org and the docker nginx-proxy-mananger](https://notthebe.ee/blog/easy-ssl-in-homelab-dns01/), be sure to run builds as follows: `AUTHZ_URL=https://yourproxyhost.duckdns.org npm run build`, and run the jam-build app in the browser as `https://app.yourproxyhost.duckdns.org`. This is the only way to test Safari on localhost, and the only way to develop securely with SSL.
+- To set up a named proxy for local SSL using [DuckDNS](https://notthebe.ee/blog/easy-ssl-in-homelab-dns01/) and the Docker Nginx Proxy Manager:
+  - Run builds with `AUTHZ_URL=https://yourproxyhost.duckdns.org npm run build`.
+  - Access the jam-build app in the browser as `https://app.yourproxyhost.duckdns.org`.
+  - This setup is necessary to test Safari on localhost and for secure development with SSL.
 
-#### Data Service
-The data service runs in NodeJS on port 5000 by default. The source for the main entry is `src/application/server/index.js`.
-To start the jam-build data service, and serve the static artifacts, choose one of the following commands:
+#### Data Service Setup
+- The data service runs in NodeJS on port 5000 by default. The main entry point is `src/application/server/index.js`.
+- To start the jam-build data service and serve static artifacts, use one of the following commands:
+  - `npm start` - Start the service in production mode.
+  - `npm run dev` - Start the service in development mode.
+  - `npm run dev:cover` - Start the service in development mode and collect coverage info in `coverage/`.
+  - `npm run dev:debug` - Start the service in development mode, pausing to attach a debugger.
+  - `npm run maint` - Start the service in maintenance mode.
+    - To start in maintenance mode with a 2-hour window on Unix-based systems, add this flag:
+      ```sh
+      --MAINTENANCE="`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`"
+      ```
 
-* `npm start` - Start the service in production mode
-* `npm run dev` - Start the service in development mode
-* `npm run dev:cover` - Start the service in development mode and collect coverage info in `coverage/`
-* `npm run dev:debug` - Start the service in development mode, pause to attach debugger
-* `npm run maint` - Start the service in maintenance mode
-  * To start in maintenance mode with a 2 hour window on nix, add this flag: --MAINTENANCE="`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`"
-
-See [commands](docs/commands.md) for all the developer commands and a brief explanation of each.
+See [commands](docs/commands.md) for a list of all developer commands and brief explanations.
