@@ -7,7 +7,7 @@
  *   VERSION_BUILDSTAMP - derived from version buildstamp at build time.
  *
  * Jam-build, a web application practical reference.
- * Copyright (c) 2025 Alex Grant <info@localnerve.com>, LocalNerve LLC
+ * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
  * 
  * This file is part of Jam-build.
  * Jam-build is free software: you can redistribute it and/or modify it
@@ -20,7 +20,7 @@
  * If not, see <https://www.gnu.org/licenses/>.
  * Additional terms under GNU AGPL version 3 section 7:
  * a) The reasonable legal notice of original copyright and author attribution must be preserved
- *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com>, LocalNerve LLC"
+ *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
 import { cacheNames, setCacheNameDetails } from 'workbox-core';
