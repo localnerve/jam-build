@@ -22,7 +22,7 @@
 import { test } from './fixtures.js';
 import { deleteTestDataUser } from './testdata.js';
 
-const baseUrl = `http://localhost:${process.env.LOCALHOST_PORT}`;
+const baseUrl = process.env.BASE_URL ?? `http://localhost:${process.env.LOCALHOST_PORT}`;
 
 test('post local user home test data', async ({ userRequest }) => {
   await deleteTestDataUser(baseUrl, userRequest);

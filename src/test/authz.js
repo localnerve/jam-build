@@ -115,6 +115,7 @@ async function createAuthzUser (test, mainRole = 'user', signupRoles = ['user'])
   debug(`Checking for existence of auth file ${fileName}...`);
   if (!fs.existsSync(fileName)) {
     debug('Creating Authorizer ref: ', process.env.AUTHZ_URL, process.env.BASE_URL, process.env.AUTHZ_CLIENT_ID);
+
     const authRef = new Authorizer({
       authorizerURL: process.env.AUTHZ_URL,
       redirectURL: process.env.BASE_URL,
@@ -124,7 +125,7 @@ async function createAuthzUser (test, mainRole = 'user', signupRoles = ['user'])
     const username = `${mainRole}-${id}@test.local`;
     const password = `${randomBytes(4).toString('hex')}a-A#`; // password policy requirements
 
-    debug(`Authorizer signup for user ${username}...`);
+    debug('Authorizer signup for account', username, password, signupRoles);
 
     let data, errors;
     try {
@@ -199,7 +200,9 @@ export async function authenticateAndSaveState (browser, account, fileName) {
       roles: account.roles
     });
     if (errors.length > 0) {
-      throw new Error(errors[0]);
+      throw new Error(errors[0].message, {
+        cause: errors[0]
+      });
     }
     return data;
   }, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID, account]);
