@@ -135,8 +135,23 @@ tmp
 # no private
 private
 
+# no test-results
+test-results
+
 # no code-workspace
 *.code-workspace
 
-#no debug files
+# no debug files
 dump*
+
+# no coverage reports
+coverage
+
+# no auth files
+.auth
+
+# no stats output
+stats
+
+# no authorizer-dev-docker-compose.yml for now
+authorizer-dev-docker-compose.yml
