@@ -19,7 +19,7 @@
 --    in this material, copies, or source code of derived works.
 --
 
-DELIMITER //
+DELIMITER $$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesForApplicationDocumentAndCollection(
     IN p_document_name VARCHAR(255),
@@ -47,7 +47,7 @@ BEGIN
         WHERE d.document_name = p_document_name AND c.collection_name = p_collection_name;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsForApplicationDocument(
     IN p_document_name VARCHAR(255),
@@ -95,7 +95,7 @@ BEGIN
         END IF;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsAndDocumentsForApplication(
     OUT p_notfound INT
@@ -117,7 +117,7 @@ BEGIN
         LEFT JOIN application_properties p ON cp.property_id = p.property_id;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertApplicationDocumentWithCollectionsAndProperties (
     IN p_document_name VARCHAR(255),
@@ -300,7 +300,7 @@ BEGIN
     -- Commit the transaction
     COMMIT;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationDocument (
     IN p_document_name VARCHAR(255),
@@ -374,7 +374,7 @@ BEGIN
     -- Commit the transaction
     COMMIT;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationCollection (
     IN p_document_name VARCHAR(255),
@@ -486,7 +486,7 @@ BEGIN
         COMMIT;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteApplicationProperties (
     IN p_document_name VARCHAR(255),
@@ -651,7 +651,7 @@ BEGIN
     COMMIT;
     SET @in_transaction = NULL;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesForUserDocumentAndCollection(
     IN p_user_id CHAR(36),
@@ -680,7 +680,7 @@ BEGIN
         WHERE d.user_id = p_user_id AND d.document_name = p_document_name AND c.collection_name = p_collection_name;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsForUserDocument(
     IN p_user_id CHAR(36),
@@ -729,7 +729,7 @@ BEGIN
         END IF;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.GetPropertiesAndCollectionsAndDocumentsForUser(
     IN p_user_id CHAR(36),
@@ -754,7 +754,7 @@ BEGIN
         WHERE d.user_id = p_user_id;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.UpsertUserDocumentWithCollectionsAndProperties (
     IN p_user_id CHAR(36),
@@ -938,7 +938,7 @@ BEGIN
     -- Commit the transaction if all operations are successful
     COMMIT;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserDocument (
     IN p_user_id CHAR(36),
@@ -1013,7 +1013,7 @@ BEGIN
     -- Commit the transaction
     COMMIT;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserCollection (
     IN p_user_id CHAR(36),
@@ -1126,7 +1126,7 @@ BEGIN
         COMMIT;
     END IF;
 END;
-//
+$$
 
 CREATE PROCEDURE IF NOT EXISTS jam_build.DeleteUserProperties (
     IN p_user_id CHAR(36),
@@ -1292,6 +1292,6 @@ BEGIN
     COMMIT;
     SET @in_user_transaction = NULL;
 END;
-//
+$$
 
 DELIMITER ;

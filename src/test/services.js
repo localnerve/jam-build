@@ -174,7 +174,7 @@ export async function createDatabaseAndAuthorizer () {
       path.resolve(thisDir, toRoot, './data/database/mariadb-ddl-procedures.sql'),
       { encoding: 'utf8' }
     );
-    const procs = procText.split('//').filter(text => !text.includes('DELIMITER'));
+    const procs = procText.split('$$').filter(text => !text.includes('DELIMITER'));
     for (const proc of procs) {
       await client.query(proc);
     }
