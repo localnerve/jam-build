@@ -76,6 +76,7 @@ This project serves as a starting point for a web application. It builds a versi
 * [Playwright.dev](https://playwright.dev)
 * [Gulp](https://gulpjs.com)
 * [Rollup](https://rollupjs.org/)
+* [Docker](https://docker.com)
 * [Localnerve](https://github.com/localnerve)
 
 ## Author and License
