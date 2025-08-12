@@ -23,7 +23,7 @@
 @use 'mixins' as m;
 @use 'logo' as l;
 
-$box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
+$box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
 
 .no-messaging .icon.logo {
   display: none;
@@ -125,7 +125,7 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
 
     // keep old sass behavior for properties that appear after nested rules [mixed-decls]
     // These override the logo-block output above
-    & { // stylelint-disable-line no-duplicate-selectors
+    & { // stylelint-disable-line no-duplicate-selectors,block-no-redundant-nested-style-rules
       flex: 1 1 36%;
       display: none;
     }
@@ -182,7 +182,7 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
 
     // keep old sass behavior for properties that appear after nested rules [mixed-decls]
     // These override the logo-block output above
-    & { // stylelint-disable-line no-duplicate-selectors
+    & { // stylelint-disable-line no-duplicate-selectors,block-no-redundant-nested-style-rules
       margin: 0.5rem 1rem 1rem;
       padding-bottom: 0.5rem;
     }
