@@ -1,8 +1,22 @@
 /**
  * Setup and handle page messages/prompts.
  *
- * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Private use for LocalNerve, LLC only. Unlicensed for any other use.
+ * Jam-build, a web application practical reference.
+ * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+ * 
+ * This file is part of Jam-build.
+ * Jam-build is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ * You should have received a copy of the GNU Affero General Public License along with Jam-build.
+ * If not, see <https://www.gnu.org/licenses/>.
+ * Additional terms under GNU AGPL version 3 section 7:
+ * a) The reasonable legal notice of original copyright and author attribution must be preserved
+ *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+ *    in this material, copies, or source code of derived works.
  */
 
 /**
@@ -62,6 +76,26 @@ function updateAction () {
   }, 500);
 }
 
+/**
+ * Show a general application message.
+ * 
+ * @param {HTMLElement} element - The page element to hold the message
+ * @param {Object} args - The incoming handler arguments
+ * @param {Object} args - The message Object
+ * @param {String} args.message - The message text
+ * @param {String} args.class - The presentation class
+ */
+function generalMessageAction (element, args) {
+  if (args.message) {
+    const classes = element.classList.values();
+    for (const className of classes) {
+      element.classList.remove(className);
+    }
+    element.classList.add(args.class);
+    element.innerText = args.message;
+  }
+}
+
 const promptQueue = [];
 
 /**
@@ -88,15 +122,22 @@ function showPrompt (prompt, handlerArgs) {
       null, prompt, handler
     ), { once: true });
   } else {
-    prompt.class = handlerArgs.isUpdate ? 'updated' : 'welcome';
-    setTimeout(() => {
-      closePrompt(prompt);
-      if (prompt.handler) {
-        setTimeout(() => {
-          prompt.handler(handlerArgs);
-        }, 250);
-      }
-    }, handlerArgs.duration || 1000);
+    if (!prompt.class) {
+      prompt.class = handlerArgs.isUpdate ? 'updated' : 'welcome';
+      setTimeout(() => {
+        closePrompt(prompt);
+        if (prompt.handler) {
+          setTimeout(() => {
+            prompt.handler(handlerArgs);
+          }, 250);
+        }
+      }, handlerArgs.duration || 1000);
+    } else {
+      prompt.handler(handlerArgs);
+      setTimeout(() => {
+        closePrompt(prompt);
+      }, handlerArgs.duration || 1000);
+    }
   }
 
   prompt.container.classList.add('show', prompt.class);
@@ -125,14 +166,21 @@ function closePrompt (prompt, actionHandler) {
 }
 
 /**
- * Remove current prompt from queue.
+ * Remove current (previous) prompt from queue and any repeats.
  * If another prompt has arrived in the meantime, show it.
  */
 function nextPrompt () {
-  promptQueue.shift();
+  const prev = promptQueue.shift();
+  
+  while (promptQueue.length > 0 && promptQueue[0].prompt.id === prev.prompt.id) {
+    promptQueue.shift();
+  }
+
   if (promptQueue.length > 0) {
     setTimeout(() => {
-      showPrompt(promptQueue[0].prompt, promptQueue[0].handlerArgs);
+      if (promptQueue.length > 0) { // still good?
+        showPrompt(promptQueue[0].prompt, promptQueue[0].handlerArgs);
+      }
     }, 500);
   }
 }
@@ -144,6 +192,7 @@ function nextPrompt () {
  * @param {Object} handlerArgs - args for the action handler
  */
 function addPrompt (prompt, handlerArgs) {
+  prompt.id = `${prompt.name}-${prompt.class}-${JSON.stringify(handlerArgs)}`;
   promptQueue.push({ prompt, handlerArgs });
   if (promptQueue.length === 1) {
     showPrompt(prompt, handlerArgs);
@@ -161,6 +210,7 @@ export default function setup () {
   const pageInstallAction = document.querySelector('.pp-install .pp-action');
   const pageHomescreenClose = document.querySelector('.pp-homescreen .pp-close');
   const pageHomescreenAction = document.querySelector('.pp-homescreen .pp-action');
+  const pageMessage = document.querySelector('#app-message');
   const pageSpinner = document.querySelector('.page-spinner');
   
   bfCacheHandler.prompt = pagePrompt;
@@ -182,7 +232,7 @@ export default function setup () {
     handler: installAction,
     container: pagePrompt
   }, {
-    name: 'pageSwMessage',
+    name: 'pageReloadOnUpdate',
     class: '',
     container: pagePrompt,
     handler: function reloadOnUpdate (args) {
@@ -191,6 +241,11 @@ export default function setup () {
         window.location.reload();
       }
     }
+  }, {
+    name: 'pageGeneralMessage',
+    class: 'message',
+    container: pagePrompt,
+    handler: generalMessageAction.bind(null, pageMessage)
   }, {
     name: 'pageHomescreenPrompt',
     class: 'homescreen',

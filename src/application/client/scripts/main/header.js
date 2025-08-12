@@ -1,11 +1,24 @@
 /**
  * Header intersection transitions, offscreen navigation
  *
- * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Copyrights licensed under the BSD License. See the accompanying LICENSE file for terms.
+ * Jam-build, a web application practical reference.
+ * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+ * 
+ * This file is part of Jam-build.
+ * Jam-build is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ * You should have received a copy of the GNU Affero General Public License along with Jam-build.
+ * If not, see <https://www.gnu.org/licenses/>.
+ * Additional terms under GNU AGPL version 3 section 7:
+ * a) The reasonable legal notice of original copyright and author attribution must be preserved
+ *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+ *    in this material, copies, or source code of derived works.
  */
-
-import { getNumber } from './utils.js';
+import { getNumber } from '#client-utils/browser.js';
 
 const headerClass = 'fixed';
 const offscreenNavClass = 'show';
@@ -129,15 +142,17 @@ function setupNavCompact ({
     Array.from(navItems).forEach(item => {
       let selfTrigger = false;
       const navItem = item;
-      navItem.onclick = function (e) {
-        if (!selfTrigger) {
-          selfTrigger = true;
-          e.preventDefault();
-          e.stopPropagation();
-          this.firstElementChild.click();
-          selfTrigger = false;
-        }
-      };
+      if (!navItem.dataset.listener) {
+        navItem.onclick = function (e) {
+          if (!selfTrigger) {
+            selfTrigger = true;
+            e.preventDefault();
+            e.stopPropagation();
+            this.firstElementChild.click();
+            selfTrigger = false;
+          }
+        };
+      }
     });
   }
 
@@ -154,7 +169,10 @@ function setupNavCompact ({
       e.stopPropagation();
     });
     [body, closeNav].forEach(el => {
-      el.addEventListener('click', () => {
+      el.addEventListener('click', e => {
+        if (e.target === closeNav) {
+          closeNav.blur();
+        }
         hambExpanded.value = 'false';
         offsHidden.value = 'true';
         offscreenNav.classList.remove(offscreenNavClass);
@@ -228,7 +246,9 @@ function getPageElements () {
  */
 export default function setup (support) {
   const elements = getPageElements();
-  installIntersectionObserver(elements, installResizeObserver.bind(null, support));
   setupNavCompact(elements);
   wrapNavAnchorClick(elements);
+  support.backgroundExec(() => Promise.resolve().then(() => 
+    installIntersectionObserver(elements, installResizeObserver.bind(null, support))
+  ), 100);
 }

@@ -1,0 +1,134 @@
+// -------------
+// admin.scss
+//
+// Jam-build, a web application practical reference.
+// Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+// 
+// This file is part of Jam-build.
+// Jam-build is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later version.
+// Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
+// You should have received a copy of the GNU Affero General Public License along with Jam-build.
+// If not, see <https://www.gnu.org/licenses/>.
+// Additional terms under GNU AGPL version 3 section 7:
+// a) The reasonable legal notice of original copyright and author attribution must be preserved
+//    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+//    in this material, copies, or source code of derived works. 
+// -------------
+@use 'colors' as c;
+@use 'mixins' as m;
+
+.admin {
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: center;
+  align-items: center;
+
+  --admin-radius: var(--border-radius, 5px);
+}
+
+.crown a {
+  display: flex;
+  flex-flow: column nowrap;
+  justify-content: center;
+  align-items: center;
+}
+
+.crown a img {
+  width: 100px;
+  height: 100px;
+}
+
+.admin .container {
+  box-sizing: content-box;
+  border: 1px solid var(--site-color);
+  padding: 1.5rem;
+  border-radius: var(--admin-radius);
+  width: 100%;
+  max-width: 64em;
+
+  @include m.breakpoint(medium) {
+    width: 65%;
+  }
+}
+
+.input-group {
+  line-height: 1.5;
+  margin: 0 0 2rem;
+}
+
+form {
+  margin: 1rem 0;
+}
+
+form label {
+  display: block;
+  padding: 0.25rem 0;
+  opacity: 0.5;
+}
+
+form.login label {
+  opacity: 1;
+}
+
+form label span {
+  color: c.$color-red-button;
+}
+
+form input {
+  pointer-events: none;
+  opacity: 0.5;
+  background-color: var(--site-bg);
+  color: var(--site-color);
+  padding: 0.75em;
+  margin-top: 0.25rem;
+  border: 1px solid var(--site-color);
+  border-radius: var(--admin-radius);
+  width: 100%;
+}
+
+form.login input {
+  pointer-events: initial;
+  opacity: 1;
+}
+
+form button {
+  cursor: pointer;
+  color: var(--site-bg);
+  background: var(--site-color);
+  padding: 1rem;
+  border: 1px solid var(--site-color);
+  border-radius: var(--admin-radius);
+  width: 100%;
+  line-height: 1.5;
+  margin-top: 2rem;
+}
+
+form .label {
+  display: none;
+}
+
+form.login .label {
+  display: inline;
+}
+
+form .alt-label {
+  display: inline;
+}
+
+form.login .alt-label {
+  display: none;
+}
+
+form.login:has([name="email"]:valid):has([name="password"]:valid) button {
+  cursor: pointer;
+}
+
+@supports selector(:has(*)) {
+  form.login button {
+    cursor: not-allowed;
+  }
+}

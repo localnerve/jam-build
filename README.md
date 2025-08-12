@@ -1,54 +1,90 @@
 # Jam Build
 
-> A high-performance project template for custom hybrid jam-stack offline MPA webapps
+> A web application reference of a custom static site, but as a versionable, offline, service-worker MPA, with batching, multi-user OCC, RBAC authz, and data on top.
+>
+> Minimal, hand-crafted vanillajs by a human.
 
-## Summary
-This is a template repository for starting a webapp. It renders a versionable, service worker first, offline multi-page JAM app. No frameworks, just files and libs. it is easily extended with server side subapps and apis.
+## Donate
 
-## Design Points
-This project design is different from most web apps. This project builds an offline, service worker first, multi-page application. There is no client side router, all navigation requests render directly from the service worker with a stale-while-revalidate strategy that offers an update prompt system for the user to receive updates to pages and the app itself.
+If this project is helpful or useful, please consider donating to help me create and maintain more great things.  
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=U98LEKAK7DXML)  
+I'm also available for [hire](https://www.localnerve.com/contact).
 
-Using a minimal javascript, progressively enhanced approach, each navigation runs a stateless page start then supplies an optional page module that can participate in application state for a given page.
+## Project Summary
 
-## Build Process
-The build produces the application from source and data to a single directory, ideal for integration with a service vendor or optionally with a portable container (docker container supplied).
+### Overview
 
-### Important Files
-The are two main control files for directing the build and its contents.
-+ **/data/site-data.json** - Contains site-wide data used to direct the build and produce the contents.
-+ **/src/build/settings.js** - Contains the directions and options of the build tools used to produce the application.
+This project serves as a starting point for a web application. It builds a versionable, offline-first, multi-page JAM (JavaScript, APIs, Markup) web app with support for multi-user data.
 
-### Steps
+### Key Features
 
-+ **images** - Generates responsive images and optimizes all images. As a side effect, updates the build-time, in-memory `site-data` representation to supply paths and image processing data to other build steps (templating html, sass compiled styles).
+* **Service Worker First:**
+  * The project design centers around a service worker, which is different from most web applications.
 
-+ **styles** - Creates the stylesheets for the application. Compiles all the sass stylesheets in `src/application/client/styles` for the main stylesheet.
+* **Custom Sass/Handlebars Static Site Generator:** 
+  * A multi-page application built using a custom static site generator that leverages Sass and Handlebars.
+  * Image processors generate metadata used to render preload tags and other performance-oriented styles and markup.
+  * CSS Classes are generated from template names for optional specificity.
+  * Static site only [branch](https://github.com/localnerve/jam-build/tree/front-only).
 
-+ **scripts** - Create the scripts for the application. Bundles, minifies, and makes replacements in the client-side javascript.
+* **Offline Capabilities:**
+  * Pages are rendered directly from the service worker cache using a stale-while-revalidate strategy.
+  * Service worker manages offline data updates and reconciliation when the network is restored.
 
-+ **assets** - Generates other miscellaneous assets for the application. Includes generating the robots.txt and sitemap.xml from the `site-data`, also other assets like web manifest and browser config.
+* **Version Updates:** 
+  * The service worker handles version updates and ensures that users receive the latest static pages and app versions.
+  * Supports versioned deployment for both front-end and back-end components.
 
-+ **asset revisions** - Generates 10 character hex hash for every asset file name in the distribution directory.
+* **Service Worker Data Update Batching:**
+  * Data mutations are staged in IndexedDB and committed to the API in offline supported batch processes, optimized for resource usage.
 
-+ **templates** - Generates the html from the `site-data`, page, and content templates. Inlines css and javascript for each page.
+* **Optimistic Concurrency Control:**
+  * The service worker and data service handle multi-user optimistic concurrency control with three-way merge resolution.
 
-+ **page revisions** - Fixes up asset references in the html pages with their asset revisioned equivalent.
+* **Role-Based Access Control:**
+  * Supports role-based access control for different user roles (e.g., user, admin).
 
-+ **service worker** - Generate the main service worker and it's satelite files.
+* **Reusable, General Data Design:**
+  * Features a reusable, general data design with application and user regions.
 
-+ **html** - Minify the final html and generate a CSP policy for all css and javascript references.
+* **Established Toolchain:**
+  * Uses a well-established toolchain with no magic (no hidden or complex processes) and minimal dependencies.
+
+## Other Docs
+
+* [How to Run Locally](docs/localsetup.md)
+* [Build](docs/build.md)
+* [Commands](docs/commands.md)
+* [Stats](docs/stats.md)
+* [Design Points](docs/data.md)
 
 ## Technology Stack
 
-### Runtime
+* Vanillajs, plain Javascript Object persistent nanostores
+
+### Runtime Dependencies
 
 * [Expressjs](https://expressjs.com)
+* [Workboxjs](https://developer.chrome.com/docs/workbox/)
+* [Authorizer](https://authorizer.dev)
+* [Mariadb](https://mariadb.com)
 
-### Buildtime
+### Development Dependencies
 
 * [Handlebars](https://handlebarsjs.com/guide/)
 * [Sass](https://sass-lang.com/documentation/)
-* [Workboxjs](https://developer.chrome.com/docs/workbox/)
+* [Playwright.dev](https://playwright.dev)
 * [Gulp](https://gulpjs.com)
 * [Rollup](https://rollupjs.org/)
-* [Localnerve](https://localnerve.com)
+* [Localnerve](https://github.com/localnerve)
+
+## Author and License
+
+Jam-build, a web application practical reference.  
+Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC  
+
+Jam-build is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the [GNU Affero General Public License](LICENSE.md) for more details.  
+Additional terms under GNU AGPL version 3 section 7:  
+  a) The reasonable legal notice of original copyright and author attribution must be preserved  
+     by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"  
+     in this material, copies, or source code of derived works.

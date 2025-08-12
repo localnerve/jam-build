@@ -1,15 +1,31 @@
 /**
  * Build the service worker.
  * 
- * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Private use for LocalNerve, LLC only. Unlicensed for any other use.
+ * process.env.SW_INSTRUMENT will cause the sw.custom bundle to be instrumented for coverage.
+ * 
+ * Jam-build, a web application practical reference.
+ * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+ * 
+ * This file is part of Jam-build.
+ * Jam-build is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ * You should have received a copy of the GNU Affero General Public License along with Jam-build.
+ * If not, see <https://www.gnu.org/licenses/>.
+ * Additional terms under GNU AGPL version 3 section 7:
+ * a) The reasonable legal notice of original copyright and author attribution must be preserved
+ *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+ *    in this material, copies, or source code of derived works.
  */
 import path from 'node:path';
 import { glob } from 'glob';
 import { generateSW } from 'workbox-build';
+import pkg from '#root/package.json' with { type: 'json' };
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
-import pkg from '../../package.json' with { type: 'json' };
 
 /**
  * Generate the version - build timestamp string.
@@ -41,7 +57,24 @@ async function generateSWCustom (settings, replacements) {
   await createScripts({
     jsManifestFilename,
     prod,
+    name: 'sw.custom',
     replacements,
+    nodeIncludes: [
+      'src/application/client/scripts/sw/**'
+    ],
+    istanbulOptions: process.env.SW_INSTRUMENT ? {
+      include: [
+        'src/application/client/scripts/sw/**'
+      ],
+      instrumenterConfig: {
+        esModules: true,
+        compact: true,
+        produceSourceMap: true,
+        autoWrap: true,
+        preserveComments: true,
+        coverageGlobalScope: 'self'
+      }
+    } : false,
     rollupInput: {
       input: {
         [swCustomName]: swCustomFileSrc
@@ -83,14 +116,25 @@ export async function buildSwMain (settings) {
   const { swMainGenerated, dist, prod } = settings;
 
   const ssrCacheable = Object.values(siteData.pages)
-    .filter(page => page.type === 'nav')
+    .filter(page => page.type === 'nav' && page.route.includes('/'))
     .map(page => page.route);
 
+  // build the re, cacheable routes, followed by a qstring, but NOT with a state= param
+  // /^(?:\/|\/about\/?|\/contact\/?)(?:[?](?:&?(?!\bstate\b)[^=&?]+=[^&]*)+)?$/
+  let re = ssrCacheable.reduce((acc, cur, i) => {
+    let frag = `${acc}\\${cur}`;
+    if (cur !== '/') frag += '\\/?';
+    if (i < ssrCacheable.length - 1) {
+      frag += '|';
+    } else {
+      frag += ')';
+    }
+    return frag;
+  }, '(?:');
+  re += '(?:[?](?:&?(?!\\bstate\\b)[^=&?]+=[^&]*)+)?$';
+
   const ssrConfig = {
-    urlPattern: new RegExp(`${ssrCacheable.reduce((acc, cur) => {
-      const current = cur.slice(1);
-      return current ? `${acc}|${current}` : acc;
-    }, '\\/(?:')})\\/?(?:\\?.+)?$`),
+    urlPattern: new RegExp(re),
     handler: 'StaleWhileRevalidate',
     options: {
       cacheableResponse: {
@@ -120,9 +164,11 @@ export async function buildSwMain (settings) {
   };
 
   const publicSwCustomPath = await generateSWCustom(settings, {
-    SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable),
-    CACHE_PREFIX: JSON.stringify(cachePrefix),
-    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp())
+    SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable).replaceAll('"', '\''),
+    CACHE_PREFIX: JSON.stringify(cachePrefix).replaceAll('"', '\''),
+    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp()).replaceAll('"', '\''),
+    API_VERSION: JSON.stringify(settings.apiVersion).replaceAll('"', '\''),
+    SCHEMA_VERSION: JSON.stringify(settings.schemaVersion).replaceAll('"', '\'')
   });
   
   return generateSW({

@@ -1,0 +1,35 @@
+name: Verify
+on:
+  push:
+    branches: [ main, stage ]
+  pull_request:
+    branches: [ main, stage ]
+
+jobs:
+  verify:
+
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        node-version: [22.15.0]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+    - name: Image Processing Prerequisites
+      run: sudo apt-get install -y autoconf automake libtool nasm zlib1g-dev
+    - name: Install Dependencies
+      run: npm ci
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+    - name: Lint
+      run: npm run lint
+    - name: Build
+      run: npm run build
+    - name: Test
+      run: npm test

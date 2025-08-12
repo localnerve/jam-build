@@ -1,0 +1,22 @@
+<h3>Application Dynamic Content</h3>
+
+<div class="app-row">
+  <p>Application data can be any series of documents, collections, and properties. They are available to all application users, but only editable by users with an admin role.</p>
+  <article>
+    <header>
+      <h4>Application Text</h4>
+    </header>
+    <div class="dyn-content" id="app-public-home-content-intro">
+      <div class="spinner"></div>
+    </div>
+  </article>
+  <article>
+    <header>
+      <h4>Application Properties</h4>
+    </header>
+    <p>Here is an example application collection. All users, even public users, can see this dynamic data. If you are logged in with an admin role, you can edit it.</p>
+    <editable-object class="app-state" id="app-public-home-state" disable-edit="true">
+      <div slot="loading" class="spinner"></div>
+    </editable-object>
+  </article>
+</div>

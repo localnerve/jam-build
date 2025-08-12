@@ -1,14 +1,152 @@
 name: jam-build-container
 services:
+  # The app
   jam-build:
-    build: .
+    build:
+      context: .
+      args:
+        UID: ${UID}
+        GID: ${GID}
+        AUTHZ_URL: ${AUTHZ_URL}
+        AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
     image: jam-build:latest
-    secrets:
-      - source: jam
-        target: jam-env.json
+    environment:
+      DB_HOST: mariadb
+      DB_DATABASE: jam_build
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+      AUTHZ_URL: http://authorizer:9010
+      AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
+    depends_on:
+      - mariadb
+      - authorizer
     ports:
-      - 127.0.0.1:8088:8088/tcp
-secrets:
-  jam:
-    file: ./private/host-env.json
-    
+      - 5000:5000
+    networks:
+      - backend
+    # setup demo users and data
+    #post_start:
+    #  - command: ['apt-get', 'install', '-y', 'libnspr4', 'libnss3', 'libdbus-1-3', 'libatk1.0-0', 'libatspi2.0-0', 'libxcomposite1', 'libxdamage1', 'libxfixes3', 'libxrandr2', 'libgbm1', 'libxkbcommon0', 'libasound2', 'libatk-bridge2.0-0', 'libcups2']
+    #    user: root
+    #    privileged: true
+    #  - command: ['npx', 'playwright', 'install', 'chromium']
+    #    working_dir: '/home/node/app'
+    #  - command: ['npm', 'run', 'test:local:api']
+    #    working_dir: '/home/node/app'
+    #    environment:
+    #      - AUTHZ_URL=http://authorizer:9010
+    #      - BASE_URL=http://jam-build:5000
+    #      - AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID}
+    #      - DEBUG=test:*
+
+  # The cache
+  cache:
+    image: redis:7.4.5
+    restart: always
+    ports:
+      - 6379:6379
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data
+    networks:
+      - backend
+  
+  # The authorizer
+  authorizer:
+    image: lakhansamani/authorizer:1.4.4
+    environment:
+      ENV: production
+      ADMIN_SECRET: ${AUTHZ_ADMIN_SECRET}
+      DATABASE_TYPE: mariadb
+      DATABASE_URL: root:${DB_ROOT_PASSWORD}@tcp(mariadb:3306)/authorizer
+      DATABASE_NAME: authorizer
+      CLIENT_ID: ${AUTHZ_CLIENT_ID}
+      ORGANIZATION_NAME: ${AUTHZ_ORGANIZATION_NAME}
+      ORGANIZATION_LOGO: ${AUTHZ_ORGANIZATION_LOGO}
+      ROLES: 'admin,user'
+      DEFAULT_ROLES: 'user'
+      PROTECTED_ROLES: 'admin'
+      PORT: 9010
+      REDIS_URL: redis://cache:6379
+  #   SMTP_HOST: ${AUTHZ_SMTP_HOST}
+  #   SMTP_PORT: ${AUTHZ_SMTP_PORT}
+  #   SMTP_USER: ${AUTHZ_SMTP_USER}
+  #   SMTP_PASSWORD: ${AUTHZ_SMTP_PASSWORD}
+  #   SENDER_EMAIL: ${AUTHZ_SENDER_EMAIL}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    ports:
+      - 9010:9010
+    networks:
+      - backend
+
+  # The database
+  mariadb:
+    image: mariadb:11.8.2
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_DATABASE: jam_build
+      DB_HOST: mariadb
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_APP_USER: ${DB_APP_USER}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD}
+    ports:
+      - 3306:3306
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ./data/database/mariadb-ddl-init.sh:/docker-entrypoint-initdb.d/1.sh
+      - ./data/database/mariadb-ddl-tables.sql:/docker-entrypoint-initdb.d/2.sql
+      - ./data/database/mariadb-ddl-procedures.sql:/docker-entrypoint-initdb.d/3.sql
+      - ./data/database/mariadb-ddl-privileges.sql:/docker-entrypoint-initdb.d/4.sql
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin -u root --password=$DB_ROOT_PASSWORD ping -h localhost"]
+      timeout: 20s
+      retries: 10
+    networks:
+      - backend
+
+  # The database backup command
+  #backup:
+  #  image: busybox:stable-uclibc
+  #  environment:
+  #    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+  #  depends_on:
+  #    mariadb:
+  #      condition: service_healthy
+  #  entrypoint: ["sh", "-c", "mariadb-dump -h 172.19.0.10 -u root --password=\"$DB_ROOT_PASSWORD\" --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
+  #  volumes:
+  #    - backup:/backup
+  #  command: ["tail", "-f", "/dev/null"]
+  #  networks:
+  #    - backend
+
+  # The database hydration command
+  #hydrate:
+  #  image: busybox:stable-uclibc
+  #  environment:
+  #    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+  #  depends_on:
+  #    mariadb:
+  #      condition: service_started
+  #  entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb -u root --password=\"$DB_ROOT_PASSWORD\" -h 172.19.0.10 < /backup/db.sql && rm /backup/db.sql"]
+  #  volumes:
+  #    - backup:/backup
+  #  command: ["tail", "-f", "/dev/null"]
+  #  networks:
+  #    - backend
+
+volumes:
+  dbdata:
+  backup:
+  cache:
+
+networks:
+  backend:
+    driver: bridge

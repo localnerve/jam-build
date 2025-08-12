@@ -1,0 +1,108 @@
+// -------------
+// dyn.scss
+//
+// Jam-build, a web application practical reference.
+// Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+// 
+// This file is part of Jam-build.
+// Jam-build is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later version.
+// Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
+// You should have received a copy of the GNU Affero General Public License along with Jam-build.
+// If not, see <https://www.gnu.org/licenses/>.
+// Additional terms under GNU AGPL version 3 section 7:
+// a) The reasonable legal notice of original copyright and author attribution must be preserved
+//    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+//    in this material, copies, or source code of derived works. 
+// -------------
+@use 'colors' as c;
+@use 'mixins' as m;
+
+.dyn {
+  width: 100%;
+  min-height: 8em;
+  display: block;
+  position: relative;
+
+  --spinner-size: 6em;
+  --spinner-ring-size: 4px;
+}
+
+.dyn-content {
+  display: block;
+  margin: 1em 0;
+}
+
+.app-row {
+  display: block;
+}
+
+.user-row {
+  display: none;
+}
+
+.user-row, .app-row {
+  article {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 6em;
+  }
+}
+
+.user-state, .app-state {
+  --duller-base: #{c.$site-white};
+  --eo-bg-color: var(--site-bg);
+  --eo-border-radius: var(--border-radius);
+  --eo-border-focused-color: var(--site-color);
+  --eo-border-defocused-color: color-mix(in srgb, var(--site-color), var(--duller-base) 80%);
+  --eo-item-selected-bg-color: var(--site-color);
+  --eo-item-selected-border-radius: var(--border-radius);
+  --eo-item-selected-color: var(--site-bg);
+  --eo-item-hover-border-color: var(--site-color);
+  --eo-item-hover-border-radius: var(--border-radius);
+  --eo-item-hover-border-width: 2px;
+  --eo-icon-color: var(--site-bg);
+  --eo-add-new-icon-color: var(--site-color);
+  --eo-input-focus-outline-color: #0aa;
+  --eo-input-focus-outline-width: 2px;
+  --eo-input-bg-color: color-mix(in srgb, var(--site-bg), var(--duller-base) 30%);
+  --eo-input-border-radius: var(--border-radius);
+  --eo-input-color: var(--site-color);
+  --eo-input-placeholder-color: color-mix(in srgb, var(--site-color), var(--duller-base) 50%);
+
+  @media (prefers-color-scheme: dark) {
+    --duller-base: gray;
+    --eo-input-focus-outline-color: lime;
+  }
+}
+
+.user-login {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: center;
+
+  button {
+    padding: 0.3em;
+    border-radius: var(--border-radius);
+    border-width: 1px;
+    border-style: solid;
+    color: var(--site-color);
+    border-color: var(--site-color);
+    background : var(--site-bg);
+    cursor: pointer;
+  }
+}
+
+.logged-in {
+  .user-row {
+    display: block;
+  }
+  
+  .user-login {
+    display: none;
+  }
+}

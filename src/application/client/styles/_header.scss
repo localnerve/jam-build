@@ -1,19 +1,29 @@
 // -------------
 // header.scss
 //
-// Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
-// Private use for LocalNerve, LLC only. Unlicensed for any other use. 
+// Jam-build, a web application practical reference.
+// Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+// 
+// This file is part of Jam-build.
+// Jam-build is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as published by the Free Software
+// Foundation, either version 3 of the License, or (at your option) any later version.
+// Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+// without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// See the GNU Affero General Public License for more details.
+// You should have received a copy of the GNU Affero General Public License along with Jam-build.
+// If not, see <https://www.gnu.org/licenses/>.
+// Additional terms under GNU AGPL version 3 section 7:
+// a) The reasonable legal notice of original copyright and author attribution must be preserved
+//    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+//    in this material, copies, or source code of derived works. 
 // -------------
 @use 'vars' as v;
 @use 'colors' as c;
 @use 'mixins' as m;
 @use 'logo' as l;
 
-$box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
-
-.no-messaging .icon.logo {
-  display: none;
-}
+$box-shadow: 0 0 4px rgb(0 0 0 / 14%), 0 4px 8px rgb(0 0 0 / 28%);
 
 .ln-header::before {
   content: '';
@@ -42,12 +52,13 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
   z-index: v.$z-index-header;
 
   .container {
-    padding: .6em 1em;
+    padding: .6em 1em .2em;
     display: flex;
     flex-flow: row wrap;
     align-items: center;
-    justify-content: space-between;  
+    justify-content: space-between;
     width: 100%;
+    margin: 0.5rem 0;
 
     @include m.min-width (1200px) { // large
       width: 1200px;
@@ -60,6 +71,25 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
 
     & > * {
       position: relative; // gets click target above flex-basis of h1
+    }
+  }
+
+  .status {
+    padding: 0 1em 0.2em;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: end;
+    position: relative;
+    width: 100%;
+
+    @include m.min-width (1200px) { // large
+      width: 1200px;
+      margin: 0 auto;
+    }
+
+    p {
+      margin: 0;
     }
   }
 
@@ -95,8 +125,20 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
         margin-left: 2em;
       }
 
+      a {
+        display: flex;
+      }
+
       span {
-        display: none;
+        padding-top: 0.2rem;
+
+        @include m.breakpoint(medium) {
+          display: none;
+        }
+
+        @include m.min-width(56em) {
+          display: inline;
+        }
       }
     }
 
@@ -111,7 +153,7 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
 
     // keep old sass behavior for properties that appear after nested rules [mixed-decls]
     // These override the logo-block output above
-    & { // stylelint-disable-line no-duplicate-selectors
+    & { // stylelint-disable-line no-duplicate-selectors,block-no-redundant-nested-style-rules
       flex: 1 1 36%;
       display: none;
     }
@@ -168,7 +210,7 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
 
     // keep old sass behavior for properties that appear after nested rules [mixed-decls]
     // These override the logo-block output above
-    & { // stylelint-disable-line no-duplicate-selectors
+    & { // stylelint-disable-line no-duplicate-selectors,block-no-redundant-nested-style-rules
       margin: 0.5rem 1rem 1rem;
       padding-bottom: 0.5rem;
     }
@@ -185,7 +227,7 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
     box-shadow: $box-shadow;
 
     @include m.breakpoint (medium) {
-      opacity: 0.97;
+      opacity: 0.95;
     }
   }
 
@@ -223,9 +265,11 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
     margin-top: 1rem;
   }
 
+  /*
   .icon.logo {
     display: none;
   }
+  */
 
   .menu {
     color: #bbb;
@@ -241,9 +285,11 @@ $box-shadow: 0 0 4px rgba(0 0 0 / 14%), 0 4px 8px rgba(0 0 0 / 28%);
     text-align: center;
   }
 
+  /*
   .ln-header .icon.logo {
     display: none;
   }
+  */
 
   .ln-header .icon.phone {
     display: flex;

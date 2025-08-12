@@ -9,38 +9,55 @@
  *   --NO-COMPRESS, boolean flag, true if exists, starts the app without wire compression
  *   --NO-HEADERS, boolean flag, true if exists, starts the app without asset file headers
  *   --DEBUG, boolean flag, true if exists, starts the app with verbose logging
+ *   --TEST, boolean flag, true if exists, start the app with test-only api
  *  
- * Copyright (c) 2025 Alex Grant (@localnerve), LocalNerve LLC
- * Private use for LocalNerve, LLC only. Unlicensed for any other use.
+ * Jam-build, a web application practical reference.
+ * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
+ * 
+ * This file is part of Jam-build.
+ * Jam-build is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later version.
+ * Jam-build is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Affero General Public License for more details.
+ * You should have received a copy of the GNU Affero General Public License along with Jam-build.
+ * If not, see <https://www.gnu.org/licenses/>.
+ * Additional terms under GNU AGPL version 3 section 7:
+ * a) The reasonable legal notice of original copyright and author attribution must be preserved
+ *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
+ *    in this material, copies, or source code of derived works.
  */
 
 import express from 'express';
 import compression from 'compression';
+import pino from 'pino';
+import { mountpath as apiPath, create as createApi } from './api/index.js';
 import {
   errorHandler,
+  initLogger,
   maintenanceHandler,
   notFoundHandler,
   processArgs,
   setHeaders,
   staticFiles,
   setHostEnv
-} from './jam-lib.js';
+} from './lib.js';
 
 const {
   debug,
+  envPath,
+  maintenance,
   noCompression,
   noHeaders,
-  maintenance,
   port,
   rootDir,
-  envPath
+  test
 } = processArgs();
-/* eslint-disable no-console */
-const logger = debug ? console.log : () => {};
-const errorLogger = console.error;
-/* eslint-enable no-console */
 
-await setHostEnv(envPath);
+const logger = initLogger(pino, debug);
+
+await setHostEnv(logger, envPath);
 
 const server = express();
 server.disable('x-powered-by');
@@ -49,12 +66,15 @@ if (!noCompression) {
   server.use(compression());
 }
 
+if (test) {
+  server.post('/shutdown', (req, res) => {
+    res.sendStatus(200);
+    process.exit(0);
+  });
+}
+
 if (!maintenance) {
-  //server.use(express.json()); // for parsing application/json
-  //server.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
-  //
-  // >> use api here <<
-  //
+  server.use(apiPath, createApi(logger, { noCompression }));
   server.use(staticFiles.bind(null, logger, rootDir));
 } else {
   server.use(maintenanceHandler.bind(null, logger, maintenance));
@@ -69,7 +89,7 @@ server.use(errorHandler.bind(null, logger, rootDir));
 
 server.listen(port, err => {
   if (err) {
-    return errorLogger(err);
+    return logger.error(err);
   }
-  return console.log(`app serving ${rootDir}, listening on port ${port}`); // eslint-disable-line
+  return logger.info(`app serving ${rootDir}, listening on port ${port}`);
 });

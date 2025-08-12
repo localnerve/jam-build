@@ -1,0 +1,28 @@
+<h3>User Dynamic Content</h3>
+
+<div class="user-login">
+  <button aria-label="Log In" class="login-button">
+    <span class="label">Log in</span>
+  </button>
+</div>
+
+<div class="user-row">
+  <p>User data can be any series of documents, collections, and properties. They are owned by a user, mutable and only available to that user.</p>
+  <article>
+    <header>
+      <h4>User Text</h4>
+    </header>
+    <div class="dyn-content" id="user-home-content-intro">
+      <div class="spinner"></div>
+    </div>
+  </article>
+  <article>
+    <header>
+      <h4>User Properties</h4>
+    </header>
+    <p>This is an example user collection. You are seeing this because it belongs to your account and you can edit it.</p>
+    <editable-object class="user-state" id="user-home-state">
+      <div slot="loading" class="spinner"></div>
+    </editable-object>
+  </article>
+</div>

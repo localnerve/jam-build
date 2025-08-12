@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html class="no-js {{#each htmlClasses}}{{~this}}{{/each}}" lang="en-US" itemType="https://schema.org/WebPage" prefix="og:http://ogp.me/ns#"
+  xmlns:og="http://opengraphprotocol.org/schema/" xmlns:xlink="http://www.w3.org/1999/xlink">
+
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta content="initial-scale=1, width=device-width, minimum-scale=1, maximum-scale=5" name="viewport" />
+
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- <link rel="preload" href="{{styleUrl 'index.css'}}" as="style" /> -->
+  {{! preload any hero images for this page }}
+  {{#with (lookup content page)}}
+  {{#if (lookup this 'hero-0')}}
+  {{setState ../siteData.images -1}}
+  {{#each (lookup ../siteData.images (concat 'hero-' ../page))}}
+  <link rel="preload" href="{{imageUrl this}}" as="image" fetchpriority="high"
+    media="{{#unless @first}}(min-width: {{
+    concat (inc (getState ../../siteData.images)) 'px'
+    }}){{#unless (or @first @last)}} and {{/unless}}{{/unless}}{{#unless @last}}(max-width: {{concat @key 'px'}}){{/unless}}" />
+  {{setState ../../siteData.images @key}}
+  {{/each}}
+  {{/if}}
+  {{/with}}
+
+  {{! CSP }}
+  <meta http-equiv="Content-Security-Policy" content="
+    base-uri 'self';
+    default-src 'self';
+    connect-src 'self' {{#each connectsrc}}{{this}}{{#unless @last}} {{/unless}}{{/each}};
+    form-action 'self';
+    font-src https://fonts.gstatic.com;
+    frame-src 'self' {{#each framesrc}}{{this}}{{#unless @last}} {{/unless}}{{/each}};
+    img-src 'self' https://*;
+    script-src https://polyfill-fastly.io 'unsafe-inline' 'self';
+    style-src 'unsafe-inline' 'unsafe-hashes' 'self';
+  " />
+  <meta name="color-scheme" content="light dark" />
+
+  {{#if noIndex}}
+  <meta name="robots" content="noindex" />
+  {{/if}}
+
+  <title>{{#with (lookup siteData.pages page)}}{{#if
+    title}}{{title}}{{else}}{{../siteData.defaultTitle}}{{/if}}{{/with}}</title>
+  <meta name="description"
+    content="{{#with (lookup siteData.pages page)}}{{#if description}}{{description}}{{else}}{{../siteData.defaultDescription}}{{/if}}{{/with}}" />
+  <link rel="canonical" href="https://{{ siteData.appHost }}/{{ page }}" />
+  <meta name="page" content="{{ page }}" />
+
+  <link rel="apple-touch-icon" href="{{imageUrl 'apple-touch-icon.png'}}" sizes="180x180" />
+  <link rel="icon" href="{{imageUrl 'favicon-180x180.png'}}" type="image/png" sizes="180x180">
+  <link rel="icon" href="{{imageUrl 'favicon-32x32.png'}}" type="image/png" sizes="32x32">
+  <link rel="icon" href="{{imageUrl 'favicon-16x16.png'}}" type="image/png" sizes="16x16">
+  <link rel="icon" href="{{imageUrl 'favicon.ico'}}" type="image/x-icon" />
+  <link rel="shortcut icon" href="{{imageUrl 'favicon.ico'}}" />
+  <link rel="mask-icon" href="{{imageUrl 'safari-pinned-tab.svg'}}" color="#ea4335" />
+  <meta name="apple-mobile-web-app-title" content="{{siteData.business.shortName}}" />
+  <meta name="application-name" content="{{siteData.business.shortName}}" />
+  <meta name="msapplication-TileColor" content="{{siteData.tileColor}}" />
+  <meta name="msapplication-config" content="/browserconfig.xml" />
+  <meta name="theme-color" content="{{siteData.themeColor}}" />
+  <link rel="manifest" href="/site.webmanifest" />
+
+  <meta property="og:title" content="{{ siteData.social.og.title }}" />
+  <meta property="og:description" content="{{ siteData.social.og.description }}" />
+  <meta property="og:url" content="https://{{ siteData.appHost }}/{{ page }}" />
+  <meta property="og:site_name" content="{{ siteData.business.shortName }}">
+  <meta property="og:type" content="website" />
+  {{#each siteData.social.og.image}}
+  <meta property="og:image" content="{{url}}" />
+  <meta property="og:image:type" content="{{type}}" />
+  <meta property="og:image:alt" content="{{alt}}" />
+  <meta property="og:image:width" content="{{width}}" />
+  <meta property="og:image:height" content="{{height}}" />
+  {{/each}}
+  <meta name="twitter:url" content="https://{{ siteData.appHost }}/{{ page }}">
+  <meta name="twitter:title" content="{{ siteData.social.og.title }}" />
+  <meta name=”twitter:image” content="{{siteData.social.twitterMeta.image }}" />
+  <meta name="twitter:description" content="{{ siteData.social.og.description }}" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <meta name="appjs" content="{{scriptUrl 'index.js'}}" />
+  <meta name="swregjs" content="{{scriptUrl 'sw.reg.js'}}" />
+
+  <style>
+    {{> inlineCss-fonts }}
+  </style>
+  {{#if inlineCss-all }}
+  <style>
+    {{> inlineCss-all }}
+  </style>
+  {{/if}}
+  {{#if (lookup inlineCss page)}}
+  <style>
+    {{> (lookup inlineCss page)}}
+  </style>
+  {{/if}}
+
+  <script>
+    {{> inlineJs-all }}
+  </script>
+
+  <link href="{{styleUrl 'index.css'}}" rel="stylesheet" />
+  {{#if (lookup (lookup siteData.pages page) 'external-css')}}
+    <link href="{{styleUrl ''}}{{lookup (lookup siteData.pages page) 'external-css'}}" rel="stylesheet" />
+  {{/if}}
+</head>
+<body>
+    {{> svg-all }}
+    {{> (svgPage page) }}
+
+    <div class="pp-prompt">
+      <div class="pp-items">
+        <div class="pp-update">
+          {{> prompt-update }}
+        </div>
+        <div class="pp-install">
+          {{> prompt-install }}
+        </div>
+        <div class="pp-homescreen">
+          {{> prompt-homescreen }}
+        </div>
+        <div class="pp-welcome">
+          {{> message-welcome }}
+        </div>
+        <div class="pp-updated">
+          {{> message-updated }}
+        </div>
+        <div class="pp-message">
+          <p id="app-message"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-spinner">
+      <div class="spinner"></div>
+    </div>
+
+    <nav id="nav-compact" role="navigation" aria-label="main navigation for mobile" aria-hidden="true" class="navigation compact">
+      {{> nav-links notab=true }}
+      <button tabindex="-1" class="close" aria-controls="nav-compact" aria-label="Close the menu"></button>
+    </nav>
+
+    <header class="ln-header" role="banner">
+      <div class="container">
+        <button aria-expanded="false" aria-controls="nav-compact" aria-label="Open the menu" class="menu">
+          <svg class="hamburg">
+            <title>Menu</title>
+            <use xlink:href="#icon-hamburg"></use>
+          </svg>
+        </button>
+        <h1>
+          <a class="logo" href="{{ siteData.pages.home.route }}" aria-label="{{ siteData.business.name }}">
+            <span class="text">
+              <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
+              <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
+            </span>
+            <svg class="symbol">
+              <title>{{ siteData.business.shortName }} Logo</title>
+              <use xlink:href="#logo"></use>
+            </svg>
+          </a>
+          <p class="logo-tag">{{ siteData.elevator }}</p>
+        </h1>
+        <div class="icon phone">
+          <a href="tel:+1-{{ siteData.business.phone }}" aria-label="telephone number">
+            <svg>
+              <title>{{ siteData.business.shortName }} Phone 1-{{ siteData.business.phone }}</title>
+              <use xlink:href="#icon-phone"></use>
+            </svg>
+            <span>{{ siteData.business.phone }}</span>
+          </a>
+        </div>
+        <!--
+        <div class="icon twitter">
+          <a href="{{ siteData.social.twitter }}" target="_blank" rel="noopener" aria-label="{{ siteData.business.shortName }} twitter">
+            <svg>
+              <title>{{ siteData.business.shortName }} Twitter</title>
+              <use xlink:href="#icon-twitter"></use>
+            </svg>
+          </a>
+        </div>
+        -->
+        <!--
+        <div class="icon logo">
+          <a href="#">
+            <svg class="symbol">
+              <title>{{ siteData.business.shortName }} Logo</title>
+              <use xlink:href="#logo"></use>
+            </svg>
+          </a>
+        </div>
+        -->
+        <nav role="navigation" aria-label="main navigation" class="navigation desktop">
+          {{> nav-links }}
+        </nav>
+      </div>
+      <div class="status">
+        <p></p>
+      </div>
+    </header>
+    <h1>
+      <a class="logo" href="/">
+        <span class="text">
+          <span class="nl">{{subChars (subWords siteData.business.name 0 2) 0 8}}</span>
+          <span class="nr">{{subChars (subWords siteData.business.name 0 2) 8 13}}</span>
+        </span>
+        <svg class="symbol">
+          <title>{{ siteData.business.shortName }} Logo</title>
+          <use xlink:href="#logo"></use>
+        </svg>
+      </a>
+      <p class="logo-tag">{{ siteData.elevator }}</p>
+    </h1>
