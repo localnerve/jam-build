@@ -1,4 +1,4 @@
- /**
+/**
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
  *
