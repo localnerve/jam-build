@@ -10,6 +10,14 @@ If this project is helpful or useful, please consider donating to help me create
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=U98LEKAK7DXML)  
 I'm also available for [hire](https://www.localnerve.com/contact).
 
+## Quick Links
+
+  🚀 [Getting Started](docs/localsetup.md)  
+  🔧 [Build Process](docs/build.md)  
+  ✨ [Command Reference](docs/commands.md)  
+  📈 [Project Stats](docs/stats.md)  
+  ⚙️ [Design Points](docs/data.md)  
+
 ## Project Summary
 
 ### Overview
@@ -49,14 +57,6 @@ This project serves as a starting point for a web application. It builds a versi
 
 * **Established Toolchain:**
   * Uses a well-established toolchain with no magic (no hidden or complex processes) and minimal dependencies.
-
-## Other Docs
-
-* [How to Run Locally](docs/localsetup.md)
-* [Build](docs/build.md)
-* [Commands](docs/commands.md)
-* [Stats](docs/stats.md)
-* [Design Points](docs/data.md)
 
 ## Technology Stack
 
