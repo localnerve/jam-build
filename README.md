@@ -16,6 +16,8 @@ I'm also available for [hire](https://www.localnerve.com/contact).
   🔧 [Build Process](docs/build.md)  
   ✨ [Command Reference](docs/commands.md)  
   📈 [Project Stats](docs/stats.md)  
+  📡 [Batch Data Update Processing Flow](docs/batch-updates.md)  
+  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)  
   ⚙️ [Design Points](docs/data.md)  
 
 ## Project Summary
@@ -73,7 +75,7 @@ This project serves as a starting point for a web application. It builds a versi
 
 * [Handlebars](https://handlebarsjs.com/guide/)
 * [Sass](https://sass-lang.com/documentation/)
-* [Playwright.dev](https://playwright.dev)
+* [Playwright](https://playwright.dev)
 * [Gulp](https://gulpjs.com)
 * [Rollup](https://rollupjs.org/)
 * [Docker](https://docker.com)
