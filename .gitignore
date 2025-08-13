@@ -153,5 +153,8 @@ coverage
 # no stats output
 stats
 
-# no authorizer-dev-docker-compose.yml for now
-authorizer-dev-docker-compose.yml
+# no development docker compose
+*-dev-docker-compose.yml
+
+# no insights docs
+docs/insights
