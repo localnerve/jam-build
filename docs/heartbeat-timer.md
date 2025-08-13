@@ -300,4 +300,10 @@ sequenceDiagram
             Note right of SW: Used for logout or emergency scenarios
         end
     end
+
+    Note over User, Browser: Timer guarantees and limitations
+
+    rect rgb(255, 240, 240)
+        Note over User, Browser: ⚠️ Service Worker Timer Reliability Challenges:<br/>• No guarantees SW won't be terminated<br/>• Heartbeat provides "best effort" continuity<br/>• User inactivity triggers early processing<br/>• Visibility changes force immediate execution<br/>• Multiple clients coordinate through heartbeat map
+    end
 ```
