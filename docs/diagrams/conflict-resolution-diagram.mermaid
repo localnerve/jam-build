@@ -1,0 +1,101 @@
+sequenceDiagram
+    participant API as Remote API<br/>(Data Service)
+    participant SWD as SW Data Module<br/>(sw.data.js)
+    participant Conflict as Conflict Module<br/>(sw.conflicts.js)
+    participant IDB as IndexedDB<br/>(Multiple Stores)
+    participant JsonDiff as JsonDiffPatch<br/>(3-way merge)
+    participant MT as Main Thread<br/>(UI Updates)
+
+    Note over API, MT: Version conflict detected during batch processing
+
+    API-->>SWD: 409 Conflict Response (versionError)
+    SWD->>SWD: versionConflict() triggered
+    Note right of SWD: Store metadata: {storeType, document, op, collections}
+
+    SWD->>API: GET /api/data/{store}/{document}
+    Note right of API: Retrieve latest remote version
+    API-->>SWD: Return latest remote document + version
+
+    SWD->>IDB: storeVersionConflict() - save remote data
+    Note right of IDB: Store in conflict store with:<br/>- new_version<br/>- remote properties<br/>- original operation context
+
+    SWD->>Conflict: processVersionConflicts() called
+    Note right of Conflict: Begin comprehensive 3-way merge process
+
+    Conflict->>IDB: Read all conflict store records
+    Note right of IDB: Query by version index (latest first)
+
+    loop For each conflicted document
+        Conflict->>Conflict: Build remoteData structure
+        Note right of Conflict: Organize by storeType -> document -> collection
+        
+        Conflict->>IDB: Read corresponding local data
+        Note right of IDB: Get current local state from main stores
+        
+        Conflict->>IDB: Read base data (pre-conflict ancestor)
+        Note right of IDB: Get original state from base store
+    end
+
+    Note over Conflict, JsonDiff: Perform 3-way merge for each collection
+
+    loop For each storeType -> document -> collection
+        Conflict->>JsonDiff: threeWayMerge(base, remote, local)
+        
+        JsonDiff->>JsonDiff: diff(base, remote) - remote changes
+        JsonDiff->>JsonDiff: diff(base, local) - local changes
+        
+        Note right of JsonDiff: Merge Strategy:<br/>1. Apply non-conflicting changes from both<br/>2. For conflicts: LOCAL WINS over remote<br/>3. Handle arrays vs objects appropriately
+        
+        alt No conflicts
+            JsonDiff->>JsonDiff: Apply remote changes to base
+            JsonDiff->>JsonDiff: Apply local changes to base
+        else Conflicting changes
+            JsonDiff->>JsonDiff: Preserve local changes
+            Note right of JsonDiff: Local changes override remote<br/>when same property modified
+        end
+        
+        JsonDiff-->>Conflict: Return merged collection data
+    end
+
+    Note over Conflict, IDB: Write resolved data back to local stores
+
+    loop For each resolved document
+        Conflict->>IDB: Write merged data to main data store
+        Note right of IDB: Update with conflict-resolved properties
+        
+        Conflict->>IDB: Update version store with new version
+        Note right of IDB: Store remote version as current
+    end
+
+    Note over Conflict, SWD: Re-queue operations for resolved data
+
+    loop For each resolved operation
+        alt Simple collections (strings)
+            Conflict->>SWD: addToBatch({storeType, document, op, collection})
+        else Complex collections (objects with properties)
+            loop For each property in collection
+                Conflict->>SWD: addToBatch({...payload, collection, propertyName})
+            end
+        end
+    end
+
+    Conflict->>IDB: Delete processed conflict records
+    Note right of IDB: Clean up temporary conflict data
+
+    Note over Conflict, MT: Restart batch processing with resolved data
+
+    Conflict->>SWD: Call processBatchUpdates() recursively
+    Note right of SWD: ⚠️ This creates the potential infinite loop<br/>if conflicts keep occurring
+
+    Note over SWD, MT: Notify UI of successful resolution
+
+    loop For each updated storeType
+        SWD->>MT: sendMessage('database-data-update', payload)
+        Note right of MT: Includes success message:<br/>"Data was synchronized with latest version"
+    end
+
+    Note over API, MT: Conflict resolution complete - batch processing continues
+
+    opt If more conflicts occur
+        Note over SWD, Conflict: Process repeats recursively<br/>TODO: Add exponential backoff + max retries<br/>to prevent infinite loops
+    end

@@ -1,0 +1,115 @@
+sequenceDiagram
+    participant User as User Interaction
+    participant MT as Main Thread<br/>(heartbeat.js)
+    participant SW as Service Worker<br/>(sw.timer.js)
+    participant SWD as SW Data Module<br/>(sw.data.js)
+    participant Browser as Browser Events<br/>(visibilitychange)
+
+    Note over User, Browser: Timer starts from batch update operation
+
+    SWD->>SW: startTimer(duration, 'batch-timer', processBatchUpdates)
+    Note right of SW: duration = 67ms (batchCollectionWindow)<br/>resolution = 500ms (default)
+
+    alt New Timer
+        SW->>SW: Create timer entry in timers object
+        SW->>MT: sendMessage('heartbeat-start', {name, interval, maxInactive})
+        Note right of MT: interval = 475ms (95% of resolution)<br/>maxInactive = 8000ms (16x resolution)
+        
+        MT->>MT: heartbeatStart() - setup monitoring
+        MT->>User: addEventListener(mousemove, keydown, touchstart)
+        Note right of User: Track user activity for inactivity detection
+        
+        MT->>MT: setInterval() - start heartbeat loop
+        MT->>SW: postMessage('heartbeat-start', {name})
+        
+        SW->>SW: Store client heartbeat map
+        Note right of SW: heartbeat[name] = Map([[clientId, {time, inactive}]])
+        
+    else Existing Timer (Reset)
+        SW->>SW: clearInterval() existing timer
+        Note right of SW: Timer window extends - no new heartbeat needed
+    end
+
+    SW->>SW: setInterval() - start timer countdown
+    Note right of SW: Runs every 500ms, decrements timeLeft
+
+    Note over MT, SW: Heartbeat messaging loop begins
+
+    loop Every 475ms (while timer active)
+        MT->>MT: Check user activity against maxInactive (8s)
+        
+        alt User Active (< 8s since activity)
+            MT->>SW: postMessage('heartbeat-beat', {name, inactive: false})
+        else User Inactive (≥ 8s since activity)  
+            MT->>SW: postMessage('heartbeat-beat', {name, inactive: true})
+        end
+        
+        SW->>SW: Update heartbeat map with timestamp & activity
+    end
+
+    Note over SW, SWD: Timer resolution check every 500ms
+
+    loop Every 500ms (timer resolution)
+        SW->>SW: Decrement timeLeft by resolution (500ms)
+        
+        alt timeLeft <= 0 (Timer Expired)
+            SW->>SW: serviceTimer() - natural expiration
+            SW->>SWD: Execute callback (processBatchUpdates)
+            SW->>SW: stopHeartbeat() & cleanup timer
+            SW->>MT: sendMessage('heartbeat-stop', {name})
+            MT->>MT: Clear intervals & event listeners
+            
+        else timeLeft > 0 (Timer Still Running)
+            SW->>SW: checkHeartbeat(name, resolution)
+            
+            alt Valid Heartbeat & Active Clients
+                Note right of SW: lastHeartbeat < 500ms ago<br/>AND at least one client active
+                SW->>SW: Continue timer (do nothing)
+                
+            else Invalid Heartbeat OR All Clients Inactive
+                Note right of SW: lastHeartbeat ≥ 500ms ago<br/>OR all clients report inactive
+                SW->>SW: serviceTimer() - early termination
+                SW->>SWD: Execute callback (processBatchUpdates)
+                Note right of SWD: Process batch immediately<br/>to preserve user data
+                SW->>SW: stopHeartbeat() & cleanup timer
+                SW->>MT: sendMessage('heartbeat-stop', {name})
+            end
+        end
+    end
+
+    Note over Browser, SW: Browser visibility change handling
+
+    Browser->>MT: visibilitychange event (state = 'hidden')
+    Note right of Browser: Browser tab hidden, closed,<br/>or minimized - risk of SW shutdown
+    
+    MT->>MT: visibilityHandler() triggered
+    MT->>MT: heartbeatStop() for all active timers
+    MT->>SW: postMessage('service-timers-now', {timerNames})
+    
+    SW->>SW: serviceTimer() for each requested timer
+    loop For each timer in timerNames
+        SW->>SWD: Execute callback immediately
+        Note right of SWD: Emergency processing before<br/>potential SW termination
+        SW->>SW: Cleanup timer state
+    end
+
+    Note over User, Browser: Multiple timer coordination
+
+    opt Multiple Timers Active
+        Note over SW: Each timer has independent:<br/>- Heartbeat tracking<br/>- Resolution checking<br/>- Early termination logic
+        
+        alt serviceAllTimers() called
+            SW->>SW: Service ALL active timers immediately
+            Note right of SW: Used for logout or emergency scenarios
+        end
+    end
+
+    Note over User, Browser: Timer guarantees and limitations
+
+    rect rgb(255, 240, 240)
+        Note over User, Browser: ⚠️ Service Worker Timer Reliability Challenges:<br/>• No guarantees SW won't be terminated<br/>• Heartbeat provides "best effort" continuity<br/>• User inactivity triggers early processing<br/>• Visibility changes force immediate execution<br/>• Multiple clients coordinate through heartbeat map
+    end
+
+    rect rgb(240, 255, 240)  
+        Note over User, Browser: ✅ Design Benefits:<br/>• Data loss prevention (early termination vs lost timer)<br/>• User experience (inactive users don't delay processing)<br/>• Resource efficiency (longer intervals reduce main thread impact)<br/>• Coordinated shutdown (visibility changes handled gracefully)
+    end

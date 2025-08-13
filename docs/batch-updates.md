@@ -67,6 +67,9 @@ When users modify data through the UI proxy, changes are queued and batched to m
 
 ## Batch Updates Sequence Diagram
 
+ [Full Batch Updates Sequence Diagram (mermaid)](diagrams/batch-update-sequence-diagram-2.mermaid)
+
+
 ```mermaid
 sequenceDiagram
     participant MT as Main Thread<br/>(stores.js)
@@ -172,6 +175,10 @@ sequenceDiagram
 ```
 
 ## Conflict Resolution Sequence Diagram
+
+[Full Conflict Resolution Sequence Diagram (mermaid)](diagrams/conflict-resolution-diagram.mermaid)
+
+[full ]
 
 ```mermaid
 sequenceDiagram
