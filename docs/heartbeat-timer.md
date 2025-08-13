@@ -289,4 +289,15 @@ sequenceDiagram
         Note right of SWD: Emergency processing before<br/>potential SW termination
         SW->>SW: Cleanup timer state
     end
+
+    Note over User, Browser: Multiple timer coordination
+
+    opt Multiple Timers Active
+        Note over SW: Each timer has independent:<br/>- Heartbeat tracking<br/>- Resolution checking<br/>- Early termination logic
+        
+        alt serviceAllTimers() called
+            SW->>SW: Service ALL active timers immediately
+            Note right of SW: Used for logout or emergency scenarios
+        end
+    end
 ```
