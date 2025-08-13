@@ -178,8 +178,6 @@ sequenceDiagram
 
 [Full Conflict Resolution Sequence Diagram (mermaid)](diagrams/conflict-resolution-diagram.mermaid)
 
-[full ]
-
 ```mermaid
 sequenceDiagram
     participant API as Remote API<br/>(Data Service)

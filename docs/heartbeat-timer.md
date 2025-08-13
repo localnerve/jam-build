@@ -192,6 +192,8 @@ This timer architecture is specifically designed for Jam-Build's batch processin
 
 ## Timer Architecture Sequence Diagram
 
+[Full Timer Architecture Diagram (mermaid)](diagrams/timer-architecture-diagram.mermaid)
+
 ```mermaid
 sequenceDiagram
     participant User as User Interaction
