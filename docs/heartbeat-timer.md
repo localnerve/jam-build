@@ -309,5 +309,4 @@ sequenceDiagram
 
     rect rgb(240, 255, 240)  
         Note over User, Browser: ✅ Design Benefits:<br/>• Data loss prevention (early termination vs lost timer)<br/>• User experience (inactive users don't delay processing)<br/>• Resource efficiency (longer intervals reduce main thread impact)<br/>• Coordinated shutdown (visibility changes handled gracefully)
-    end
-    ```
+    end```
