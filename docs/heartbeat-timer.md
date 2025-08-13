@@ -289,24 +289,4 @@ sequenceDiagram
         Note right of SWD: Emergency processing before<br/>potential SW termination
         SW->>SW: Cleanup timer state
     end
-
-    Note over User, Browser: Multiple timer coordination
-
-    opt Multiple Timers Active
-        Note over SW: Each timer has independent:<br/>- Heartbeat tracking<br/>- Resolution checking<br/>- Early termination logic
-        
-        alt serviceAllTimers() called
-            SW->>SW: Service ALL active timers immediately
-            Note right of SW: Used for logout or emergency scenarios
-        end
-    end
-
-    Note over User, Browser: Timer guarantees and limitations
-
-    rect rgb(255, 240, 240)
-        Note over User, Browser: ⚠️ Service Worker Timer Reliability Challenges:<br/>• No guarantees SW won't be terminated<br/>• Heartbeat provides "best effort" continuity<br/>• User inactivity triggers early processing<br/>• Visibility changes force immediate execution<br/>• Multiple clients coordinate through heartbeat map
-    end
-
-    rect rgb(240, 255, 240)  
-        Note over User, Browser: ✅ Design Benefits:<br/>• Data loss prevention (early termination vs lost timer)<br/>• User experience (inactive users don't delay processing)<br/>• Resource efficiency (longer intervals reduce main thread impact)<br/>• Coordinated shutdown (visibility changes handled gracefully)
-    end```
+```
