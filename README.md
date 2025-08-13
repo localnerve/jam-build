@@ -18,6 +18,7 @@ I'm also available for [hire](https://www.localnerve.com/contact).
   📈 [Project Stats](docs/stats.md)  
   📡 [Batch Data Update Processing Flow](docs/batch-updates.md)  
   ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)  
+  🧪 [Testing Procedure](docs/testing-documentation.md)  
   ⚙️ [Design Points](docs/data.md)  
 
 ## Project Summary
