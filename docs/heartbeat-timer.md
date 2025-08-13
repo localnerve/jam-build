@@ -306,4 +306,8 @@ sequenceDiagram
     rect rgb(255, 240, 240)
         Note over User, Browser: ⚠️ Service Worker Timer Reliability Challenges:<br/>• No guarantees SW won't be terminated<br/>• Heartbeat provides "best effort" continuity<br/>• User inactivity triggers early processing<br/>• Visibility changes force immediate execution<br/>• Multiple clients coordinate through heartbeat map
     end
+
+    rect rgb(240, 255, 240)  
+        Note over User, Browser: ✅ Design Benefits:<br/>• Data loss prevention - early termination vs lost timer<br/>• User experience - inactive users don't delay processing<br/>• Resource efficiency - longer intervals reduce main thread impact<br/>• Coordinated shutdown - visibility changes handled gracefully
+    end
 ```
