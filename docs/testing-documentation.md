@@ -133,9 +133,6 @@ await createReport(coverageMap, testInfo);
 # Run full data mutation test suite (recommended)
 npm run test
 
-# Run API tests only
-npm run test:local:api
-
 # Run with debug output
 npm run test:debug
 
@@ -149,10 +146,13 @@ npm run test:build
 # Build with service worker instrumentation
 npm run build:dev:sw
 
-# Run against local development server
+# Run API tests only
+npm run test:local:api
+
+# Run against all local services
 npm run test:local
 
-# Debug local tests
+# Debug all local tests
 npm run test:local:debug
 ```
 
@@ -227,6 +227,8 @@ test('mutations offline', async ({ browser, browserName }) => {
   await verifyMutations(page, mutations);
 });
 ```
+
+> Uses Playwright experimental flag `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` to enable service worker request interception for offline simulation.
 
 ## Advanced Testing Features
 
