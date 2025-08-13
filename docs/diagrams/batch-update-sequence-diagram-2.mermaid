@@ -1,0 +1,101 @@
+sequenceDiagram
+    participant MT as Main Thread<br/>(stores.js)
+    participant SW as Service Worker<br/>(Message Handler)
+    participant SWD as SW Data Module<br/>(sw.data.js)
+    participant Timer as Batch Timer<br/>(sw.timer.js)
+    participant IDB as IndexedDB<br/>(Batch Store)
+    participant API as Remote API<br/>(Data Service)
+    participant Conflict as Conflict Resolution<br/>(sw.conflicts.js)
+
+    Note over MT, Conflict: User makes data mutation in UI
+
+    MT->>MT: User changes data via proxy
+    MT->>MT: queueMutation() schedules updateDatabase()
+    MT->>IDB: updateDatabase() writes to local IndexedDB
+    
+    alt Database update successful
+        MT->>SW: postMessage('batch-update', payload)
+        Note right of MT: payload: {storeType, document, collection, propertyName, op}
+    end
+
+    SW->>SWD: Forward batch-update message
+    SWD->>SWD: batchUpdate() calls _batchUpdate()
+    SWD->>Timer: startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates)
+    Note right of Timer: Extends/resets 67ms timer window
+    SWD->>IDB: Add batch record to batch store
+    Note right of IDB: Record: {storeType, document, collection, propertyName, op}
+
+    Note over MT, Conflict: Additional mutations extend the timer window
+
+    loop More user mutations during window
+        MT->>SW: postMessage('batch-update', ...)
+        SW->>SWD: Forward message
+        SWD->>Timer: startTimer() - extends window
+        SWD->>IDB: Add more batch records
+    end
+
+    Note over Timer, API: Timer expires, batch processing begins
+
+    Timer->>SWD: Timer expires, calls processBatchUpdates()
+    
+    SWD->>IDB: Read all batch records
+    SWD->>SWD: Run consolidation algorithm
+    Note right of SWD: Groups by storeType:document<br/>Merges/deduplicates operations<br/>Handles put/delete precedence
+
+    SWD->>SWD: Build network call order (oldest to newest)
+    
+    loop For each network operation
+        alt Put Operation
+            SWD->>API: POST /api/data/{store}/{document}
+            Note right of API: upsertData() with consolidated collections
+        else Delete Operation  
+            SWD->>API: DELETE /api/data/{store}/{document}
+            Note right of API: deleteData() with properties/collections
+        end
+        
+        alt Success Response
+            API-->>SWD: 200/204 Success
+            SWD->>IDB: storeMutationResult() + clearBaseStoreRecords()
+            SWD->>IDB: Delete processed batch records
+            
+        else Version Conflict
+            API-->>SWD: 409 Version Error
+            Note right of SWD: networkResult = E_CONFLICT
+            SWD->>SWD: versionConflict() triggered
+            SWD->>API: GET /api/data/{store}/{document}
+            API-->>SWD: Return latest document version
+            SWD->>Conflict: storeVersionConflict() - initiate 3-way merge
+            Conflict->>Conflict: processVersionConflicts()
+            Note right of Conflict: Performs 3-way merge:<br/>ancestor + local + remote
+            Conflict->>SWD: conditionalBatchUpdate() - re-queue operations
+            SWD->>IDB: Add resolved operations to batch store
+            
+            Note over SWD, Conflict: Restart batch processing with resolved data
+            Conflict->>SWD: Call processBatchUpdates() recursively
+            Note right of SWD: This creates the outer loop you mentioned<br/>Process can repeat if more conflicts occur
+            
+        else Network/Other Error
+            API-->>SWD: Network timeout/error
+            SWD->>SWD: Queue for background sync retry
+            Note right of SWD: Uses Workbox background sync
+        end
+    end
+
+    Note over SWD, API: Handle any logout operations
+    
+    opt Logout operations in batch
+        SWD->>SWD: logoutData() for each logout
+        SWD->>IDB: Clean up user data if no pending replays
+        SWD->>MT: sendMessage('logout-complete')
+    end
+
+    Note over MT, Conflict: Batch processing complete or will retry on conflict resolution
+
+    alt All operations successful
+        SWD->>MT: sendMessage('page-data-update') for UI updates
+        Note right of MT: UI reflects successful remote sync
+    else Conflicts resolved and reprocessed
+                    Note over SWD, Conflict: TODO: processBatchUpdates() called recursively<br/>until all conflicts resolved or max retries<br/>⚠️ NEEDS: Exponential backoff with jitter<br/>to prevent infinite retry loops
+    else Operations queued for retry
+        Note over SWD, API: Background sync will replay<br/>when network available
+    end

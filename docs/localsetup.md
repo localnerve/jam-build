@@ -1,6 +1,6 @@
 # How to Run Locally
 
-> **Note:** Safari will not work locally without using named SSL proxy hosts in the procedure described [below](#Ngnix-for-Local-SSL-Proxy-Hosts).
+> **Note:** Safari will not work locally without using named SSL proxy hosts in the procedure described [below](#ngnix-for-Local-ssl-proxy-hosts).
 
 ## Docker Setup
 
@@ -51,6 +51,8 @@ Navigate to `localhost:5000` and log in. Experiment with multiple browsers and l
 
 ##### Ngnix for Local SSL Proxy Hosts
 - To set up a named proxy for local SSL using [DuckDNS](https://notthebe.ee/blog/easy-ssl-in-homelab-dns01/) and the Docker Nginx Proxy Manager:
+  > Presuming you setup localhost:9010 to point to `yourproxyhost.duckdns.org` and localhost:5000 to point to `app.yourproxyhost.duckdns.org`
+
   - Run builds with `AUTHZ_URL=https://yourproxyhost.duckdns.org npm run build`.
   - Access the jam-build app in the browser as `https://app.yourproxyhost.duckdns.org`.
   - This setup is necessary to test Safari on localhost and for secure development with SSL.

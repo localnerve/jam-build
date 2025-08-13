@@ -1,0 +1,88 @@
+sequenceDiagram
+    participant UI as Main Thread<br/>(stores.js)
+    participant SW as Service Worker<br/>(Message Handler)
+    participant Data as SW Data Module<br/>(sw.data.js)
+    participant Timer as Batch Timer<br/>(sw.timer.js)
+    participant IDB as IndexedDB<br/>(Batch Store)
+    participant API as Remote API<br/>(Data Service)
+    participant Conflicts as Conflict Resolution<br/>(sw.conflicts.js)
+
+    Note over UI, Conflicts: User Makes Data Changes
+
+    UI->>UI: User modifies store data
+    UI->>UI: queueMutation() schedules<br/>serviceMutationQueue()
+    UI->>UI: updateDatabase() writes to IndexedDB
+    
+    alt If successful update
+        UI->>SW: postMessage('batch-update', payload)
+        Note right of SW: payload: {storeType, document,<br/>collection, propertyName, op}
+    end
+
+    Note over SW, Conflicts: Service Worker Batch Processing
+
+    SW->>Data: Receives 'batch-update' message
+    Data->>Data: batchUpdate() → _batchUpdate()
+    Data->>Timer: startTimer(batchCollectionWindow,<br/>'batch-timer', processBatchUpdates)
+    Data->>IDB: Add batch record to store
+    
+    Note over Data, Timer: Timer extends/resets on each new batch-update
+
+    Timer-->>Data: Timer expires → processBatchUpdates()
+    
+    Note over Data, API: Batch Processing Algorithm
+
+    Data->>IDB: Read all batch records<br/>(sorted by id desc)
+    Data->>Data: Complex consolidation algorithm:<br/>- Merge newer/older operations<br/>- Remove redundant operations<br/>- Build network call order
+
+    loop For each consolidated operation
+        alt PUT Operation
+            Data->>API: POST /api/data/{resource}/{document}<br/>upsertData()
+        else DELETE Operation  
+            Data->>API: DELETE /api/data/{resource}/{document}<br/>deleteData()
+        end
+        
+        alt Success Response
+            Data->>IDB: storeMutationResult()
+            Data->>IDB: clearBaseStoreRecords()
+            Data->>IDB: Delete processed batch records
+        else Version Conflict (409)
+            Note over Data, Conflicts: Version Conflict Resolution
+            Data->>Data: versionConflict()
+            Data->>API: GET /api/data/{resource}/{document}<br/>(fetch latest version)
+            Data->>Conflicts: storeVersionConflict()
+            Conflicts->>Conflicts: 3-way merge resolution
+            Conflicts->>Data: processVersionConflicts()
+            Data->>Data: conditionalBatchUpdate()<br/>(re-queue operations)
+            Data->>Data: processBatchUpdates()<br/>(RECURSIVE RESTART)
+            Note right of Data: ⚠️ Potential infinite loop<br/>needs exponential backoff
+        else Network Error
+            Data->>Data: Queue for background sync replay
+        end
+    end
+
+    Note over UI, Conflicts: Completion & Notification
+
+    alt All operations successful
+        Data->>UI: sendMessage('page-data-update')
+        UI->>UI: handlePageDataUpdate()
+        UI->>UI: updateStore() & onChange('update')
+    else Some operations failed
+        Data->>Data: reconcile[] - refreshData()
+        Data->>API: GET requests to sync failed items
+    end
+
+    Note over Data, Timer: Special Cases
+
+    alt Background Sync Replay
+        Note over Data: When network returns or<br/>periodic sync triggers
+        Data->>Data: replayRequestQueue()
+        Data->>Data: Process queued mutations (FIFO)
+        Data->>Data: processVersionConflicts()
+        Data->>Data: processBatchUpdates()
+    end
+
+    alt Logout Operations
+        Data->>Data: Special logout batch operations
+        Data->>IDB: Cleanup scope-specific records
+        Data->>UI: sendMessage('logout-complete')
+    end
