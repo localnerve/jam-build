@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 12, 2025
+Title: Getting Started
+---
+
 # How to Run Locally
 
 > **Note:** Safari will not work locally without using named SSL proxy hosts in the procedure described [below](#ngnix-for-Local-ssl-proxy-hosts).

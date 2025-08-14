@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 12, 2025
+Title: Build Process
+---
+
 # Build Process
 The build produces the application from source and data to a single directory, ideal for integration with a service vendor or optionally with a portable container.
 

@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 12, 2025
+Title: Batch Update Processing Flow
+---
+
 # Batch Update Processing Flow
 
 The Jam-Build application uses a sophisticated batching system to efficiently synchronize local data mutations with the remote API while handling offline scenarios and version conflicts.

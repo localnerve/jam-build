@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 12, 2025
+Title: Commands
+---
+
 # Commands
 
 The commands in package.json that are typically developer-useful, and a brief explanation of what they are intended to do.

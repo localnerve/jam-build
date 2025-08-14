@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 12, 2025
+Title: Service Worker Timer Architecture
+---
+
 # Service Worker Timer Architecture
 
 ## Quick Links
