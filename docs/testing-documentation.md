@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 12, 2025
+Title: Jam-Build Testing Procedure
+---
+
 # Jam-Build Testing Procedure
 
 This document describes the comprehensive testing architecture and procedures for the Jam-Build reference project.
