@@ -1,5 +1,6 @@
 /**
- * Utility functions suitable for use within a browser context.
+ * Header inline stub.
+ * On slower networks, save click events for the Header module arriving later.
  * 
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
@@ -19,31 +20,30 @@
  *    in this material, copies, or source code of derived works.
  */
 
-// The names of global header functions
-export const headerInstallAfter = '__headerInstallAfter';
-export const headerReplayEvents = '__headerReplayEvents';
+import { headerInstallAfter, headerReplayEvents } from '#client-utils/browser.js';
 
 /**
- * Pull the numeric part of a string and parse as float.
- *
- * @param {String} input - The string to parse as float.
- * @returns {Number} The parsed float.
+ * Called on DCL, intercept click events from the header and save for later
+ * **Depends on window.App previous parse/install**
  */
-export function getNumber (input) {
-  const reNotNum = /[^.+\-\d]+/;
-  return parseFloat(input.replace(reNotNum, ''));
-}
+export function setupHeaderStub () {
+  const header = document.querySelector('.ln-header');
+  const headerClickTargets = [];
 
-/**
- * Create a hex hash digest string for a given input string.
- * 
- * @param {String} input - A string to create the hash digest for
- * @returns {String} A hex string hash digest for the input
- */
-export async function hashDigest (input) {
-  const msgUint8 = new TextEncoder().encode(input);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  return hashHex;
+  function headerStub (e) {
+    headerClickTargets.unshift(e.target);
+  }
+
+  window.App.add(headerInstallAfter, () => {
+    header.removeEventListener('click', headerStub);
+  });
+
+  window.App.add(headerReplayEvents, () => {
+    // just replay the last click target
+    if (headerClickTargets.length > 0) {
+      headerClickTargets[0].dispatchEvent(new Event('click', { bubbles: true, cancelable: true }));
+    }
+  });
+
+  header.addEventListener('click', headerStub);
 }

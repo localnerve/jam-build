@@ -18,7 +18,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import { getNumber } from '#client-utils/browser.js';
+import { getNumber, headerInstallAfter, headerReplayEvents } from '#client-utils/browser.js';
 
 const headerClass = 'fixed';
 const offscreenNavClass = 'show';
@@ -246,8 +246,13 @@ function getPageElements () {
  */
 export default function setup (support) {
   const elements = getPageElements();
+
   setupNavCompact(elements);
   wrapNavAnchorClick(elements);
+  
+  window.App.exec(headerInstallAfter, { once: true });
+  window.App.exec(headerReplayEvents, { once: true });
+
   support.backgroundExec(() => Promise.resolve().then(() => 
     installIntersectionObserver(elements, installResizeObserver.bind(null, support))
   ), 100);
