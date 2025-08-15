@@ -14,7 +14,7 @@
   {{#if (lookup this 'hero-0')}}
   {{setState ../siteData.images -1}}
   {{#each (lookup ../siteData.images (concat 'hero-' ../page))}}
-  <link rel="preload" href="{{imageUrl this}}" as="image" fetchpriority="high"
+  <link rel="preload" href="{{imageUrl basename}}" as="image" type="{{mimeType}}" fetchpriority="high"
     media="{{#unless @first}}(min-width: {{
     concat (inc (getState ../../siteData.images)) 'px'
     }}){{#unless (or @first @last)}} and {{/unless}}{{/unless}}{{#unless @last}}(max-width: {{concat @key 'px'}}){{/unless}}" />
