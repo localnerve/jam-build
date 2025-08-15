@@ -36,6 +36,17 @@ function responsive (settings, data) {
   const { distImages, responsiveConfig } = settings;
 
   if (Object.keys(responsiveConfig).length > 0) {
+    const mimeTypes = {
+      '.avif': 'image/avif',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.png': 'image/png',
+      '.svg': 'image/svg+xml',
+      '.webp': 'image/webp'
+      // add here as needed
+    };
+
     return gulp.src(`${distImages}/**`, {
       encoding: false
     })
@@ -48,7 +59,10 @@ function responsive (settings, data) {
           if (!data.images[key]) {
             data.images[key] = {};
           }
-          data.images[key][config.width] = newFile.relative;
+          data.images[key][config.width] = {
+            basename: newFile.basename,
+            mimeType: mimeTypes[newFile.extname]
+          };
         }
       }))
       .pipe(gulp.dest(distImages));

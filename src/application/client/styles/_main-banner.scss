@@ -18,6 +18,7 @@
 //    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
 //    in this material, copies, or source code of derived works. 
 // -------------
+@use "sass:map";
 @use 'mixins' as m;
 @use 'colors' as c;
 
@@ -42,7 +43,7 @@
     .#{$page}-hero-0 {
       $last-width: -1;
 
-      @each $width, $image in $images {
+      @each $width, $image-map in $images {
         @include m.min-width('#{$last-width + 1}px') {
           background-color: rgb(0 0 0 / 50%);
           // stylelint-disable-next-line plugin/no-unsupported-browser-features
@@ -51,7 +52,7 @@
               rgb(0 0 0 / 50%),
               rgb(0 0 0 / 50%)
             ),
-            image-url($image);
+            image-url(map.get($image-map, 'basename'));
         }
         $last-width: m.number($width);
       }
