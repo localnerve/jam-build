@@ -42,6 +42,7 @@ export function setupHeaderStub () {
     // just replay the last click target
     if (headerClickTargets.length > 0) {
       headerClickTargets[0].dispatchEvent(new Event('click', { bubbles: true, cancelable: true }));
+      headerClickTargets.length = 0;
     }
   });
 
