@@ -133,17 +133,17 @@ export async function createScripts (settings) {
  */
 export async function compileScripts (options) {
   const { prod, replacements = false } = options;
-  const plugins = [];
-
-  if (prod) {
-    plugins.push(terser());
-  }
+  const plugins = [resolve()];
 
   if (replacements) {
     plugins.push(replace({
       preventAssignment: true,
       ...replacements
     }));
+  }
+
+  if (prod) {
+    plugins.push(terser());
   }
 
   if (options.inputOptions.plugins) {

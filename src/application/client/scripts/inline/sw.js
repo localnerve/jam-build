@@ -25,55 +25,53 @@
  *    in this material, copies, or source code of derived works.
  */
 
-(function () {
-  /**
-   * Service Worker Message Handler
-   * Handle early messages from sw to the page.
-   *
-   * @param {Event} event - Message Event
-   * @param {Object} event.data - Service Worker message data envelope
-   * @param {String} event.data.meta - Identifier for the message
-   * @param {String} [event.data.payload] - A message payload
-   */
-  function swMessageHandler (event) {
-    const msgId = event?.data?.meta;
-    const payload = event?.data?.payload;
+/**
+ * Service Worker Message Handler
+ * Handle early messages from sw to the page.
+ *
+ * @param {Event} event - Message Event
+ * @param {Object} event.data - Service Worker message data envelope
+ * @param {String} event.data.meta - Identifier for the message
+ * @param {String} [event.data.payload] - A message payload
+ */
+function swMessageHandler (event) {
+  const msgId = event?.data?.meta;
+  const payload = event?.data?.payload;
 
-    switch (msgId) {
-      case 'workbox-broadcast-update':
-        window.App.exec('pageUpdatePrompt');
-        break;
+  switch (msgId) {
+    case 'workbox-broadcast-update':
+      window.App.exec('pageUpdatePrompt');
+      break;
 
-      case 'database-update-required':
-        window.App.exec('pageReloadOnUpdate', {
-          args: {
-            isUpdate: true,
-            duration: 1000
-          }
-        });
-        break;
-
-      case 'database-data-update':
-        window.App.exec('pageDataUpdate', {
-          args: payload
-        });
-        break;
-      
-      default:
-        break;
-    }
-  }
-
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', swMessageHandler);
-
-    // defer install prompt
-    window.addEventListener('beforeinstallprompt', e => {
-      e.preventDefault();
-      const installPromptEvent = new CustomEvent('installPromptAvailable', { detail: e });
-      window.App.add('installPromptEvent', () => {
-        document.dispatchEvent(installPromptEvent);
+    case 'database-update-required':
+      window.App.exec('pageReloadOnUpdate', {
+        args: {
+          isUpdate: true,
+          duration: 1000
+        }
       });
-    });
+      break;
+
+    case 'database-data-update':
+      window.App.exec('pageDataUpdate', {
+        args: payload
+      });
+      break;
+    
+    default:
+      break;
   }
-}());
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', swMessageHandler);
+
+  // defer install prompt
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    const installPromptEvent = new CustomEvent('installPromptAvailable', { detail: e });
+    window.App.add('installPromptEvent', () => {
+      document.dispatchEvent(installPromptEvent);
+    });
+  });
+}
