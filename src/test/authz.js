@@ -181,7 +181,8 @@ export async function authenticateAndSaveState (browser, account, fileName) {
   debug('Begin authentication, clearing storageState...');
 
   // Important: make sure we authenticate in a clean environment by unsetting storage state.
-  const page = await browser.newPage({ storageState: undefined });
+  const context = await browser.newContext({ storageState: undefined });
+  const page = await context.newPage();
 
   debug(`Login to ${process.env.AUTHZ_URL}:${process.env.AUTHZ_CLIENT_ID} with account: `, account);
   await page.addScriptTag({
@@ -208,7 +209,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
   }, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID, account]);
   debug('Successful login data: ', loginData);
 
-  const context = page.context(); // no wait
+  await page.close();
   await context.storageState({ path: fileName });
   return context;
 }

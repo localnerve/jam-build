@@ -59,6 +59,10 @@ export default defineConfig({
     name: 'pages',
     testMatch: 'pages/**/*.test.js'
   }, {
+    name: 'performance',
+    testMatch: 'pages/lighthouse.test.js',
+    dependencies: ['fixtures']
+  }, {
     name: 'data',
     testMatch: 'data/**/*.test.js',
     workers: 1,

@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.0.0",
+  "version": "2.3.0",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -26,6 +26,7 @@
     "test": "npm run test:env -- playwright test --project=data",
     "test:build": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 playwright test --project=dummy --headed",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=data --workers=1 --timeout=600000 --headed",
+    "test:performance": "npm run test:env -- playwright test --project=performance",
     "test:env": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 AUTHZ_ADMIN_SECRET=deadbEf-2af536fa DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
     "test:env:local": "npm run test:env -- AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} AUTHZ_URL=${AUTHZ_URL:-http://localhost:9010} LOCALHOST_PORT=5000",
     "test:local": "npm run build:dev:sw && npm run test:env:local -- playwright test --project=data",
@@ -33,6 +34,9 @@
     "test:local:api": "npm run test:env:local -- playwright test --project=api",
     "test:local:api:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --workers=1 --project=api --timeout=600000 --headed",
     "test:local:data:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=data-debug --workers=1 --timeout=600000 --headed",
+    "test:local:pages": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=pages",
+    "test:local:pages:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=pages --workers=1 --timeout=600000 --headed",
+    "test:local:performance": "npm run test:env:local -- playwright test --project=performance",
     "test:local:_user": "npm run test:env:local -- node src/test/_createlocaluser.js",
     "test:local:_data": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata",
     "test:local:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
@@ -74,7 +78,7 @@
     "express-version-request": "^1.7.0",
     "express-version-route": "^1.2.4",
     "mariadb": "^3.4.5",
-    "pino": "^9.8.0"
+    "pino": "^9.9.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
@@ -112,11 +116,12 @@
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
     "jsondiffpatch": "^0.7.3",
+    "lighthouse": "^12.8.1",
     "mkdirp": "^3.0.1",
     "modern-normalize": "^3.0.1",
     "pino-pretty": "^13.1.1",
     "plugin-error": "^2.0.1",
-    "puppeteer": "^24.16.1",
+    "puppeteer": "^24.16.2",
     "rimraf": "^6.0.1",
     "rollup": "^4.46.2",
     "rollup-plugin-istanbul": "^5.0.0",
