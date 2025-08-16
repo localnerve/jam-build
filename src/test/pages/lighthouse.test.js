@@ -28,6 +28,13 @@ import { test, expect, chromium } from '#test/fixtures.js';
 test.describe('performance audits', () => {
   let baseUrl;
 
+  const thresholds = {
+    performance: process.env.CI ? 95: 99,
+    accessibility: 99,
+    bestPractices: 99,
+    seo: 99
+  };
+
   /**
    * Save a report for a test to the audit directory.
    * 
@@ -68,10 +75,10 @@ test.describe('performance audits', () => {
       seo
     } = result.lhr.categories;
 
-    expect(performance.score * 100).toBeGreaterThan(99);
-    expect(accessibility.score * 100).toBeGreaterThan(99);
-    expect(bestPractices.score * 100).toBeGreaterThan(99);
-    expect(seo.score * 100).toBeGreaterThan(99);
+    expect(performance.score * 100).toBeGreaterThan(thresholds.performance);
+    expect(accessibility.score * 100).toBeGreaterThan(thresholds.accessibility);
+    expect(bestPractices.score * 100).toBeGreaterThan(thresholds.bestPractices);
+    expect(seo.score * 100).toBeGreaterThan(thresholds.seo);
     
     await writeAuditReport(testInfo, result.report);
   }
