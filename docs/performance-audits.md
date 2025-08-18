@@ -1,17 +1,23 @@
-## Performance Auditing with Lighthouse
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 16, 2025
+Title: Performance Auditing with Lighthouse
+---
 
-### Overview
+# Performance Auditing with Lighthouse
+
+## Overview
 
 The test suite includes Lighthouse performance auditing to validate web performance, accessibility, SEO, and best practices. Since JAM-Build is an offline-first application with sophisticated service worker behavior, performance testing validates both initial load performance and cached navigation performance.
 
-### Lighthouse Integration Strategy
+## Lighthouse Integration Strategy
 
 Due to Playwright's architecture limitations, Lighthouse integration uses a hybrid approach:
 - **Chromium Launch with Debug Port**: Uses Playwright's chromium launcher with known debugging ports
 - **Puppeteer for Authenticated Sessions**: Uses Puppeteer with cookie transfer for authenticated performance testing
 - **Containerized Testing**: Runs against the same Dockerized services as functional tests
 
-### Directory Structure
+## Directory Structure
 
 ```
 src/test/
@@ -19,9 +25,9 @@ src/test/
 │   └── lighthouse.test.js  # Lighthouse performance audit tests
 ```
 
-### Performance Test Implementation
+## Performance Test Implementation
 
-#### Lighthouse Performance Tests (`src/test/pages/lighthouse.test.js`)
+### Lighthouse Performance Tests (`src/test/pages/lighthouse.test.js`)
 
 The performance test suite includes comprehensive auditing utilities and threshold validation:
 
@@ -43,9 +49,9 @@ async function writeAuditReport (testInfo, report) {
 }
 ```
 
-### Performance Test Patterns
+## Performance Test Patterns
 
-#### Public Page Performance Audit
+### Public Page Performance Audit
 
 Tests anonymous user performance using Playwright's chromium launcher with a fixed debugging port:
 
@@ -69,7 +75,7 @@ test('public home page audit', async ({ browserName }, testInfo) => {
 });
 ```
 
-#### Authenticated Performance Testing
+### Authenticated Performance Testing
 
 Tests authenticated user performance by transferring sessions from Playwright fixtures to Puppeteer:
 
@@ -102,9 +108,9 @@ test('authenticated home page audit', async ({ adminPage, browserName }, testInf
 });
 ```
 
-### Performance Threshold Configuration
+## Performance Threshold Configuration
 
-#### Audit Configuration and Assertions
+### Audit Configuration and Assertions
 
 ```javascript
 async function auditAndReport (url, port, testInfo) {
@@ -132,7 +138,7 @@ async function auditAndReport (url, port, testInfo) {
 }
 ```
 
-### Performance Test Commands
+## Performance Test Commands
 
 ```bash
 # Run performance audits
@@ -142,7 +148,7 @@ npm run test:performance
 npm run test:local:performance
 ```
 
-### Package.json Script Integration
+## Package.json Script Integration
 
 ```json
 {
@@ -153,7 +159,7 @@ npm run test:local:performance
 }
 ```
 
-### Playwright Configuration Addition
+## Playwright Configuration Addition
 
 ```javascript
 // Add to playwright.config.js projects array
@@ -164,9 +170,9 @@ npm run test:local:performance
 }
 ```
 
-### Performance Report Management
+## Performance Report Management
 
-#### Report Storage Strategy
+### Report Storage Strategy
 
 Performance reports are automatically saved to organized directories:
 
@@ -175,15 +181,15 @@ Performance reports are automatically saved to organized directories:
 - **Format**: Full HTML reports with detailed metrics and recommendations
 - **Organization**: Separate reports for each test case
 
-#### Browser Compatibility
+### Browser Compatibility
 
 - **Chromium Only**: Lighthouse audits are skipped on Firefox and WebKit
 - **Automatic Detection**: Tests skip gracefully when run on unsupported browsers
 - **CI Integration**: Ensures consistent testing environment across platforms
 
-### Performance Testing Considerations
+## Performance Testing Considerations
 
-#### High Performance Thresholds
+### High Performance Thresholds
 
 JAM-Build maintains exceptionally high performance standards:
 - **Performance**: >99% (near-perfect optimization)
@@ -191,13 +197,13 @@ JAM-Build maintains exceptionally high performance standards:
 - **Best Practices**: >99% (modern web standards compliance)
 - **SEO**: >99% (optimal search engine compatibility)
 
-#### Docker Environment Adaptations
+### Docker Environment Adaptations
 
 - **HTTP/2 Audits Skipped**: Containerized testing may not support HTTP/2
 - **Network Isolation**: Tests run within Docker network constraints
 - **Consistent Baselines**: Containerized environment provides reproducible performance metrics
 
-#### Service Worker Performance
+### Service Worker Performance
 
 The performance tests validate JAM-Build's service worker-first architecture:
 - **Initial Load**: Tests cold-start performance without service worker
