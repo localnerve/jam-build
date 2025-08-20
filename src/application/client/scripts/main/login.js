@@ -24,13 +24,14 @@
  */
 import { Authorizer } from '@localnerve/authorizer-js';
 import debugLib from '@localnerve/debug';
-import { hashDigest } from '#client-utils/browser.js';
+import { hashDigest, mainBroadcastChannel } from '#client-utils/browser.js';
 import { makeStoreType } from '#client-utils/storeType.js';
 
 const debug = debugLib('login');
 
 let listeners = [];
 let authRef;
+let broadcastChannel;
 
 /**
  * Initialize the interface to the authorizer service.
@@ -195,10 +196,10 @@ function updateUI (profile, { hdrStatusText, loginButtons, main }) {
  * @param {Object} login - The login data returned from authorizerDev API call
  * @param {Object} [login.user] - The login user profile
  * @param {String} login.expires_in - The timespan of expiry in milliseconds
- * @param {Boolean} [adminLogin] - True if admin login, false otherwise, defaults to false
+ * @param {Boolean} [isAdmin] - True if admin login, false otherwise, defaults to false
  * @returns {Boolean} true on success, false otherwise
  */
-export async function processLogin (login, adminLogin = false) {
+export async function processLogin (login, isAdmin = false) {
   const pageSpinner = document.querySelector('.page-spinner');
   pageSpinner.classList.remove('show');
 
@@ -226,7 +227,7 @@ export async function processLogin (login, adminLogin = false) {
       email: login.user.email,
       userId,
       storeType: makeStoreType('user', userId),
-      isAdmin: adminLogin
+      isAdmin
     }));
 
     window.App.exec('login-action-login');
@@ -290,9 +291,6 @@ export async function logout () {
     
     pageSpinner.classList.add('show');
 
-    navigator.serviceWorker.removeEventListener('message', logoutComplete);
-    navigator.serviceWorker.addEventListener('message', logoutComplete);
-
     reg.active.postMessage({
       action: 'logout',
       payload: {
@@ -302,6 +300,9 @@ export async function logout () {
   } else {
     await authRef.logout();
     processLogout();
+    broadcastChannel.postMessage({
+      action: 'process-logout'
+    });
   }
 }
 
@@ -331,7 +332,14 @@ async function loginHandler (event) {
     debug('loginHandler authorize response', login);
 
     if (!loginErrors.length && login?.access_token) {
-      await processLogin(login);
+      const result = await processLogin(login);
+
+      if (result) {
+        broadcastChannel.postMessage({
+          action: 'process-login',
+          payload: { login }
+        });
+      }
     }
   } else {
     debug('loginHandler detected ACTIVE login');
@@ -340,13 +348,47 @@ async function loginHandler (event) {
 }
 
 /**
- * Called every login setup.
- * Installs the login/logout button handler, updates the UI with login status.
+ * Handler of broadcast messages.
+ * 
+ * @param {Event} event - The broadcast channel event
  */
-export default async function setup () {
-  debug('setup...');
+async function broadcastHandler (event) {
+  const { action, payload = {} } = event.data;
+
+  switch (action) {
+    case 'process-login':
+      await processLogin(payload.login, payload.isAdmin);
+      break;
+
+    // non-service-worker only
+    case 'process-logout':
+      await processLogout();
+      break;
+
+    default:
+      break;
+  }
+}
+
+/**
+ * Called every login setup.
+ * Installs the login/logout handlers, updates the UI with login status.
+ */
+export default async function setup (support) {
+  debug('setup...', support);
 
   const uiElements = getLoginUIElements();
+  
+  if (support.hasBroadcastChannel) {
+    broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
+    broadcastChannel.addEventListener('message', broadcastHandler);
+  } else {
+    broadcastChannel = { postMessage: ()=>{} };
+  }
+
+  if (support.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', logoutComplete);
+  }
 
   initializeAuthorizer();
   setupLoginEvents();
@@ -366,7 +408,14 @@ export default async function setup () {
     });
     
     if (!loginErrors.length && login?.access_token) {
-      processLogin(login);
+      const result = await processLogin(login);
+
+      if (result) {
+        broadcastChannel.postMessage({
+          action: 'process-login',
+          payload: { login }
+        });
+      }
     }
   } else {
     debug('getting user profile');

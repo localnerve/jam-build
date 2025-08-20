@@ -22,19 +22,21 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import { mainBroadcastChannel } from '#client-utils/browser.js';
 import {
-  processLogin,
-  logout,
-  initializeAuthorizer,
   getUserProfile,
+  initializeAuthorizer,  
   isLoginActive,
-  loginEvents
+  loginEvents,
+  logout,
+  processLogin
 } from './login.js';
 import debugLib from '@localnerve/debug';
 
 const debug = debugLib('admin');
 
 let authRef;
+let broadcastChannel;
 
 function bfCacheHandler (e) {
   if (e.persisted) {
@@ -90,6 +92,13 @@ async function handleLogin (e) {
       const result = await processLogin(data, true);
 
       if (result) {
+        broadcastChannel.postMessage({
+          action: 'process-login',
+          payload: {
+            login: data,
+            isAdmin: true
+          }
+        });
         window.location.replace('/');
       }
     } catch (error) {
@@ -118,6 +127,12 @@ async function handleLogout (e) {
 
 function setup () {
   debug('running setup');
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
+  } else {
+    broadcastChannel = { postMessage: ()=>{} };
+  }
 
   authRef = initializeAuthorizer();
 
