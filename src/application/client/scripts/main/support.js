@@ -57,6 +57,10 @@ function detectNoRegisterProperty () {
   return !('registerProperty' in window.CSS);
 }
 
+function detectBroadcastChannel () {
+  return typeof BroadcastChannel !== 'undefined';
+}
+
 function detectSafari () {
   return detectSafariDesktop() || detectSafariMobile();
 }
@@ -127,6 +131,7 @@ export default function setup () {
     isFF: navigator.userAgent.toLowerCase().indexOf('firefox') > -1,
     isIE: detectIE(),
     isIOSWebkit: detectIOSWebkit(),
+    hasBroadcastChannel: detectBroadcastChannel(),
     messaging: detectMessagingSupport(),
     htmlElement: document.querySelector('html'),
     backgroundExec: (asyncFn, timeout) => {

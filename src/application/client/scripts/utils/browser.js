@@ -23,6 +23,8 @@
 export const headerInstallAfter = '__headerInstallAfter';
 export const headerReplayEvents = '__headerReplayEvents';
 
+export const mainBroadcastChannel = 'jam_build_main';
+
 /**
  * Pull the numeric part of a string and parse as float.
  *

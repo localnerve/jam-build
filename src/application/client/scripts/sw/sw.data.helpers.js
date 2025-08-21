@@ -19,6 +19,8 @@
  *    in this material, copies, or source code of derived works.
  */
 import { getStoreTypeScope } from '#client-utils/storeType.js';
+import { mainBroadcastChannel } from '#client-utils/browser.js';
+import { isObj } from '#client-utils/javascript.js';
 import { debug, sendMessage, CriticalSection } from './sw.utils.js';
 import {
   baseStoreType,
@@ -31,6 +33,11 @@ import {
 import { getDB, makeStoreName } from './sw.data.source.js';
 
 const csMayUpdate = new CriticalSection();
+
+let broadcastChannel = { postMessage: ()=>{} };
+if (typeof BroadcastChannel !== 'undefined') {
+  broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
+}
 
 /**
  * Read data from local objectstores and send to the app.
@@ -85,7 +92,7 @@ export async function localData (storeType, document, collections = null,
  * @param {String} document - The document name
  * @param {String} result - The mutation result payload
  */
-export async function storeMutationResult (storeType, document, result) {
+async function storeMutationResult (storeType, document, result) {
   const versionStoreName = makeStoreName(versionStoreType);
   const db = await getDB();
 
@@ -93,6 +100,42 @@ export async function storeMutationResult (storeType, document, result) {
     storeType,
     document,
     version: result.newVersion
+  });
+}
+
+/**
+ * Store successful mutation result and broadcast changes.
+ * 
+ * @param {String} storeType - store:scope path to document
+ * @param {String} document - The document name
+ * @param {String} result - The mutation result payload
+ * @param {Array<String>|Array<Object>} [collections]
+ */
+export async function storeAndBroadcastMutation (storeType, document, result, collections = null) {
+  await storeMutationResult(storeType, document, result);
+
+  const storeName = makeStoreName(storeType);
+  const scope = getStoreTypeScope(storeType);
+  const keys = [];
+
+  if (!collections) {
+    keys.push([document]);
+  } else {
+    for (const coll of collections) {
+      const collection = isObj(coll) ? coll.collection : coll;
+      keys.push([document, collection]);
+    }
+  }
+
+  broadcastChannel.postMessage({
+    action: 'database-data-update',
+    payload: {
+      dbname,
+      storeName,
+      storeType,
+      scope,
+      keys
+    }
   });
 }
 

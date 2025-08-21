@@ -22,19 +22,21 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import { mainBroadcastChannel } from '#client-utils/browser.js';
 import {
-  processLogin,
-  logout,
-  initializeAuthorizer,
   getUserProfile,
+  initializeAuthorizer,  
   isLoginActive,
-  loginEvents
+  loginEvents,
+  logout,
+  processLogin
 } from './login.js';
 import debugLib from '@localnerve/debug';
 
 const debug = debugLib('admin');
 
 let authRef;
+let broadcastChannel;
 
 function bfCacheHandler (e) {
   if (e.persisted) {
@@ -50,6 +52,7 @@ window.addEventListener('pageshow', bfCacheHandler);
  * Presume loggedIn, update if not loggedIn.
  * Always presumes an in-page transition, just in case. No downsides.
  *
+ * Handles 'login' and 'logout' events from login.js module.
  */
 function setupLogin () {
   const loggedIn = isLoginActive();
@@ -68,6 +71,8 @@ function setupLogin () {
 
 /**
  * Handle login form 'submit' event for login.
+ * 
+ * @param {Event} e - 'submit' event
  */
 async function handleLogin (e) {
   e.preventDefault();
@@ -90,6 +95,13 @@ async function handleLogin (e) {
       const result = await processLogin(data, true);
 
       if (result) {
+        broadcastChannel.postMessage({
+          action: 'process-login',
+          payload: {
+            login: data,
+            isAdmin: true
+          }
+        });
         window.location.replace('/');
       }
     } catch (error) {
@@ -107,6 +119,8 @@ async function handleLogin (e) {
 
 /**
  * Handle login form 'submit' event for logout.
+ * 
+ * @param {Event} e - 'submit' event
  */
 async function handleLogout (e) {
   e.preventDefault();
@@ -116,8 +130,17 @@ async function handleLogout (e) {
   setupLogin(false);
 }
 
+/**
+ * Page entry
+ */
 function setup () {
   debug('running setup');
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
+  } else {
+    broadcastChannel = { postMessage: ()=>{} };
+  }
 
   authRef = initializeAuthorizer();
 
@@ -140,4 +163,7 @@ function setup () {
   }
 }
 
+/**
+ * This is a standalone minimal bundle
+ */
 setup();

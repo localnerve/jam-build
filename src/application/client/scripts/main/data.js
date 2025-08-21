@@ -19,6 +19,7 @@
  *    in this material, copies, or source code of derived works.
  */
 import debugLib from '@localnerve/debug';
+import { mainBroadcastChannel } from '#client-utils/browser.js';
 import { pageSeed } from './seed.js';
 
 const debug = debugLib('data');
@@ -49,16 +50,38 @@ export const dataEvents = {
 
 /**
  * Wire-up data events to application mediator
+ * 
+ * @param {Object} support - The browser support matrix
  */
-function setupDataEvents () {
+function setupDataEvents (support) {
   const { content: page } = document.querySelector('meta[name="page"]');
   const fireEvents = (type, payload) => {
     for (const listener of listeners) {
       if (listener.type === type) listener.callback(payload);
     }
   };
-  
+
   debug(`setupDataEvents setting up events for ${page}`);
+
+  if (support.hasBroadcastChannel) {
+    const broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
+
+    /**
+     * Listen for broadcast 'database-data-update'
+     */
+    broadcastChannel.addEventListener('message', event => {
+      const { action, payload = {} } = event.data;
+      
+      switch (action) {
+        case 'database-data-update':
+          fireEvents('page-data-update', payload);
+          break;
+
+        default:
+          break;
+      }
+    });
+  }
 
   /**
    * Install the handler for 'database-data-update' messages from the service worker.
@@ -81,8 +104,13 @@ function setupDataEvents () {
   });
 }
 
-export default function setup () {
-  debug('setup...');
+/**
+ * Setup data events for the application
+ * 
+ * @param {Object} support - The browser support matrix
+ */
+export default function setup (support) {
+  debug('setup...', support);
 
-  setupDataEvents();
+  setupDataEvents(support);
 }

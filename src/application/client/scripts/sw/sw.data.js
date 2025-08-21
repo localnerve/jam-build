@@ -72,7 +72,7 @@ import {
   localData,
   mayUpdate,
   storeData,
-  storeMutationResult,
+  storeAndBroadcastMutation,
   storeVersionConflict
 } from './sw.data.helpers.js';
 export { mayUpdate } from './sw.data.helpers.js';
@@ -430,7 +430,7 @@ async function upsertData ({ storeType, document, collections = null }) {
 
   const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
-      await storeMutationResult(storeType, document, data);
+      await storeAndBroadcastMutation(storeType, document, data, collections);
       if (collections) {
         for (const collection of collections) {
           await clearBaseStoreRecords(storeType, document, collection);
@@ -508,7 +508,7 @@ async function deleteData ({ storeType, document, collections }) {
 
   const result = await dataAPICall(request, {
     asyncResponseHandler: async data => {
-      await storeMutationResult(storeType, document, data);
+      await storeAndBroadcastMutation(storeType, document, data, collections);
       if (collections) {
         const colls = Array.isArray(collections) ? collections : [collections];
         for (const coll of colls) {

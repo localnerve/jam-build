@@ -104,23 +104,44 @@ async function updateStore ({ dbname, storeType, storeName, scope, keys }) {
   }
 
   for (const [docName, colName] of keys) {
-    const entry = await db.get(storeName, [scope, docName, colName]);
-    const value = entry.properties;
-
     store[storeType][docName] = store[storeType][docName] ?? {};
-    store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
 
-    if (value) {
-      const deletes = (new Set(Object.keys(store[storeType][docName][colName])))
-        .difference(new Set(Object.keys(value)));
-      for (const prop of deletes) {
-        delete store[storeType][docName][colName][prop];
+    if (colName) {
+      const entry = await db.get(storeName, [scope, docName, colName]);
+
+      updateCollection(storeType, docName, colName, entry.properties);
+    } else {
+      const entries = await db.getAllFromIndex(storeName, 'document', [scope, docName]);
+
+      for (const entry of entries) {
+        updateCollection(storeType, docName, entry.collection_name, entry.properties);
       }
     }
-    Object.assign(store[storeType][docName][colName], value);
-    
-    onChange('update', [storeType, docName, colName], value);
   }
+}
+
+/**
+ * Update a single collection on the store, send the 'update' message.
+ * 
+ * @param {String} storeType - The path to the document
+ * @param {String} docName - The document name
+ * @param {String} colName - The collection name
+ * @param {Object} properties - The object of props and values
+ */
+function updateCollection (storeType, docName, colName, properties) {
+  store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
+
+  if (properties) {
+    const deletes = (new Set(Object.keys(store[storeType][docName][colName])))
+      .difference(new Set(Object.keys(properties)));
+    for (const prop of deletes) {
+      delete store[storeType][docName][colName][prop];
+    }
+  }
+
+  Object.assign(store[storeType][docName][colName], properties);
+
+  onChange('update', [storeType, docName, colName], properties);
 }
 
 /**
