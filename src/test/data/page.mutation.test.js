@@ -504,4 +504,38 @@ test.describe('mutation tests', () => {
     context1.close();
   });
 
+  /* eslint-disable-next-line playwright/expect-expect */
+  test('mutations multi-page broadcast', async ({ page }, testInfo) => {
+    test.setTimeout(testInfo.timeout + 20000);
+
+    // Make another local logged in page, same cookie
+    const page2 = await page.context().newPage();
+    await manualLogin(baseUrl, page2, false);
+
+    // Change page1
+    let userStateControl = page.locator('#user-home-state');
+    const mutations = await doMutations(userStateControl);
+
+    const abouts = await page.getByLabel('About').all();
+    await abouts[1].click();
+    await page.waitForURL(`${baseUrl}/about`, {
+      timeout: 5000
+    });
+    await new Promise(res => setTimeout(res, 250));
+
+    const homes = await page.getByLabel('Home').all();
+    await homes[1].click();
+    await page.waitForURL(baseUrl, {
+      timeout: 5000
+    });
+    await new Promise(res => setTimeout(res, 100));
+
+    // Verify page1 changed
+    userStateControl = page.locator('#user-home-state');
+    await testMutations(page, userStateControl, mutations);
+
+    // Verify page2 changed THE SAME
+    userStateControl = page2.locator('#user-home-state');
+    await testMutations(page2, userStateControl, mutations);
+  });
 });

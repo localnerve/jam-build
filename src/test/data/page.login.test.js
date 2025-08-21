@@ -19,7 +19,8 @@
  *    in this material, copies, or source code of derived works.
  */
 import { test } from '#test/fixtures.js';
-import { manualLogin, manualLogout } from '#test/login.utils.js';
+import { startPage } from '#test/page.utils.js';
+import { manualLogin, manualLogout, verifyLoggedIn, verifyLoggedOut } from '#test/login.utils.js';
 import {
   createTestDataApp,
   createTestDataUser,
@@ -64,5 +65,20 @@ test.describe('login tests', () => {
     test.setTimeout(testInfo.timeout + 20000);
     await manualLogin(baseUrl, page);
     await manualLogout(baseUrl, page);
+  });
+
+  test('Multi-page login/logout broadcast', async ({ page }, testInfo) => {
+    test.setTimeout(testInfo.timeout + 20000);
+
+    const page2 = await page.context().newPage();
+    startPage(baseUrl, page2);
+
+    const { account } = await manualLogin(baseUrl, page);
+
+    await verifyLoggedIn(baseUrl, page2, account);
+
+    await manualLogout(baseUrl, page2);
+
+    await verifyLoggedOut(baseUrl, page);
   });
 });

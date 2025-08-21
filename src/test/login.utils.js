@@ -32,7 +32,7 @@ import { makeStoreType } from '#client-utils/storeType.js';
  * @param {Page} page - The playwright.dev Page object logged in with
  * @param {Object} account - The account object logged in with
  */
-async function verifyLoggedIn (baseUrl, page, account) {
+export async function verifyLoggedIn (baseUrl, page, account) {
   const userId = await hashDigest(account.username);
   const storeType = makeStoreType('user', userId);
 
@@ -70,6 +70,36 @@ async function verifyLoggedIn (baseUrl, page, account) {
 }
 
 /**
+ * Verfiy the page is in a logged out state.
+ * 
+ * @param {String} baseUrl - The origin logged into
+ * @param {Page} page - The playwright.dev Page object logged in with
+ */
+export async function verifyLoggedOut (baseUrl, page) {
+  // Wait for Log In UI
+  const logins = await page.getByLabel('Log In').all();
+  const topLogin = logins[1];
+  await topLogin.locator('.label').waitFor({
+    timeout: 5000
+  });
+
+  // Verify logged out state is reflected in UI
+  const loginText = await topLogin.innerText();
+  expect(loginText).toEqual('Log In');
+
+  // Check the authorizer session cookie is gone
+  let hasCookie = false;
+  const context = page.context();
+  const cookies = await context.cookies(baseUrl);
+  for (const cookie of cookies) {
+    if (cookie.name.includes('session')) {
+      hasCookie = !!cookie.value;
+    }
+  }
+  expect(hasCookie).toBeFalsy();
+}
+
+/**
  * Do a manual admin login.
  * 
  * @param {String} baseUrl - The origin to login to
@@ -102,9 +132,10 @@ export async function manualAdminLogin (baseUrl, page) {
  * 
  * @param {String} baseUrl - The url to navigate to
  * @param {Page} page - The playwright.dev Page object
- * @returns {Page} The logged in page
+ * @param {Boolean} redirect - Expect redirect flow to the authorizer service
+ * @returns {Object} The logged in page and the account object used to create it
  */
-export async function manualLogin (baseUrl, page) {
+export async function manualLogin (baseUrl, page, redirect = true) {
   await startPage(baseUrl, page);
 
   // Login
@@ -121,33 +152,46 @@ export async function manualLogin (baseUrl, page) {
   // click to login
   await topLogin.click();
 
-  // @@@ go debug it
-  // await new Promise(resolve => setTimeout(resolve, 50000));
-  // @@@
+  let account;
 
-  await page.waitForURL(url => {
-    return url.origin === process.env.AUTHZ_URL;
-  }, {
-    timeout: 8000
-  });
+  if (redirect) {
+    await page.waitForURL(url => {
+      return url.origin === process.env.AUTHZ_URL;
+    }, {
+      timeout: 8000
+    });
 
-  const loginButton = page.getByText('Log In');
-  const inputUser = page.locator('#authorizer-login-email-or-phone-number');
-  const inputPass = page.locator('#authorizer-login-password');
+    const loginButton = page.getByText('Log In');
+    const inputUser = page.locator('#authorizer-login-email-or-phone-number');
+    const inputPass = page.locator('#authorizer-login-password');
 
-  const account = await acquireAccount(test, 'user');
-  await inputUser.fill(account.username);
-  await inputPass.fill(account.password);
-  await loginButton.click();
+    account = await acquireAccount(test, 'user');
+    await inputUser.fill(account.username);
+    await inputPass.fill(account.password);
+    await loginButton.click();
 
-  // Wait for auth callback
-  await page.waitForURL(`${baseUrl}/?state=**`, {
-    timeout: 8000
-  });
+    // Wait for auth callback
+    await page.waitForURL(`${baseUrl}/?state=**`, {
+      timeout: 8000
+    });
+  } else {
+    // Let it cook
+    await new Promise(res => setTimeout(res, 100));
+    // Get the account username
+    const statusInnerText = await page.locator('.ln-header .status').innerText({
+      timeout: 5000
+    });
+    expect(statusInnerText).toContain('@'); // should be an email in there
+    const username = statusInnerText.split(',').map(str => str.trim())[1];
+    account = { username };
+  }
 
   await verifyLoggedIn(baseUrl, page, account);
 
-  return page;
+  return {
+    page,
+    account
+  };
 }
 
 /**
@@ -160,40 +204,20 @@ export async function manualLogin (baseUrl, page) {
 export async function manualLogout (baseUrl, loggedInPage) {
   const page = loggedInPage;
 
-  let logins = await page.getByLabel('Log In').all();
-  let topLogin = logins[1];
-  
+  const logins = await page.getByLabel('Log In').all();
+  const topLogin = logins[1];
   await topLogin.locator('.alt-label').waitFor({
     timeout: 5000
   });
 
+  // Verify logged in state reflected in the UI
   const logoutText = await topLogin.innerText();
   expect(logoutText).toEqual('Log Out');
 
   // click to logout
   await topLogin.click();
 
-  // wait for Log In
-  logins = await page.getByLabel('Log In').all();
-  topLogin = logins[1];
-
-  // make sure button is in the expected state
-  await topLogin.locator('.label').waitFor({
-    timeout: 5000
-  });
-  const loginText = await topLogin.innerText();
-  expect(loginText).toEqual('Log In');
-
-  // Check the authorizer session cookie is gone
-  let hasCookie = false;
-  const context = page.context();
-  const cookies = await context.cookies(baseUrl);
-  for (const cookie of cookies) {
-    if (cookie.name.includes('session')) {
-      hasCookie = !!cookie.value;
-    }
-  }
-  expect(hasCookie).toBeFalsy();
+  await verifyLoggedOut(baseUrl, page);
 
   return page;
 }
