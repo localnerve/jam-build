@@ -13,8 +13,9 @@ Title: Getting Started
 ### Installation Steps
 1. **Install Docker Desktop**: Download and install Docker Desktop from the official website.
 2. **Run Docker Compose**:
-   - Execute `docker compose --env-file .env.dev up` to start the services. Wait for it to complete.
+   - Execute `docker compose --env-file .env.dev up` to build and start the services. Wait for it to complete.
    - Optionally, create your own `.env` file if needed.
+   - Local ports 3306, 5000, 6379, and 9010 must be free prior to service start.
 3. **Restart `jam-build-container`**: Restart the `jam-build-container` (The authorizer.dev service needs a restart to pickup its CLIENT_ID).
 
 ### Configuration Steps
@@ -26,7 +27,10 @@ Title: Getting Started
    - Run `AUTHZ_CLIENT_ID=deadbeef-cafe-babe-feed-baadc0deface npm run test:local:_data` to create default app data.
    - Alternatively, log in as admin at [http://localhost:5000/_admin](http://localhost:5000/_admin) and create the data using the UI.
 
-Navigate to `localhost:5000` and log in. Experiment with multiple browsers and logins to test multi-user OCC and three-way merges.
+### Run and Test
+* Navigate to `localhost:5000` and log in using the credentials for `admin-0@test.local` created during configuration step 2, found in `src/test/.auth`.  
+* Experiment with multiple browsers/logins (duplicate login sessions in different browser contexts for conflict resolutions) and add/change/delete data to test multi-user OCC, batching, offline, three-way merges, and intra-context state and data broadcasting.
+  - Admin accounts must login via http://localhost:5000/_admin to get write access to app level data.
 
 ## Native Setup
 
