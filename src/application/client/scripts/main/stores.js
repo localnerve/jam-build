@@ -107,8 +107,6 @@ async function updateStore ({ dbname, storeType, storeName, scope, keys }) {
     store[storeType][docName] = store[storeType][docName] ?? {};
 
     if (colName) {
-      store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
-
       const entry = await db.get(storeName, [scope, docName, colName]);
 
       updateCollection(storeType, docName, colName, entry.properties);
@@ -131,6 +129,8 @@ async function updateStore ({ dbname, storeType, storeName, scope, keys }) {
  * @param {Object} properties - The object of props and values
  */
 function updateCollection (storeType, docName, colName, properties) {
+  store[storeType][docName][colName] = store[storeType][docName][colName] ?? {};
+
   if (properties) {
     const deletes = (new Set(Object.keys(store[storeType][docName][colName])))
       .difference(new Set(Object.keys(properties)));
