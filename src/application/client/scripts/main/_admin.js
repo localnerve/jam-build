@@ -52,6 +52,7 @@ window.addEventListener('pageshow', bfCacheHandler);
  * Presume loggedIn, update if not loggedIn.
  * Always presumes an in-page transition, just in case. No downsides.
  *
+ * Handles 'login' and 'logout' events from login.js module.
  */
 function setupLogin () {
   const loggedIn = isLoginActive();
@@ -70,6 +71,8 @@ function setupLogin () {
 
 /**
  * Handle login form 'submit' event for login.
+ * 
+ * @param {Event} e - 'submit' event
  */
 async function handleLogin (e) {
   e.preventDefault();
@@ -116,6 +119,8 @@ async function handleLogin (e) {
 
 /**
  * Handle login form 'submit' event for logout.
+ * 
+ * @param {Event} e - 'submit' event
  */
 async function handleLogout (e) {
   e.preventDefault();
@@ -125,6 +130,9 @@ async function handleLogout (e) {
   setupLogin(false);
 }
 
+/**
+ * Page entry
+ */
 function setup () {
   debug('running setup');
 
@@ -155,4 +163,7 @@ function setup () {
   }
 }
 
+/**
+ * This is a standalone minimal bundle
+ */
 setup();
