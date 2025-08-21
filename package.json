@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -83,7 +83,7 @@
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@localnerve/csp-hashes": "^5.1.2",
-    "@localnerve/editable-object": "^0.3.10",
+    "@localnerve/editable-object": "^0.3.11",
     "@localnerve/fast-is-equal": "^1.0.2",
     "@localnerve/gulp-imagemin": "^11.6.0",
     "@localnerve/gulp-responsive": "^7.4.2",
