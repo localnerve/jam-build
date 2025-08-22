@@ -30,7 +30,7 @@ Title: Getting Started
 ### Run and Test
 * Navigate to `localhost:5000` and log in using the credentials for `admin-0@test.local` created during configuration step 2, found in `src/test/.auth`.  
 * Experiment with multiple browsers/logins (duplicate login sessions in different browser contexts for conflict resolutions) and add/change/delete data to test multi-user OCC, batching, offline, three-way merges, and intra-context state and data broadcasting.
-  - Admin accounts must login via http://localhost:5000/_admin to get write access to app level data.
+  - Admin accounts must login via http://localhost:5000/_admin to get the admin role and write access to application data.
 
 ## Native Setup
 
