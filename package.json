@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",

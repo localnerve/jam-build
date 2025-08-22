@@ -40,6 +40,17 @@ const schemaVersion = '1';
  * @param {Boolean} prod - True if production, false otherwise.
  */
 export function createSettings (prod = true) {
+  function rollupNames (info) {
+    if (prod) {
+      const swParts = info.name.match(/^sw\.(?<rest>.+)/);
+      if (swParts) {
+        return `sw-[hash:10].${swParts.groups.rest}.js`;
+      }
+      return '[name]-[hash:10].js';
+    }
+    return '[name].js';
+  }
+
   return {
     prod,
     dist,
@@ -115,16 +126,8 @@ export function createSettings (prod = true) {
       rollupOutput: {
         dir: dist,
         hashCharacters: 'hex',
-        entryFileNames: info => {
-          if (prod) {
-            const swParts = info.name.match(/^sw\.(?<rest>.+)/);
-            if (swParts) {
-              return `sw-[hash:10].${swParts.groups.rest}.js`;
-            }
-            return '[name]-[hash:10].js';
-          }
-          return '[name].js';
-        }
+        entryFileNames: rollupNames,
+        chunkFileNames: rollupNames
       }
     },
     templates: {
