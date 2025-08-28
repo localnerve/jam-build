@@ -4,23 +4,17 @@
 >
 > Minimal, hand-crafted vanillajs by a human.
 
-## Donate
-
-If this project is helpful or useful, please consider donating to help me create and maintain more great things.  
-[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=U98LEKAK7DXML)  
-I'm also available for [hire](https://www.localnerve.com/contact).
-
 ## Quick Links
 
-  🚀 [Getting Started](docs/localsetup.md)  
-  🔧 [Build Process](docs/build.md)  
-  ✨ [Command Reference](docs/commands.md)  
-  📈 [Project Stats](docs/stats.md)  
-  📡 [Batch Data Update Processing Flow](docs/batch-updates.md)  
-  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)  
-  🧪 [Testing Procedure](docs/testing-documentation.md)  
-  🎭 [Performance Audits](docs/performance-audits.md)  
-  ⚙️ [Design Points](docs/data.md)  
+*  🚀 [Getting Started](docs/localsetup.md)
+*  🔧 [Build Process](docs/build.md)
+*  ✨ [Command Reference](docs/commands.md)
+*  📈 [Project Stats](docs/stats.md)
+*  📡 [Batch Data Update Processing Flow](docs/batch-updates.md)
+*  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
+*  🧪 [Testing Procedure](docs/testing-documentation.md)
+*  🎭 [Performance Audits](docs/performance-audits.md)
+*  ⚙️ [Design Points](docs/data.md)
 
 ## Project Summary
 
@@ -82,6 +76,12 @@ This project serves as a starting point for a web application. It builds a versi
 * [Rollup](https://rollupjs.org/)
 * [Docker](https://docker.com)
 * [Localnerve](https://github.com/localnerve)
+
+## Donate
+
+If this project is helpful or useful to you, please consider donating to help me create and maintain more great things.  
+[![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/donate/?hosted_button_id=U98LEKAK7DXML)  
+I'm also available for [hire](https://www.localnerve.com/contact).
 
 ## Author and License
 
