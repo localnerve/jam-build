@@ -148,7 +148,7 @@ dump*
 coverage
 
 # no auth files
-.auth
+.auth*
 
 # no stats output
 stats
