@@ -184,7 +184,7 @@ test.describe('mutation tests', () => {
   });
 
   /* eslint-disable-next-line playwright/expect-expect */
-  test('mutations, navigation batch terminus', async ({ page }, testInfo) => {
+  test('navigation batch terminus', async ({ page }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     let userStateControl = page.locator('#user-home-state');
@@ -215,7 +215,7 @@ test.describe('mutation tests', () => {
   });
 
   /* eslint-disable-next-line playwright/expect-expect */
-  test('mutations, logout batch terminus', async ({ page }, testInfo) => {
+  test('logout batch terminus', async ({ page }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     let userStateControl = page.locator('#user-home-state');
@@ -235,7 +235,7 @@ test.describe('mutation tests', () => {
   });
 
   /* eslint-disable-next-line playwright/expect-expect */
-  test('mutations, inactivity batch terminus', async ({ page }, testInfo) => {
+  test('inactivity batch terminus', async ({ page }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     let userStateControl = page.locator('#user-home-state');
@@ -253,7 +253,7 @@ test.describe('mutation tests', () => {
   });
 
   /* eslint-disable-next-line playwright/expect-expect */
-  test('mutations, close page batch terminus', async ({ browser }, testInfo) => {
+  test('close page batch terminus', async ({ browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     let context = await browser.newContext();
@@ -285,7 +285,7 @@ test.describe('mutation tests', () => {
     await context.close();
   });
 
-  test('mutations, whole document creation, clean admin login', async ({ browser, adminRequest }, testInfo) => {
+  test('whole document creation, clean admin login', async ({ browser, adminRequest }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     // Clean the app test data
@@ -333,7 +333,7 @@ test.describe('mutation tests', () => {
     await context.close();
   });
 
-  test('mutations offline', async ({ browser, browserName }, testInfo) => {
+  test('offline', async ({ browser, browserName }, testInfo) => {
     // we can only test this with chromium
     testInfo.skip(browserName !== 'chromium', 'Offline emulation is only supported in playwright.dev chromium browser');
 
@@ -396,7 +396,7 @@ test.describe('mutation tests', () => {
     await context.close();
   });
 
-  test('mutations with simple version conflict', async ({ browser }, testInfo) => {
+  test('simple version conflict', async ({ browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     const context1 = await browser.newContext();
@@ -445,13 +445,13 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 100));
+    await new Promise(res => setTimeout(res, 200));
     let homes = await page1.getByLabel('Home').all();
     await homes[1].click();
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 100));
+    await new Promise(res => setTimeout(res, 200));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
 
@@ -461,13 +461,13 @@ test.describe('mutation tests', () => {
     await page2.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 100));
+    await new Promise(res => setTimeout(res, 200));
     homes = await page2.getByLabel('Home').all();
     await homes[1].click();
     await page2.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 100));
+    await new Promise(res => setTimeout(res, 200));
 
     // merge result should be:
     const mergeResult = {
@@ -505,7 +505,7 @@ test.describe('mutation tests', () => {
   });
 
   /* eslint-disable-next-line playwright/expect-expect */
-  test('mutations multi-page broadcast', async ({ page }, testInfo) => {
+  test('multi-page broadcast', async ({ page }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     // Make another local logged in page, same cookie
