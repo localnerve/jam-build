@@ -455,6 +455,7 @@ sequenceDiagram
         SM->>SW: postMessage('may-update')
         Note right of SM: Immediate optimistic update<br/>notification to service worker. Creates 'base' data copy for potential conflict resolution
     and Service Worker Sync
+        Note left of SM: ONLY on data changed == true
         SM->>SW: postMessage('batch-update')
         Note right of SM: { action: 'batch-update',<br/>payload: { storeType, document,<br/>collection, propertyName, op: 'put' }}
         SW->>SW: Queue for remote API sync
