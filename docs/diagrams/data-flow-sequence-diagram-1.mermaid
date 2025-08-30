@@ -1,0 +1,79 @@
+sequenceDiagram
+    participant SW as Service Worker
+    participant BC as BroadcastChannel
+    participant App as window.App
+    participant DE as dataEvents
+    participant SM as stores.js
+    participant IDB as IndexedDB
+    participant UI as Home Page UI
+    participant EO as Editable Object
+
+    Note over SW,EO: Scenario 1: Service Worker 'update' from GET/PUT response
+
+    SW->>BC: broadcast 'database-data-update'
+    Note right of SW: Result of GET request or<br/>PUT response processing
+    
+    BC->>App: message event
+    App->>App: pageDataUpdate()
+    Note right of App: Updates localStorage seed
+    
+    App->>DE: fireEvents('page-data-update')
+    DE->>SM: handlePageDataUpdate()
+    
+    SM->>IDB: openDB(dbname)
+    SM->>IDB: get(storeName, [scope, doc, col])
+    IDB-->>SM: entry.properties
+    
+    SM->>SM: store[storeType][doc][col] = properties
+    SM->>SM: onChange('update', [storeType, doc, col], value)
+    
+    SM->>UI: storeEvents listeners
+    Note right of SM: Notify all subscribed listeners
+    
+    UI->>UI: updatePage({ key, value })
+    UI->>EO: el.object = object
+    Note right of UI: Update DOM element
+
+    SM->>SM: Release waiter promise
+    Note right of SM: For any pending createStore() calls
+
+    Note over SW,EO: Scenario 2: User 'put' from editable-object 'edit' action
+
+    EO->>UI: 'change' event
+    Note right of EO: detail: { action: 'edit', key: prop, new: val }
+    
+    UI->>UI: updateData(storeType, doc, collection, event)
+    UI->>SM: store[storeType][doc][collection][prop] = val
+    Note right of UI: Direct assignment to proxied store
+    
+    SM->>SM: Proxy set trap triggered
+    SM->>SM: onChange('put', [storeType, doc, col, prop], val)
+    
+    par Notify Listeners
+        SM->>UI: storeEvents listeners
+        Note right of SM: UI subscribers get notified
+    and Queue Mutation
+        SM->>SM: queueMutation('put', [storeType, doc, col, prop])
+        SM->>SM: clearTimeout(mutationTimer)
+        SM->>SM: mutationQueue.push(async task)
+        SM->>SM: mutationTimer = setTimeout(67ms)
+    end
+
+    Note over SM: After 67ms batch window...
+
+    SM->>SM: serviceMutationQueue()
+    SM->>SM: updateDatabase('put', storeType, [doc, col], null)
+    
+    SM->>IDB: isDifferent() - compare with existing
+    IDB-->>SM: true (data changed)
+    
+    SM->>IDB: put(storeName, { scope, document_name, collection_name, properties })
+    
+    par Service Worker Sync
+        SM->>SW: postMessage('batch-update')
+        Note right of SM: { action: 'batch-update',<br/>payload: { storeType, document,<br/>collection, propertyName, op: 'put' }}
+        SW->>SW: Queue for remote API sync
+    and May-Update Notification
+        SM->>SW: postMessage('may-update')
+        Note right of SM: Immediate optimistic update<br/>notification to service worker
+    end
