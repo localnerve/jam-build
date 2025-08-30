@@ -62,6 +62,8 @@ The data domains and scopes in the Jam-Build application reference:
 
 The goal is flexibility to allow further application development with additional security and usage contexts on the front and back end. For example, an additional requirement might be to add the `app:user` storeType to the application to supply application data only available to all logged in users.
 
+The authentication service allows user encryption keys to be stored for E2E data encryption (not implemented in this reference application).
+
 ##### Document, Collection, Property
 The document → collection → property structure is a general data design repeated in both the application and user domains.
 
@@ -241,16 +243,16 @@ Store Proxy → onChange('update') → UI Subscriptions → DOM Update
 
 ### Store Type Format
 ```javascript
-// Format: "store:scope" or "store:scope:userId"
-const appStoreType = makeStoreType('app', 'public');        // "app:public"
-const userStoreType = makeStoreType('user', 'private');     // "user:private:userId"
+// Format: "domain:scope"
+const appStoreType = makeStoreType('app', 'public');
+const userStoreType = makeStoreType('user', '<UserID-Hash-From-Email>');
 ```
 
 ### Data Hierarchy
 ```
 Store
-├── Documents (pages: home, about, contact)
-│   ├── Collections (content, state, settings)
+├── Documents (pages: home, about, contact, or any)
+│   ├── Collections (content, state, settings, or any)
 │   │   └── Properties (key-value pairs)
 ```
 
@@ -269,7 +271,7 @@ Store
       }
     }
   },
-  "user:private:123": {
+  "user:abcdef1234567890": {
     "home": {
       "state": {
         "property1": "value1",
@@ -327,9 +329,9 @@ swActive.postMessage({
 });
 
 // Service Worker → Main thread
-// 1. On remote data receipt or local fallback
+// GET - On remote data receipt or local fallback
 sendMessage('database-data-update', payload);
-// 2. Broadcast local data updates to other local app windows in browser context
+// PUT/DELETE - Broadcast local data updates to other local app windows in browser context
 broadcastChannel.postMessage({
   action: 'database-data-update',
   payload
