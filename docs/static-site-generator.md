@@ -1,3 +1,9 @@
+---
+Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
+Date: August 30, 2025
+Title: Jam-Build Custom Static Site Generator
+---
+
 # Jam-Build Custom Static Site Generator
 
 ## Overview
