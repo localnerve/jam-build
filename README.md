@@ -7,6 +7,7 @@
 ## Quick Links
 
 *  🚀 [Getting Started](docs/localsetup.md)
+*  ⚡ [Static Site Generator](docs/static-site-generator.md)
 *  📡 [Batch Update and Conflict Processing Flow](docs/batch-updates.md)
 *  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
 *  📊 [Data Store and Flow Architecture](docs/nanostores.md)
