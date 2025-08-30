@@ -7,20 +7,21 @@
 ## Quick Links
 
 *  🚀 [Getting Started](docs/localsetup.md)
+*  📡 [Batch Update and Conflict Processing Flow](docs/batch-updates.md)
+*  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
+*  📊 [Data Store and Flow Architecture](docs/nanostores.md)
+*  🧪 [Testing Procedure](docs/testing-documentation.md)
+*  🎭 [Performance Audits](docs/performance-audits.md)
+*  ⚙️ [Design Points Brief](docs/data.md)
 *  🔧 [Build Process](docs/build.md)
 *  ✨ [Command Reference](docs/commands.md)
 *  📈 [Project Stats](docs/stats.md)
-*  📡 [Batch Data Update Processing Flow](docs/batch-updates.md)
-*  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
-*  🧪 [Testing Procedure](docs/testing-documentation.md)
-*  🎭 [Performance Audits](docs/performance-audits.md)
-*  ⚙️ [Design Points](docs/data.md)
 
 ## Project Summary
 
 ### Overview
 
-This project serves as a starting point for a web application. It builds a versionable, offline-first, multi-page JAM (JavaScript, APIs, Markup) web app with support for multi-user data.
+This project serves as a starting point for a progressive web application (PWA). It builds a versionable, offline-first, multi-page JAM (JavaScript, APIs, Markup) web app with support for multi-user data.
 
 ### Key Features
 
