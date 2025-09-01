@@ -1,38 +1,39 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: August 30, 2025
 Title: Batch Update Processing Flow
 ---
 
 # Batch Update Processing Flow
 
-The Jam-Build application uses a sophisticated batching system to efficiently synchronize local data mutations with the remote API while handling offline scenarios and version conflicts.
+## Overview
 
-## Quick Links
+The Jam-Build application uses a sophisticated batching system to efficiently synchronize local data mutations with the remote API while handling offline scenarios and version conflicts. When users modify data, changes are queued and batched to minimize network requests and handle concurrent operations intelligently.
 
-  📊 [Batch Updates Sequence Diagram](#batch-updates-sequence-diagram)
-
-  🔬 [Conflict Resolution Sequence Diagram](#conflict-resolution-sequence-diagram)
-
-## Key Points
+### Key Points
 
 * The batching window prevents chatty API calls
 * The consolidation algorithm handles complex put/delete precedence rules
 * The conflict resolution with 3-way merge is enterprise-grade
 * Background sync provides offline resilience
 
-## Overview
+## Quick Links
 
-When users modify data through the UI proxy, changes are queued and batched to minimize network requests and handle concurrent operations intelligently.
+* ⛲ [Process Flow](#process-flow)
+* 🔑 [Key Features](#key-features)
+* ❌ [Error Handling](#error-handling)
+* 📊 [Batch Updates Sequence Diagram](#batch-updates-sequence-diagram)
+* 🔬 [Conflict Resolution Sequence Diagram](#conflict-resolution-sequence-diagram)
 
 ## Process Flow
 
-1. User Mutation → Data changes trigger the proxy system in `client/main/stores.js`
+1. User Mutation → Data changes trigger the proxy system in `client/main/stores.js` ([Data Stores Detail](nanostores.md))
 
 2. Local Storage → Changes are immediately written to IndexedDB for instant UI feedback
 
 3. Batch Queuing → A `batch-update` message is sent to the service worker with operation details
-4. Timer Window → Operations are collected in a 67ms window (extending with each new mutation)
+
+4. Timer Window → Operations are collected in a time window (extending with each new mutation) ([Timer Architecture](heartbeat-timer.md))
 
 5. Consolidation → When the timer expires, operations are deduplicated and ordered:
 

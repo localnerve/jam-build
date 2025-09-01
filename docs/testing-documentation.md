@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: August 30, 2025
 Title: Jam-Build Testing Procedure
 ---
 
@@ -15,6 +15,18 @@ Jam-Build implements a sophisticated multi-layered testing approach that combine
 - **Multi-Coverage Collection**: Service worker, main thread, and data service coverage extraction
 - **Multi-User Testing**: Role-based test fixtures supporting admin and user contexts
 - **Offline-First Testing**: Service worker network interception and offline capability validation
+
+## Quick Links
+
+* 📂 [Test Organization](#test-organization)
+* 🔧 [Environment Setup](#environment-setup)
+* 📐 [Test Fixtures and Multi-User Support](#test-fixtures-and-multi-user-support)
+* ♟ [Coverage Collection Strategy](#coverage-collection-strategy)
+* 🏃‍♂️ [Running Tests](#running-tests)
+* 🛅 [Test Patterns and Examples](#test-patterns-and-examples)
+* ✨ [Advanced Testing Features](#advanced-testing-features)
+* 🛟 [Troubleshooting](#troubleshooting)
+* 💚 [Coverage Reports](#coverage-reports)
 
 ## Test Organization
 
