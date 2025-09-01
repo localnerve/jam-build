@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 16, 2025
+Date: August 30, 2025
 Title: Performance Auditing with Lighthouse
 ---
 
@@ -9,6 +9,19 @@ Title: Performance Auditing with Lighthouse
 ## Overview
 
 The test suite includes Lighthouse performance auditing to validate web performance, accessibility, SEO, and best practices. Since JAM-Build is an offline-first application with sophisticated service worker behavior, performance testing validates both initial load performance and cached navigation performance.
+
+## Quick Links
+
+* ⚓️ [Lighthouse Integration Strategy](#lighthouse-integration-strategy)
+* 📁 [Directory Structure](#directory-structure)
+* 🧪 [Performance Test Implementation](#performance-test-implementation)
+* 🫆 [Performance Test Patterns](#performance-test-patterns)
+* #️⃣ [Performance Threshold Config](#performance-threshold-configuration)
+* *️⃣ [Performance Test Commands](#performance-test-commands)
+* 📜 [Package.json Script Integration](#packagejson-script-integration)
+* 🎭 [Playwright Configuration Addition](#playwright-configuration-addition)
+* 💻 [Performance Report Management](#performance-report-management)
+* 📳 [Performance Testing Considerations](#performance-testing-considerations)
 
 ## Lighthouse Integration Strategy
 

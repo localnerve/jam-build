@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: August 30, 2025
 Title: Design Points
 ---
 
@@ -36,3 +36,10 @@ This project design differs from most web apps. It builds an offline-first, serv
 * **Login Module:** The application login module uses sessionStorage to store a basic logged-in user profile (e.g., email address).
 * **Request Seed:** The application maintains a persistent request seed with a page's documents and collections in localStorage.
 * **Persistent Nanostores:** The application sends and recieves data updates through plain, proxied Javascript objects that emit events, and load/store updates.
+
+## More Detail
+
+*  ⚡ [Static Site Generator](static-site-generator.md)
+*  📊 [Data Store and Flow Architecture](nanostores.md)
+*  📡 [Batch Update and Conflict Flow](batch-updates.md)
+*  ⏳ [Service Worker Timer Architecture](heartbeat-timer.md)

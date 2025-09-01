@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: August 30, 2025
 Title: Build Process
 ---
 
@@ -31,3 +31,7 @@ The are two main control files for directing the build and its contents:
 + **service worker** - Generate the main service worker and it's satelite files.
 
 + **html** - Minify the final html and generate a CSP policy for all css and javascript references.
+
+## More Detail
+
+ ⚡ [Static Site Generator](static-site-generator.md)

@@ -6,23 +6,23 @@
 
 ## Quick Links
 
-*  🚀 [Getting Started](docs/localsetup.md)
-*  ⚡ [Static Site Generator](docs/static-site-generator.md)
-*  📡 [Batch Update and Conflict Processing Flow](docs/batch-updates.md)
-*  ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
-*  📊 [Data Store and Flow Architecture](docs/nanostores.md)
-*  🧪 [Testing Procedure](docs/testing-documentation.md)
-*  🎭 [Performance Audits](docs/performance-audits.md)
-*  ⚙️ [Design Points Brief](docs/data.md)
-*  🔧 [Build Process](docs/build.md)
-*  ✨ [Command Reference](docs/commands.md)
-*  📈 [Project Stats](docs/stats.md)
+* 🚀 [Getting Started](docs/localsetup.md)
+* 💡 [How This is Different](docs/how-different.md)
+* ⚡ [Static Site Generator](docs/static-site-generator.md)
+* 📊 [Data Store and Flow Architecture](docs/nanostores.md)
+* 📡 [Batch Update and Conflict Flow](docs/batch-updates.md)
+* ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
+* 🧪 [Testing Procedure](docs/testing-documentation.md)
+* 🎭 [Performance Audits](docs/performance-audits.md)
+* 🔧 [Build Process Summary](docs/build.md)
+* ✨ [Command Reference](docs/commands.md)
+* 📈 [Project Stats Snapshots](docs/stats.md)
 
 ## Project Summary
 
 ### Overview
 
-This project serves as a starting point for a progressive web application (PWA). It builds a versionable, offline-first, multi-page JAM (JavaScript, APIs, Markup) web app with support for multi-user data.
+This project serves as a starting point for a PWA (Progressive Web Application). It builds a versionable, offline-first, multi-page JAM (JavaScript, APIs, Markup) web app with support for multi-user data.
 
 ### Key Features
 

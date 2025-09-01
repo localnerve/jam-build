@@ -1,18 +1,26 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: August 30, 2025
 Title: Service Worker Timer Architecture
 ---
 
 # Service Worker Timer Architecture
 
-## Quick Links
-
-  📊 [Jam-Build Service Worker `batch-timer` Sequence Diagram](#timer-architecture-sequence-diagram)
-
 ## Overview
 
 Jam-Build implements a sophisticated timer system designed to overcome the inherent unreliability of timers in service workers. The architecture uses a cooperative heartbeat mechanism between the main thread and service worker to provide robust timer guarantees while gracefully handling browser resource management scenarios.
+
+## Quick Links
+
+* 🔑 [Key Components](#key-components)
+* ⛲ [Architecture Flow](#architecture-flow)
+* 🆗 [Configuration](#configuration)
+* ✨ [Usage Examples](#usage-examples)
+* ⏲ [Extending Timer Window](#extending-timer-window)
+* ◀ [Browser Event Handling](#browser-event-handling)
+* ❌ [Error Handling & Reliability](#error-handling--reliability)
+* 🏆 [Performance Considerations](#performance-considerations)
+* 📊 [Jam-Build Service Worker `batch-timer` Sequence Diagram](#timer-architecture-sequence-diagram)
 
 ## The Problem
 

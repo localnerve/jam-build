@@ -11,9 +11,14 @@ Title: Data Store and Data Flow Architecture
 Jam-Build implements a sophisticated data management system in the main thread that combines the simplicity of plain JavaScript objects with the power of IndexedDB persistence and reactive subscriptions. The system is built around the concept of "persistent nanostores" - lightweight, proxy-wrapped JavaScript objects that automatically sync changes to both IndexedDB and remote services through the service worker.
 
 ## Quick Links
+
 * 🏛️ [Core Architecture](#core-architecture)
 * 🎻 [Data Store Components](#data-store-components)
 * 💧 [Data Flow Architecture](#data-flow-architecture)
+* ☕ [Store Types and Structure](#store-types-and-structure)
+* 🔑 [Key Features](#key-features)
+* 🐾 [Integration Points](#integration-points)
+* 🛬 [Error Handling and Edge Cases](#error-handling-and-edge-cases)
 * 🔀 [Data Flow Sequence Diagram](#data-flow-sequence-diagram)
 
 ## Core Architecture
