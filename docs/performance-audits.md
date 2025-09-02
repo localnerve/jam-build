@@ -8,7 +8,9 @@ Title: Performance Auditing with Lighthouse
 
 ## Overview
 
-The test suite includes Lighthouse performance auditing to validate web performance, accessibility, SEO, and best practices. Since JAM-Build is an offline-first application with sophisticated service worker behavior, performance testing validates both initial load performance and cached navigation performance.
+The test suite includes Lighthouse performance auditing to validate web performance, accessibility, SEO, and best practices. Since Jam-Build is an offline-first application with sophisticated service worker behavior, performance testing validates both initial load performance and cached navigation performance.
+
+![Jam-Build Project Lighthouse Performance Summary, four 100% scores](images/lighthouse-summary.png)
 
 ## Quick Links
 
@@ -204,7 +206,7 @@ Performance reports are automatically saved to organized directories:
 
 ### High Performance Thresholds
 
-JAM-Build maintains exceptionally high performance standards:
+Jam-Build maintains exceptionally high performance standards:
 - **Performance**: >99% (near-perfect optimization)
 - **Accessibility**: >99% (comprehensive accessibility implementation)
 - **Best Practices**: >99% (modern web standards compliance)
@@ -218,9 +220,9 @@ JAM-Build maintains exceptionally high performance standards:
 
 ### Service Worker Performance
 
-The performance tests validate JAM-Build's service worker-first architecture:
+The performance tests validate Jam-Build's service worker-first architecture:
 - **Initial Load**: Tests cold-start performance without service worker
 - **Authenticated Performance**: Validates performance impact of authentication state
 - **Cache Strategy Validation**: Implicit testing of stale-while-revalidate performance
 
-This performance testing integration provides comprehensive validation of JAM-Build's exceptional web performance characteristics while maintaining consistency with the existing testing architecture.
+This performance testing integration provides comprehensive validation of Jam-Build's exceptional web performance characteristics while maintaining consistency with the existing testing architecture.
