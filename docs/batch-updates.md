@@ -101,7 +101,7 @@ sequenceDiagram
     SW->>SWD: Forward batch-update message
     SWD->>SWD: batchUpdate() calls _batchUpdate()
     SWD->>Timer: startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates)
-    Note right of Timer: Extends/resets 67ms timer window
+    Note right of Timer: Extends/resets timer window
     SWD->>IDB: Add batch record to batch store
     Note right of IDB: Record: {storeType, document, collection, propertyName, op}
 
