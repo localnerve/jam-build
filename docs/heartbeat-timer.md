@@ -45,13 +45,13 @@ startTimer(duration, timerName, callback, resolution = 500);
 
 Parameters:
 
-* `duration`: Timer duration in milliseconds (e.g., 67ms for batch window)
+* `duration`: Timer duration in milliseconds
 
 * `timerName`: Unique identifier for the timer
 
 * `callback`: Function to execute when timer completes
 
-* `resolution`: Heartbeat check interval (default: 500ms)
+* `resolution`: Heartbeat check interval
 
 ## Architecture Flow
 
@@ -59,7 +59,7 @@ Parameters:
 
 * Service worker creates timer entry and starts countdown
 
-* Heartbeat begins between main thread (475ms interval) and service worker
+* Heartbeat begins between main thread and service worker
 
 * Main thread monitors user activity (mouse, keyboard, touch events)
 
@@ -73,23 +73,24 @@ postMessage('heartbeat-beat', {
 })
 ```
 
-3. Timer Resolution (Every 500ms)
+3. Timer Resolution 
 The service worker checks:
 
 * Natural Expiration: timeLeft <= 0 → execute callback
 
-* Heartbeat Validity: Last heartbeat < 500ms ago
+* Heartbeat Validity: Last, shortest heartbeat < resolution
 
 * Client Activity: At least one active client exists
 
 4. Early Termination Triggers
 Timers execute immediately when:
 
-* User Inactivity: All clients inactive for 8+ seconds
+* User Inactivity: All clients inactive for 8+ seconds (a changeable constant)
 
-* Missing Heartbeat: No communication for 500+ ms
+* Missing Heartbeat: No communication for the timer interval (or greater)
 
-* Visibility Change: Browser tab hidden/closed (visibilitychange event)
+* Visibility Change: Browser tab hidden/closed (`visibilitychange` event)
+  - Excellent [reference](https://www.igvita.com/2015/11/20/dont-lose-user-and-app-state-use-page-visibility/) on using `visibilitychange`
 
 ## Configuration
 Default Settings
@@ -100,7 +101,7 @@ Default Settings
 
 * Inactivity Threshold: 8 seconds (16x resolution)
 
-* Batch Window: <Varies depending on usage/purpose>
+* Batch Window: 12 seconds (this should be changed for an actual application use case)
 
 ### Tuning Guidelines
 
@@ -114,16 +115,16 @@ Default Settings
 Basic Timer
 
 ```javascript
-// 67ms batch collection window
-startTimer(67, 'batch-timer', processBatchUpdates);
+// 500ms batch collection window
+startTimer(500, 'batch-timer', processBatchUpdates);
 ```
 
 ## Extending Timer Window
 
 ```javascript
 // Each call resets the timer duration
-startTimer(67, 'batch-timer', processBatchUpdates); // starts timer
-startTimer(67, 'batch-timer', processBatchUpdates); // extends window
+startTimer(500, 'batch-timer', processBatchUpdates); // starts timer
+startTimer(500, 'batch-timer', processBatchUpdates); // extends window
 ```
 
 ## Emergency Service All Timers
@@ -176,9 +177,9 @@ Tracks activity via:
 
 ### CPU Impact
 
-* **Main Thread**: ~2ms every 475ms for heartbeat
+* **Main Thread**: ~2ms every heartbeat, once per resolution period
 
-* **Service Worker**: ~1ms every 500ms for resolution check
+* **Service Worker**: ~1ms for every resolution check
 
 * **Memory**: Minimal overhead (~100 bytes per active timer)
 
@@ -186,7 +187,7 @@ Tracks activity via:
 
 * **Zero network calls**: Pure inter-thread messaging
 
-* **Message frequency**: ~2 messages per second during active timers
+* **Message frequency**: 1 message per heartbeat during active timers
 
 ## Best Practices
 
@@ -219,7 +220,7 @@ sequenceDiagram
     Note over User, Browser: Timer starts from batch update operation
 
     SWD->>SW: startTimer(duration, 'batch-timer', processBatchUpdates)
-    Note right of SW: duration = 67ms (batchCollectionWindow)<br/>resolution = 500ms (default)
+    Note right of SW: duration = 12s (batchCollectionWindow)<br/>resolution = 500ms (default)
 
     alt New Timer
         SW->>SW: Create timer entry in timers object

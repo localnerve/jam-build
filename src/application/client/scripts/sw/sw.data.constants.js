@@ -4,6 +4,11 @@
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
  * 
+ * Build time replacements:
+ *   API_VERSION - The X-Api-Version header value that corresponds to the api for this app version.
+ *   SCHEMA_VERSION - The schema version corresponding to this app version.
+ *   process.env.NODE_ENV - 'production' or not
+ *
  * This file is part of Jam-build.
  * Jam-build is free software: you can redistribute it and/or modify it
  * under the terms of the GNU Affero General Public License as published by the Free Software

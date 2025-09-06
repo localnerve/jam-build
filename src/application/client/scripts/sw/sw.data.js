@@ -2,11 +2,6 @@
  * Service Worker application data handling.
  * Handles indexeddb maintainence and synchronization with the remote database.
  * Handles offline/spotty network with background sync, polyfilled if required.
- * 
- * Build time replacements:
- *   API_VERSION - The X-Api-Version header value that corresponds to the api for this app version.
- *   SCHEMA_VERSION - The schema version corresponding to this app version.
- *   process.env.NODE_ENV - 'production' or not
  *
  * exports:
  *   setupBackgroundRequests - Setup offline request queue, 'sync' event or polyfill
@@ -16,6 +11,7 @@
  *   mayUpdate - Prepare for a mutation to the local data
  *   installDatabase - Sw install event handler
  *   activateDatabase - Sw activate event handler
+ *   __forceReplay - Allow tests to force sync service
  * 
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
