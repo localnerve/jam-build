@@ -22,8 +22,9 @@ import path from 'node:path';
 import { Transform } from 'node:stream';
 import fs from 'node:fs/promises';
 import gulp from 'gulp';
-import gulpResponsive from '@localnerve/gulp-responsive';
+import PluginError from 'plugin-error';
 import { optimize as svgOptimize } from 'svgo';
+import gulpResponsive from '@localnerve/gulp-responsive';
 import decodeJpeg, { init as initJpegDecode } from '@jsquash/jpeg/decode.js';
 import decodePng, { init as initPngDecode } from '@jsquash/png/decode.js';
 import encodeWebp, { init as initWebpEncode } from '@jsquash/webp/encode.js';
@@ -42,7 +43,29 @@ const WASM_WEBP_ENCODE = 'node_modules/@jsquash/webp/codec/enc/webp_enc.wasm';
  * @returns {Boolean} true if not in exts, empty or stream, false otherwise
  */
 function checkSkip (file, exts) {
-  return !exts.includes(path.extname(file.path).toLowerCase()) || !file.contents.toString('utf8') || file.isStream();
+  return !exts.includes(file.extname.toLowerCase()) || !file.contents.toString('utf8') || file.isStream() || file.isNull();
+}
+
+/**
+ * Simple message logger.
+ * 
+ * @param {String} owner - The function owner
+ * @param {VinylFile} file - Vinyl file object passing thru
+ * @param {String} message - The message
+ * @param {String} [method] - console method, defaults to 'log'
+ */
+function log (owner, file, message, method = 'log') {
+  const colors = { magenta: '\x1b[35m', yellow: '\x1b[33m', red: '\x1b[31m', green: '\x1b[32m', reset: '\x1b[0m' };
+  const filepath = path.relative(process.cwd(), file.path);
+
+  const now = new Date();
+  const TN = i => i < 10 ? `0${i}` : i;
+  const timestring = `${TN(now.getHours())}:${TN(now.getMinutes())}:${TN(now.getSeconds())}`;
+
+  // eslint-disable-next-line no-console
+  console[method](`[${colors.magenta}${timestring}${colors.reset}] \
+${colors.yellow}${owner}: ${method === 'log' ? colors.green : colors.red}File ${filepath} - ${colors.reset}${message}`
+  );
 }
 
 /**
@@ -54,29 +77,33 @@ function checkSkip (file, exts) {
  * @param {Error} error - The error
  */
 function handleError (owner, file, next, error) {
-  const colors = { yellow: '\x1b[33m', red: '\x1b[31m', reset: '\x1b[0m' };
+  const colors = { reset: '\x1b[0m' };
   const filepath = path.relative(process.cwd(), file.path);
-  const message = error.message || error;
+  let message = error.message || error;
 
   if (message) {
-    console.error(`${colors.yellow}${owner}:${colors.red}`, message.replace( // eslint-disable-line no-console
-      'Line:', `${colors.reset}File: ${filepath}\nLine:`
-    ).replace(/\n/g, '\n\t').trim());
+    message = message
+      .replace('Line:', `${colors.reset}File: ${filepath}\nLine:`)
+      .replace(/\n/g, '\n\t').trim();
+    log(owner, file, message, 'error');
   }
 
-  next(null);
+  next(new PluginError(owner, message));
 }
 
 /**
- * Convert jpeg and png raster images to webp.
+ * Transform to convert older raster images to webp.
+ * Only supports jpg and png for now.
  * 
  * @param {Object} settings - build settings
- * @param {Object} data - The siteData data object
- * @param {String} settings.distImages - dist root dir of images
  * @param {Object} [settings.webpOptions] - optional webp encoder options at https://github.com/jamsinclair/jSquash/blob/main/packages/webp/meta.ts
+ * @param {Object} data - The siteData data object
  */
 async function toWebp (settings, data) {
-  const { distImages, webpOptions } = settings;
+  const { webpOptions } = settings;
+  const exts = ['.jpg', '.jpeg', '.png'];
+  const decoders = [decodeJpeg, decodeJpeg, decodePng];
+  const pluginName = '@localnerve/toWebp';
 
   const jpegWasmBuffer = await fs.readFile(WASM_JPEG_DECODE);
   const jpegWasmModule = await WebAssembly.compile(jpegWasmBuffer);
@@ -90,99 +117,95 @@ async function toWebp (settings, data) {
   const webpWasmModule = await WebAssembly.compile(webpWasmBuffer);
   await initWebpEncode(webpWasmModule);
 
-  async function transformToWebp (exts, decoder, file, encoding, next) {
-    if (checkSkip(file, exts)) return next(null, file);
-    if (file.isBuffer()) {
-      try {
-        const originalFile = file.path;
-        const name = path.parse(file.relative).name;
-        const nameParts = name.split('-');
-        const key = nameParts.slice(0,2).join('-');
-        const width = nameParts.slice(2,3)[0];
+  return new Transform({
+    objectMode: true,
+    transform: async (file, encoding, next) => {
+      if (checkSkip(file, exts)) return next(null, file);
+      if (file.isBuffer()) {
+        try {
+          const decoderIndex = exts.indexOf(file.extname.toLowerCase());
+          const originalFile = file.path;
+          const originalExt = file.extname;
+          const name = path.parse(file.relative).name;
+          const nameParts = name.split('-');
+          const key = nameParts.slice(0,2).join('-');
+          const width = nameParts.slice(2,3)[0];
 
-        const imageData = await decoder(file.contents);
-        file.contents = Buffer.from(await encodeWebp(imageData, webpOptions));
+          const imageData = await decoders[decoderIndex](file.contents);
+          file.contents = Buffer.from(await encodeWebp(imageData, webpOptions));
 
-        for (const ext of exts) {
-          file.path = file.path.replace(ext, '.webp');
-          if (originalFile !== file.path) {
-            const val = data.images?.[key]?.[width];
-            if (val) {
-              val.basename = file.basename;
-              val.mimeType = 'image/webp';
+          for (const ext of exts) {
+            file.path = file.path.replace(ext, '.webp');
+            if (originalFile !== file.path) {
+              const val = data.images?.[key]?.[width];
+              if (val) {
+                val.basename = file.basename;
+                val.mimeType = 'image/webp';
+              }
+              break;
             }
-            break;
           }
-        }
 
-        if (file.stat) {
-          file.stat.atime = file.stat.mtime = file.stat.ctime = new Date();
+          if (file.stat) {
+            file.stat.atime = file.stat.mtime = file.stat.ctime = new Date();
+          }
+
+          log(pluginName, file, `${originalExt.slice(1)} converted to webp`);
+          next(null, file);
+        } catch (error) {
+          handleError(pluginName, file, next, error);
         }
-        next(null, file);
-      } catch (error) {
-        handleError('toWebp', file, next, error);
       }
     }
-  }
-
-  return gulp.src(`${distImages}/**`, { encoding: false })
-    .pipe(new Transform({
-      objectMode: true,
-      transform: transformToWebp.bind(null, ['.jpeg', '.jpg'], decodeJpeg)
-    }))
-    .pipe(new Transform ({
-      objectMode: true,
-      transform: transformToWebp.bind(null, ['.png'], decodePng)
-    }))
-    .pipe(gulp.dest(distImages));
+  });
 }
 
 /**
- * Optimize svgs.
+ * Transform to optimize svgs.
  * 
  * @param {Object} settings - build settings
- * @param {String} settings.distImages - dist root dir of images
  */
 function optimizeSvg (settings) {
-  const { prod, distImages, svgoOptions } = settings;
+  const { prod, svgoOptions } = settings;
+  const pluginName = '@localnerve/optimizeSvg';
+
   if (prod) {
-    const svgoTransform = new Transform({
+    return new Transform({
       objectMode: true,
       transform: async (file, encoding, next) => {
         if (checkSkip(file, ['.svg'])) return next(null, file);
         if (file.isBuffer()) {
           try {
             const result = await svgOptimize(file.contents.toString('utf8'), {
-              path: file.path,
-              ...svgoOptions
+              ...svgoOptions,
+              path: file.path
             });
             file.contents = Buffer.from(result.data);
+
+            log(pluginName, file, 'svg optimized');
             next(null, file);
           } catch (error) {
-            handleError('optimizeSvg', file, next, error);
+            handleError(pluginName, file, next, error);
           }
         }
       }
     });
-
-    return gulp.src(`${distImages}/**`, { encoding: false })
-      .pipe(svgoTransform)
-      .pipe(gulp.dest(distImages));
-  } else {
-    return Promise.resolve();
   }
+
+  return new Transform({
+    objectMode: true, transform: (file, enc, next) => next(null, file)
+  });
 }
 
 /**
- * Generate responsive images.
+ * Transform to generate responsive images.
  * 
  * @param {Object} settings - build settings
- * @param {String} settings.distImages - dist root dir of images
  * @param {Object} settings.responsiveConfig - The responsive config
  * @param {Object} data - The siteData data object
  */
 function responsive (settings, data) {
-  const { distImages, responsiveConfig } = settings;
+  const { responsiveConfig } = settings;
 
   if (Object.keys(responsiveConfig).length > 0) {
     const mimeTypes = {
@@ -196,27 +219,26 @@ function responsive (settings, data) {
       // add here as needed
     };
 
-    return gulp.src(`${distImages}/**`, {
-      encoding: false
-    })
-      .pipe(gulpResponsive(responsiveConfig, {
-        errorOnUnusedConfig: false,
-        errorOnUnusedImage: false,
-        passThroughUnused : true,
-        postprocess: (originalFile, config, newFile) => {
-          const key = path.parse(originalFile.relative).name;
-          if (!data.images[key]) {
-            data.images[key] = {};
-          }
-          data.images[key][config.width] = {
-            basename: newFile.basename,
-            mimeType: mimeTypes[newFile.extname]
-          };
+    return gulpResponsive(responsiveConfig, {
+      errorOnUnusedConfig: false,
+      errorOnUnusedImage: false,
+      passThroughUnused : true,
+      postprocess: (originalFile, config, newFile) => {
+        const key = path.parse(originalFile.relative).name;
+        if (!data.images[key]) {
+          data.images[key] = {};
         }
-      }))
-      .pipe(gulp.dest(distImages));
+        data.images[key][config.width] = {
+          basename: newFile.basename,
+          mimeType: mimeTypes[newFile.extname]
+        };
+      }
+    });
   }
-  return Promise.resolve();
+
+  return new Transform({
+    objectMode: true, transform: (file, enc, next) => next(null, file)
+  });
 }
 
 /**
@@ -224,17 +246,28 @@ function responsive (settings, data) {
  * 
  * @param {Object} settings - build settings.
  * @param {String} settings.dataDir - The data directory.
+ * @param {String} settings.distImages - dist root dir of images
  * @param {String} settings.webImages - The directory to images as seen from the web.
  */
 export async function getImageSequence (settings) {
-  const { dataDir, webImages } = settings;
+  const { dataDir, webImages, distImages } = settings;
+
   const data = await loadSiteData(dataDir);
   data.images = { webImages: webImages.replace(/\/$/, '') };
 
+  const webpTransform = await toWebp(settings, data);
+
   return gulp.series(
-    responsive.bind(null, settings, data),
-    toWebp.bind(null, settings, data),
-    optimizeSvg.bind(null, settings)
+    function inPlaceImageProcessing () {
+      return gulp.src(`${distImages}/**`, {
+        encoding: false
+      })
+      .pipe(responsive(settings, data))
+      .pipe(optimizeSvg(settings))
+      .pipe(webpTransform)
+      .pipe(gulp.dest(distImages));
+    }
+    // add on here...
   );
 }
 
