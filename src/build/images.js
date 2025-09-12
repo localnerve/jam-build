@@ -262,10 +262,10 @@ export async function getImageSequence (settings) {
       return gulp.src(`${distImages}/**`, {
         encoding: false
       })
-      .pipe(responsive(settings, data))
-      .pipe(optimizeSvg(settings))
-      .pipe(webpTransform)
-      .pipe(gulp.dest(distImages));
+        .pipe(responsive(settings, data))
+        .pipe(optimizeSvg(settings))
+        .pipe(webpTransform)
+        .pipe(gulp.dest(distImages));
     }
     // add on here...
   );
