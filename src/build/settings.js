@@ -71,6 +71,13 @@ export function createSettings (prod = true) {
       distImages,
       webImages,
       dataDir,
+      svgoOptions: {
+        name: 'cleanupIds',
+        active: false
+      },
+      // https://github.com/jamsinclair/jSquash/blob/main/packages/webp/meta.ts
+      webpOptions: {
+      },
       responsiveConfig: {
         'hero-*.jpg': [{
           quality: 80,
