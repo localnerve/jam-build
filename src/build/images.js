@@ -25,14 +25,43 @@ import gulp from 'gulp';
 import PluginError from 'plugin-error';
 import { optimize as svgOptimize } from 'svgo';
 import gulpResponsive from '@localnerve/gulp-responsive';
+import pngOptimize, { init as initPngOptimize } from '@jsquash/oxipng/optimise.js';
 import decodeJpeg, { init as initJpegDecode } from '@jsquash/jpeg/decode.js';
+import encodeJpeg, { init as initJpegEncode } from '@jsquash/jpeg/encode.js';
 import decodePng, { init as initPngDecode } from '@jsquash/png/decode.js';
 import encodeWebp, { init as initWebpEncode } from '@jsquash/webp/encode.js';
 import { loadSiteData } from './data.js';
 
 const WASM_JPEG_DECODE = 'node_modules/@jsquash/jpeg/codec/dec/mozjpeg_dec.wasm';
+const WASM_JPEG_ENCODE = 'node_modules/@jsquash/jpeg/codec/enc/mozjpeg_enc.wasm';
 const WASM_PNG_DECODE = 'node_modules/@jsquash/png/codec/pkg/squoosh_png_bg.wasm';
+const WASM_OXIPNG_OPT = 'node_modules/@jsquash/oxipng/codec/pkg/squoosh_oxipng_bg.wasm';
 const WASM_WEBP_ENCODE = 'node_modules/@jsquash/webp/codec/enc/webp_enc.wasm';
+
+/**
+ * Initialize the wasm modules.
+ */
+async function initWasmModules () {
+  const jpegDecWasmBuffer = await fs.readFile(WASM_JPEG_DECODE);
+  const jpegDecWasmModule = await WebAssembly.compile(jpegDecWasmBuffer);
+  await initJpegDecode(jpegDecWasmModule);
+
+  const jpegEncWasmBuffer = await fs.readFile(WASM_JPEG_ENCODE);
+  const jpegEncWasmModule = await WebAssembly.compile(jpegEncWasmBuffer);
+  await initJpegEncode(jpegEncWasmModule);
+
+  const pngDecWasmBuffer = await fs.readFile(WASM_PNG_DECODE);
+  const pngDecWasmModule = await WebAssembly.compile(pngDecWasmBuffer);
+  await initPngDecode(pngDecWasmModule);
+
+  const oxipngWasmBuffer = await fs.readFile(WASM_OXIPNG_OPT);
+  const oxipngWasmModule = await WebAssembly.compile(oxipngWasmBuffer);
+  await initPngOptimize(oxipngWasmModule);
+
+  const webpEncWasmBuffer = await fs.readFile(WASM_WEBP_ENCODE);
+  const webpEncWasmModule = await WebAssembly.compile(webpEncWasmBuffer);
+  await initWebpEncode(webpEncWasmModule);
+}
 
 /**
  * Check skip condition for vinyl stream object.
@@ -64,7 +93,7 @@ function log (owner, file, message, method = 'log') {
 
   // eslint-disable-next-line no-console
   console[method](`[${colors.magenta}${timestring}${colors.reset}] \
-${colors.yellow}${owner}: ${method === 'log' ? colors.green : colors.red}File ${filepath} - ${colors.reset}${message}`
+${owner}: ${method === 'log' ? colors.green : colors.red}File ${filepath} - ${colors.yellow}${message}${colors.reset}`
   );
 }
 
@@ -94,28 +123,17 @@ function handleError (owner, file, next, error) {
 /**
  * Transform to convert older raster images to webp.
  * Only supports jpg and png for now.
+ * webp options: https://github.com/jamsinclair/jSquash/blob/main/packages/webp/meta.ts
  * 
  * @param {Object} settings - build settings
- * @param {Object} [settings.webpOptions] - optional webp encoder options at https://github.com/jamsinclair/jSquash/blob/main/packages/webp/meta.ts
+ * @param {Object} [settings.webpOptions] - webp encoder options
  * @param {Object} data - The siteData data object
  */
-async function toWebp (settings, data) {
+function toWebp (settings, data) {
   const { webpOptions } = settings;
   const exts = ['.jpg', '.jpeg', '.png'];
   const decoders = [decodeJpeg, decodeJpeg, decodePng];
-  const pluginName = '@localnerve/toWebp';
-
-  const jpegWasmBuffer = await fs.readFile(WASM_JPEG_DECODE);
-  const jpegWasmModule = await WebAssembly.compile(jpegWasmBuffer);
-  await initJpegDecode(jpegWasmModule);
-
-  const pngWasmBuffer = await fs.readFile(WASM_PNG_DECODE);
-  const pngWasmModule = await WebAssembly.compile(pngWasmBuffer);
-  await initPngDecode(pngWasmModule);
-
-  const webpWasmBuffer = await fs.readFile(WASM_WEBP_ENCODE);
-  const webpWasmModule = await WebAssembly.compile(webpWasmBuffer);
-  await initWebpEncode(webpWasmModule);
+  const pluginName = '@localnerve/to-webp';
 
   return new Transform({
     objectMode: true,
@@ -164,10 +182,13 @@ async function toWebp (settings, data) {
  * Transform to optimize svgs.
  * 
  * @param {Object} settings - build settings
+ * @param {Object} settings.svgoOptions - svgo options object
+ * @param {Boolean} settings.prod - true for production, false otherwise
+ * @returns {Transform} A nodejs Transform object
  */
 function optimizeSvg (settings) {
   const { prod, svgoOptions } = settings;
-  const pluginName = '@localnerve/optimizeSvg';
+  const pluginName = '@localnerve/optimize-svg';
 
   if (prod) {
     return new Transform({
@@ -185,6 +206,83 @@ function optimizeSvg (settings) {
             log(pluginName, file, 'svg optimized');
             next(null, file);
           } catch (error) {
+            handleError(pluginName, file, next, error);
+          }
+        }
+      }
+    });
+  }
+
+  return new Transform({
+    objectMode: true, transform: (file, enc, next) => next(null, file)
+  });
+}
+
+/**
+ * Transform to optimize jpegs.
+ * mozjpeg options: https://github.com/jamsinclair/jSquash/blob/main/packages/jpeg/meta.ts
+ * 
+ * @param {Object} settings - build settings
+ * @param {Object} [settings.mozjpegOptions] - mozjpeg optimization options
+ * @param {Boolean} settings.prod - true for production, false otherwise
+ * @returns {Transform} A nodejs Transform object
+ */
+function optimizeJpeg (settings) {
+  const { prod, mozjpegOptions } = settings;
+  const pluginName = '@localnerve/optimize-jpeg';
+
+  if (prod) {
+    return new Transform({
+      objectMode: true,
+      transform: async (file, encoding, next) => {
+        if (checkSkip(file, ['.jpg', '.jpeg'])) return next(null, file);
+        if (file.isBuffer()) {
+          try {
+            const imageData = await decodeJpeg(file.contents);
+            file.contents = Buffer.from(await encodeJpeg(imageData, mozjpegOptions));
+
+            log(pluginName, file, `${file.extname.slice(1)} optimized`);
+            next(null, file);
+          }
+          catch (error) {
+            handleError(pluginName, file, next, error);
+          }
+        }
+      }
+    });
+  }
+
+  return new Transform({
+    objectMode: true, transform: (file, enc, next) => next(null, file)
+  });
+}
+
+/**
+ * Transform to optimize pngs.
+ * oxipng options: https://github.com/jamsinclair/jSquash/blob/main/packages/oxipng/meta.ts
+ * 
+ * @param {Object} settings - build settings
+ * @param {Object} [settings.oxipngOptions] - oxipng options
+ * @param {Boolean} settings.prod - true for production, false otherwise
+ */
+function optimizePng (settings) {
+  const { prod, oxipngOptions } = settings;
+  const pluginName = '@localnerve/optimize-png';
+
+  if (prod) {
+    return new Transform({
+      objectMode: true,
+      transform: async (file, encoding, next) => {
+        if (checkSkip(file, ['.png'])) return next(null, file);
+        if (file.isBuffer()) {
+          try {
+            const imageData = await decodePng(file.contents);
+            file.contents = Buffer.from(await pngOptimize(imageData, oxipngOptions));
+
+            log(pluginName, file, `${file.extname.slice(1)} optimized`);
+            next(null, file);
+          }
+          catch (error) {
             handleError(pluginName, file, next, error);
           }
         }
@@ -255,19 +353,26 @@ export async function getImageSequence (settings) {
   const data = await loadSiteData(dataDir);
   data.images = { webImages: webImages.replace(/\/$/, '') };
 
-  const webpTransform = await toWebp(settings, data);
+  await initWasmModules();
 
   return gulp.series(
-    function inPlaceImageProcessing () {
+    function resizeAndOptimize () {
       return gulp.src(`${distImages}/**`, {
         encoding: false
       })
         .pipe(responsive(settings, data))
         .pipe(optimizeSvg(settings))
-        .pipe(webpTransform)
+        .pipe(optimizeJpeg(settings))
+        .pipe(optimizePng(settings))
+        .pipe(gulp.dest(distImages));
+    },
+    function createDerivedImages () {
+      return gulp.src(`${distImages}/**`, {
+        encoding: false
+      })
+        .pipe(toWebp(settings, data))
         .pipe(gulp.dest(distImages));
     }
-    // add on here...
   );
 }
 
