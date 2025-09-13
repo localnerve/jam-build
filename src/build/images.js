@@ -24,6 +24,7 @@ import fs from 'node:fs/promises';
 import gulp from 'gulp';
 import PluginError from 'plugin-error';
 import { optimize as svgOptimize } from 'svgo';
+import { simd, relaxedSimd } from "wasm-feature-detect";
 import gulpResponsive from '@localnerve/gulp-responsive';
 import decodeJpeg, { init as initJpegDecode } from '@jsquash/jpeg/decode.js';
 import encodeJpeg, { init as initJpegEncode } from '@jsquash/jpeg/encode.js';
@@ -37,6 +38,7 @@ const WASM_JPEG_ENCODE = 'node_modules/@jsquash/jpeg/codec/enc/mozjpeg_enc.wasm'
 const WASM_PNG_DECODE = 'node_modules/@jsquash/png/codec/pkg/squoosh_png_bg.wasm';
 const WASM_PNG_ENCODE = 'node_modules/@jsquash/oxipng/codec/pkg/squoosh_oxipng_bg.wasm';
 const WASM_WEBP_ENCODE = 'node_modules/@jsquash/webp/codec/enc/webp_enc.wasm';
+const WASM_WEBP_ENCODE_SIMD = 'node_modules/@jsquash/webp/codec/enc/webp_enc_simd.wasm';
 
 /**
  * Initialize the wasm modules.
@@ -58,7 +60,14 @@ async function initWasmModules () {
   const oxipngWasmModule = await WebAssembly.compile(oxipngWasmBuffer);
   await initPngEncode(oxipngWasmModule);
 
-  const webpEncWasmBuffer = await fs.readFile(WASM_WEBP_ENCODE);
+  // ~10% improvement if you have simd
+  let webpEncWasmBuffer;
+  const simdSupport = await Promise.allSettled([simd(), relaxedSimd()]);
+  if (simdSupport.find(r => r.status === 'fulfilled')) {
+    webpEncWasmBuffer = await fs.readFile(WASM_WEBP_ENCODE_SIMD);
+  } else {
+    webpEncWasmBuffer = await fs.readFile(WASM_WEBP_ENCODE);
+  }
   const webpEncWasmModule = await WebAssembly.compile(webpEncWasmBuffer);
   await initWebpEncode(webpEncWasmModule);
 }
