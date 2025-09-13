@@ -1,4 +1,4 @@
-FROM node:22.15.0-bullseye
+FROM node:24.8-alpine
 
 ARG UID=1000
 ARG GID=1000
@@ -8,24 +8,16 @@ ARG DEV_BUILD=0
 ARG TARGETARCH
 
 USER root
+RUN apk --no-cache add shadow
 RUN usermod -u $UID -g node -o node; \
 groupmod -g $GID -o node
-RUN apt-get update; \
-apt-get install -y autoconf automake libtool nasm zlib1g-dev
 RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-  ln -s -f /usr/lib/aarch64-linux-gnu/libpng16.a /usr/local/lib/libpng16.a; \
-fi
 
 USER node
 WORKDIR /home/node/app
 COPY --chown=node:node ./ ./
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
-  echo "INSTALL ARM64"; \
-  CPPFLAGS=-DPNG_ARM_NEON_OPT=0 npm install --arch=arm64 --loglevel info; \
-else \
-  npm install; \
-fi
+RUN npm install --loglevel info
+
 RUN if [ "$DEV_BUILD" = "0" ]; then \
   echo "Production build"; \
   echo "Building with AUTHZ_URL=$AUTHZ_URL, AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID"; \
