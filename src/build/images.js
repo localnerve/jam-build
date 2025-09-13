@@ -24,7 +24,7 @@ import fs from 'node:fs/promises';
 import gulp from 'gulp';
 import PluginError from 'plugin-error';
 import { optimize as svgOptimize } from 'svgo';
-import { simd, relaxedSimd } from "wasm-feature-detect";
+import { simd, relaxedSimd } from 'wasm-feature-detect';
 import gulpResponsive from '@localnerve/gulp-responsive';
 import decodeJpeg, { init as initJpegDecode } from '@jsquash/jpeg/decode.js';
 import encodeJpeg, { init as initJpegEncode } from '@jsquash/jpeg/encode.js';
