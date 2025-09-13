@@ -1,4 +1,4 @@
-FROM node:22.15.0-bullseye
+FROM node:24.8-alpine
 
 ARG UID=1000
 ARG GID=1000
@@ -8,6 +8,7 @@ ARG DEV_BUILD=0
 ARG TARGETARCH
 
 USER root
+RUN apk --no-cache add shadow
 RUN usermod -u $UID -g node -o node; \
 groupmod -g $GID -o node
 RUN mkdir -p /home/node/app/node_modules && chown -R node:node /home/node/app
