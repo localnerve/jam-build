@@ -25,17 +25,17 @@ import gulp from 'gulp';
 import PluginError from 'plugin-error';
 import { optimize as svgOptimize } from 'svgo';
 import gulpResponsive from '@localnerve/gulp-responsive';
-import pngOptimize, { init as initPngOptimize } from '@jsquash/oxipng/optimise.js';
 import decodeJpeg, { init as initJpegDecode } from '@jsquash/jpeg/decode.js';
 import encodeJpeg, { init as initJpegEncode } from '@jsquash/jpeg/encode.js';
 import decodePng, { init as initPngDecode } from '@jsquash/png/decode.js';
+import encodePng, { init as initPngEncode } from '@jsquash/oxipng/optimise.js';
 import encodeWebp, { init as initWebpEncode } from '@jsquash/webp/encode.js';
 import { loadSiteData } from './data.js';
 
 const WASM_JPEG_DECODE = 'node_modules/@jsquash/jpeg/codec/dec/mozjpeg_dec.wasm';
 const WASM_JPEG_ENCODE = 'node_modules/@jsquash/jpeg/codec/enc/mozjpeg_enc.wasm';
 const WASM_PNG_DECODE = 'node_modules/@jsquash/png/codec/pkg/squoosh_png_bg.wasm';
-const WASM_OXIPNG_OPT = 'node_modules/@jsquash/oxipng/codec/pkg/squoosh_oxipng_bg.wasm';
+const WASM_PNG_ENCODE = 'node_modules/@jsquash/oxipng/codec/pkg/squoosh_oxipng_bg.wasm';
 const WASM_WEBP_ENCODE = 'node_modules/@jsquash/webp/codec/enc/webp_enc.wasm';
 
 /**
@@ -54,9 +54,9 @@ async function initWasmModules () {
   const pngDecWasmModule = await WebAssembly.compile(pngDecWasmBuffer);
   await initPngDecode(pngDecWasmModule);
 
-  const oxipngWasmBuffer = await fs.readFile(WASM_OXIPNG_OPT);
+  const oxipngWasmBuffer = await fs.readFile(WASM_PNG_ENCODE);
   const oxipngWasmModule = await WebAssembly.compile(oxipngWasmBuffer);
-  await initPngOptimize(oxipngWasmModule);
+  await initPngEncode(oxipngWasmModule);
 
   const webpEncWasmBuffer = await fs.readFile(WASM_WEBP_ENCODE);
   const webpEncWasmModule = await WebAssembly.compile(webpEncWasmBuffer);
@@ -144,6 +144,8 @@ function toWebp (settings, data) {
           const decoderIndex = exts.indexOf(file.extname.toLowerCase());
           const originalFile = file.path;
           const originalExt = file.extname;
+
+          // develop the metadata keys
           const name = path.parse(file.relative).name;
           const nameParts = name.split('-');
           const key = nameParts.slice(0,2).join('-');
@@ -154,13 +156,15 @@ function toWebp (settings, data) {
 
           for (const ext of exts) {
             file.path = file.path.replace(ext, '.webp');
+
+            // if changed, update the site data image metadata
             if (originalFile !== file.path) {
               const val = data.images?.[key]?.[width];
               if (val) {
                 val.basename = file.basename;
                 val.mimeType = 'image/webp';
               }
-              break;
+              break; // there won't be both a jpg and a jpeg of the same file, I assume
             }
           }
 
@@ -277,7 +281,7 @@ function optimizePng (settings) {
         if (file.isBuffer()) {
           try {
             const imageData = await decodePng(file.contents);
-            file.contents = Buffer.from(await pngOptimize(imageData, oxipngOptions));
+            file.contents = Buffer.from(await encodePng(imageData, oxipngOptions));
 
             log(pluginName, file, `${file.extname.slice(1)} optimized`);
             next(null, file);
@@ -356,7 +360,7 @@ export async function getImageSequence (settings) {
   await initWasmModules();
 
   return gulp.series(
-    function resizeAndOptimize () {
+    function createResponsiveAndOptimize () {
       return gulp.src(`${distImages}/**`, {
         encoding: false
       })
@@ -366,7 +370,7 @@ export async function getImageSequence (settings) {
         .pipe(optimizePng(settings))
         .pipe(gulp.dest(distImages));
     },
-    function createDerivedImages () {
+    function createDerivedFormats () {
       return gulp.src(`${distImages}/**`, {
         encoding: false
       })
