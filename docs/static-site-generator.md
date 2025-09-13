@@ -277,6 +277,13 @@ The captured image metadata powers multiple aspects of the final output. In the 
 - **Quality Optimization**: Different quality settings per size with performance metrics
 - **Progressive JPEG**: Optimized loading with format specification in metadata
 - **Breakpoint Intelligence**: Automatically determines optimal responsive breakpoints
+- **WEBP Generation**: Automatically creates optimized WEBP versions of all JPEGs and PNGs
+
+#### WASM Codecs
+The image processing system uses WASM encoders and decoders to optimize images. This offers significant performance advantages in some cases, but also reduces the external package supply chain. This reduces maintenance costs and much of the friction one experiences upgrading the application image and staying on top of CVEs.
+
+##### Smaller Application Image
+Using WASM based image processing tools allows for a much smaller application image to be used. The size reduction Jam-Build experienced removing the typical C language toolchain from the application build was about 1 Gigabyte. This requirement change alone allowed the base image to migrate from Debian Bullseye to Alpine with just a few minor add-ons.
 
 #### Configuration and Metadata Example
 ```javascript

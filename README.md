@@ -32,8 +32,9 @@ This project serves as a starting point for a PWA (Progressive Web Application).
 * **Custom Sass/Handlebars Static Site Generator:** 
   * A multi-page application built using a custom static site generator that leverages Sass and Handlebars.
   * Image processors generate metadata used to render preload tags and other performance-oriented styles and markup.
-  * CSS Classes are generated from template names for optional specificity.
-  * Static site only [branch](https://github.com/localnerve/jam-build/tree/front-only).
+    - Custom WASM image processor pipeline for performant optimization and `webp` format creation. Boosts build speed and reduces external toolchain dependencies. Eases application image maintenance, reduces image size.
+  * See the [static site generator document](docs/static-site-generator.md) for more detail.
+  * Static site only [branch](https://github.com/localnerve/jam-build/tree/front-only) (sans data layer) available.
 
 * **Offline Capabilities:**
   * Pages are rendered directly from the service worker cache using a stale-while-revalidate strategy.
