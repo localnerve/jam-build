@@ -152,7 +152,7 @@
     "linkedin": "https://www.linkedin.com/in/business",
     "twitter": "https://x.com",
     "twitterMeta": {
-      "image": "https://domain.com/images/ogimage-1200x630.png"
+      "image": "https://domain.com/images/ogimage-1200x630.webp"
     },
     "og": {
       "title": "Business Name",
@@ -160,22 +160,22 @@
       "type": "website",
       "image": [
         {
-          "url": "https://domain.com/images/ogimage-1200x400.png",
-          "type": "image/png",
+          "url": "https://domain.com/images/ogimage-1200x400.webp",
+          "type": "image/webp",
           "alt": "Business Name",
           "width": "1200",
           "height": "400"
         },
         {
-          "url": "https://domain.com/images/ogimage-1200x630.png",
-          "type": "image/png",
+          "url": "https://domain.com/images/ogimage-1200x630.webp",
+          "type": "image/webp",
           "alt": "Business Name",
           "width": "1200",
           "height": "630"
         },
         {
-          "url": "https://domain.com/images/ogimage-400x630.png",
-          "type": "image/png",
+          "url": "https://domain.com/images/ogimage-400x630.webp",
+          "type": "image/webp",
           "alt": "Bayberry Copywriting",
           "width": "400",
           "height": "630"

@@ -48,9 +48,13 @@
   <link rel="canonical" href="https://{{ siteData.appHost }}/{{ page }}" />
   <meta name="page" content="{{ page }}" />
 
-  <link rel="apple-touch-icon" href="{{imageUrl 'apple-touch-icon.png'}}" sizes="180x180" />
+  <link rel="apple-touch-icon" href="{{imageUrl 'apple-touch-icon.webp'}}" type="image/webp" sizes="180x180" />
+  <link rel="apple-touch-icon" href="{{imageUrl 'apple-touch-icon.png'}}" type="image/png" sizes="180x180" />
+  <link rel="icon" href="{{imageUrl 'favicon-180x180.webp'}}" type="image/webp" sizes="180x180">
   <link rel="icon" href="{{imageUrl 'favicon-180x180.png'}}" type="image/png" sizes="180x180">
+  <link rel="icon" href="{{imageUrl 'favicon-32x32.webp'}}" type="image/webp" sizes="32x32">
   <link rel="icon" href="{{imageUrl 'favicon-32x32.png'}}" type="image/png" sizes="32x32">
+  <link rel="icon" href="{{imageUrl 'favicon-16x16.webp'}}" type="image/webp" sizes="16x16">
   <link rel="icon" href="{{imageUrl 'favicon-16x16.png'}}" type="image/png" sizes="16x16">
   <link rel="icon" href="{{imageUrl 'favicon.ico'}}" type="image/x-icon" />
   <link rel="shortcut icon" href="{{imageUrl 'favicon.ico'}}" />

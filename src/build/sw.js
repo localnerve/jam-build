@@ -184,7 +184,7 @@ export async function buildSwMain (settings) {
     importScripts: [publicSwCustomPath],
     globDirectory: dist,
     globPatterns: [
-      '**/*.{js,css,svg,png,jpg,jpeg,webmanifest,xml}', // len 2..11
+      '**/*.{js,css,svg,ico,webp,webmanifest,xml}', // len 2..11
       '{privacy,terms}.html'
     ],
     globIgnores: [
