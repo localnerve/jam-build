@@ -40,11 +40,15 @@ const thisDir = url.fileURLToPath(new URL('.', import.meta.url));
 export async function getAuthzClientID () {
   debug(`Navigating to ${process.env.AUTHZ_URL} ...`);
 
+  let puppeteerLaunch = process.env.CI ? {
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  } : {};
   let clientId;
   let browser;
 
   try {
     browser = await puppeteer.launch({
+      ...puppeteerLaunch,
       headless: !process.argv.includes('--headed')
     });
     const page = await browser.newPage();

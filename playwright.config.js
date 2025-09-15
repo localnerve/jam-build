@@ -25,9 +25,18 @@ const desktopViewport = {
   height: 900
 };
 
+const puppeteerOptions = process.env.CI ? {
+  args: ['--no-sandbox', '--disable-setuid-sandbox']
+}: {};
+
 const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
 export default defineConfig({
+  use: {
+    launchOptions: {
+      ...puppeteerOptions
+    }
+  },
   testDir: 'src/test',
   timeout: 5000,
   globalSetup: path.resolve('./src/test/globals.js'),
