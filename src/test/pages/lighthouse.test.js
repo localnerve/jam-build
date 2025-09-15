@@ -35,6 +35,10 @@ test.describe('performance audits', () => {
     seo: 99
   };
 
+  let puppeteerLaunch = process.env.CI ? {
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  } : {};
+
   /**
    * Save a report for a test to the audit directory.
    * 
@@ -94,8 +98,16 @@ test.describe('performance audits', () => {
     testInfo.skip(browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
   
     const debugPort = 9222;
+    const args = [`--remote-debugging-port=${debugPort}`];
+
+    if (puppeteerLaunch.args) {
+      puppeteerLaunch.args.push(...args);
+    } else {
+      puppeteerLaunch.args = args;  
+    }
+  
     const browser = await chromium.launch({
-      args: [`--remote-debugging-port=${debugPort}`],
+      ...puppeteerLaunch,
       headless: true
     });
   
@@ -117,7 +129,10 @@ test.describe('performance audits', () => {
     await adminPage.goto(baseUrl);
     const cookies = await adminPage.context().cookies();
 
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ 
+      ...puppeteerLaunch,
+      headless: true 
+    });
     await browser.setCookie(...cookies.map(cookie => ({
       name: cookie.name,
       value: cookie.value,
