@@ -100,7 +100,11 @@ test.describe('performance audits', () => {
     const debugPort = 9222;
     const args = [`--remote-debugging-port=${debugPort}`];
 
-    puppeteerLaunch.args = puppeteerLaunch.args ? puppeteerLaunch.args.push(...args) : args;
+    if (puppeteerLaunch.args) {
+      puppeteerLaunch.args.push(...args);
+    } else {
+      puppeteerLaunch.args = args;  
+    }
   
     const browser = await chromium.launch({
       ...puppeteerLaunch,
