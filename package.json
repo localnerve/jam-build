@@ -70,7 +70,7 @@
   "homepage": "https://github.com/localnerve/jam-build#readme",
   "dependencies": {
     "@localnerve/authorizer-js": "^1.0.3",
-    "@localnerve/debug": "^1.0.8",
+    "@localnerve/debug": "^1.0.9",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.1.0",
