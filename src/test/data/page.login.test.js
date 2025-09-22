@@ -40,12 +40,12 @@ test.describe('login tests', () => {
     await createTestDataUser(baseUrl, userRequest);
   });
 
-  test.beforeEach(async ({ page }) => {
-    await startJS(page);
+  test.beforeEach(async ({ browserName, page }) => {
+    await startJS(browserName, page);
   });
 
-  test.afterEach(async ({ page }) => {
-    await stopJS(page, map);
+  test.afterEach(async ({ browserName, page }) => {
+    await stopJS(browserName, page, map);
   });
 
   test.afterAll(async ({ adminRequest, userRequest }, testInfo) => {

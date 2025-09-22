@@ -54,13 +54,17 @@ export async function createReport (map, testInfo) {
   }));
 }
 
-export async function startJS (page) {
+export async function startJS (browserName, page) {
+  if (browserName !== 'chromium') return;
+
   await page.coverage.startJSCoverage({
     resetOnNavigation: false
   });
 }
 
-export async function stopJS (page, map) {
+export async function stopJS (browserName, page, map) {
+  if (browserName !== 'chromium') return;
+
   const coverage = await page.coverage.stopJSCoverage();
 
   for (const entry of coverage) {

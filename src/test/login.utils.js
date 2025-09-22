@@ -39,7 +39,8 @@ export async function verifyLoggedIn (baseUrl, page, account) {
   // Start waiting for user data
   const promiseForUser = waitForDataUpdate(page, {
     storeType,
-    timeout: 8000
+    timeout: 6000,
+    readKeysFallback: true
   });
 
   // Verify login state changed

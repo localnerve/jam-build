@@ -56,6 +56,18 @@ export default defineConfig({
     name: 'fixtures',
     testMatch: /fixture\.test\.js/
   }, {
+    name: 'fixtures-firefox',
+    use: {
+      browserName: 'firefox'
+    },
+    testMatch: /fixture\.test\.js/
+  }, {
+    name: 'fixtures-webkit',
+    use: {
+      browserName: 'webkit'
+    },
+    testMatch: /fixture\.test\.js/
+  }, {
     name: 'api',
     testMatch: 'api/**/*.test.js',
     workers: 6,
@@ -65,7 +77,35 @@ export default defineConfig({
     testMatch: 'api/api.data.app.test.js',
     dependencies: ['fixtures']
   }, {
+    name: 'api-firefox',
+    use: {
+      browserName: 'firefox'
+    },
+    testMatch: 'api/**/*.test.js',
+    workers: 6,
+    dependencies: ['fixtures-firefox']
+  }, {
+    name: 'api-webkit',
+    use: {
+      browserName: 'webkit'
+    },
+    testMatch: 'api/**/*.test.js',
+    workers: 6,
+    dependencies: ['fixtures-webkit']
+  }, {
     name: 'pages',
+    testMatch: 'pages/**/*.test.js'
+  }, {
+    name: 'pages-firefox',
+    use: {
+      browserName: 'firefox'
+    },
+    testMatch: 'pages/**/*.test.js'
+  }, {
+    name: 'pages-webkit',
+    use: {
+      browserName: 'webkit'
+    },
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'performance',
@@ -75,37 +115,48 @@ export default defineConfig({
     name: 'data',
     testMatch: 'data/**/*.test.js',
     workers: 1,
-    dependencies: ['fixtures', 'api', 'pages']
+    dependencies: ['api', 'pages']
   }, {
     name: 'data-debug',
     testMatch: 'data/page.mutation.test.js',
     workers: 1
   }, {
-    name: 'Chrome',
+    name: 'Chromium',
     use: {
       slowMo,
       browserName: 'chromium',
       viewport: desktopViewport
-    }
+    },
+    testMatch: 'data/**/*.test.js',
+    workers: 1,
+    dependencies: ['api', 'pages']
   }, {
     name: 'Pixel3Emulate',
     use: {
       slowMo,
       ...devices['Pixel 3']
-    }
+    },
+    dependencies: ['data']
   }, {
+    // This requires named, https setup first (webkit won't honor secure cookie over http on localhost)
     name: 'Webkit',
     use: {
       slowMo,
       browserName: 'webkit',
       viewport: desktopViewport
-    }
+    },
+    testMatch: 'data/**/*.test.js',
+    workers: 1,
+    dependencies: ['api-webkit', 'pages-webkit']
   }, {
     name: 'Firefox',
     use: {
       slowMo,
       browserName: 'firefox',
       viewport: desktopViewport
-    }
+    },
+    testMatch: 'data/**/*.test.js',
+    workers: 1,
+    dependencies: ['api-firefox', 'pages-firefox']
   }]
 });

@@ -32,16 +32,14 @@ export const { debug } = _private.logger || { debug: ()=>{} };
  */
 export async function sendMessage (meta, payload) {
   if (self.clients) {
-    let clients = await self.clients.matchAll();
-
-    if (clients.length === 0) {
-      await self.clients.claim();
-      clients = await self.clients.matchAll();
-    }
+    await self.clients.claim(); // clients can be stale (ff=n, chromium=0), always refresh
+    const freshClients = await self.clients.matchAll();
 
     const message = meta ? { meta, payload } : payload;
-    for (let i = 0; i < clients.length; i++) {
-      clients[i].postMessage(message);
+    debug(`sendMessage (${freshClients.length})`, message);
+    
+    for (let i = 0; i < freshClients.length; i++) {
+      freshClients[i].postMessage(message);
     }
   }
 }

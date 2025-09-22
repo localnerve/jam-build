@@ -123,21 +123,25 @@ Jam-Build implements a sophisticated three-pronged coverage collection approach:
 - Uses Playwright's underlying Puppeteer coverage interface
 - Collects V8 coverage data from browser main thread
 - Converted to Istanbul format using `v8-to-istanbul`
+- Only collected on chromium-based browsers
 
 ### 3. Service Worker Coverage (Manual Instrumentation)
 - Service worker built with Istanbul instrumentation (`rollup-plugin-istanbul`)
 - Coverage extracted via message passing to service worker
 - Merged with main thread coverage for complete client-side coverage
+- Only collected on chromium-based browsers
 
 ### Coverage Utilities (`src/test/coverage.js`)
+> Front-end coverage only works with chromium-based browsers
+
 ```javascript
 // Start coverage collection
-await startJS(page);
+await startJS(browserName, page);
 
 // ... run tests ...
 
 // Stop and merge coverage
-await stopJS(page, coverageMap);
+await stopJS(browserName, page, coverageMap);
 
 // Generate reports
 await createReport(coverageMap, testInfo);
@@ -247,6 +251,7 @@ test('mutations offline', async ({ browser, browserName }) => {
 ```
 
 > Uses Playwright experimental flag `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` to enable service worker request interception for offline simulation.
+> Offline capability testing is only available for `chromium` based browsers
 
 ## Advanced Testing Features
 
@@ -329,6 +334,8 @@ The Backend data service coverage report is in two sub-locations, depending how 
 ### Frontend Reports
 
 The Frontend app coverage reports are located under `/test-results/coverage`, titled by test-suite. Under each sub-directory you will find an `lcov-report` sub-directory with the report for the test suite. The mutation tests **`coverage-mutation-tests-0`** yield the most comprehensive coverage, as most of the application is under test in that suite.
+
+> Front-end coverage reports are only generated for `chromium` based browsers
 
 ---
 

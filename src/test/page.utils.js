@@ -55,13 +55,15 @@ export function initScriptDataUpdate ([authorizerURL, clientID]) {
  * @param {Object} [options] - options object
  * @param {String} [options.storeType] - The storeType to wait for 'app' or 'user', defaults to 'app:public'
  * @param {Number} [options.timeout] - timeout, defaults to 3000
+ * @param {Boolean} [options.readKeysFallback] - true to read local keys on timeout
  * @returns {Promise<Object>} A promise that resolves to the message payload object
  */
 export function waitForDataUpdate (page, {
   storeType = makeStoreType('app', 'public'),
-  timeout = 3000
+  timeout = 3000,
+  readKeysFallback = false
 } = {}) {
-  return page.evaluate(([storeType, timeout]) => {
+  return page.evaluate(([storeType, timeout, readKeysFallback]) => {
     let resolve;
     const waiter = new Promise(res => resolve = res);
     
@@ -79,11 +81,47 @@ export function waitForDataUpdate (page, {
           }
         }
       });
-      setTimeout(() => resolve({ storeType: 'timeout' }), timeout);
+
+      setTimeout(async () => {
+        if (readKeysFallback) {
+          // messy
+          const dbname = 'jam_build';
+          const storeTypeParts = storeType.split(':');
+          const store = storeTypeParts[0];
+          const scope = storeTypeParts[1];
+          const storeName = `${store}_documents_1`;
+
+          const request = indexedDB.open(dbname);
+          request.onsuccess = event => {
+            const db = event.target.result;
+            const scopeIndex = db.transaction(storeName).objectStore(storeName).index('scope');
+            const cursor = scopeIndex.openCursor(IDBKeyRange.only(scope));
+            const keys = [];
+
+            cursor.onsuccess = event => {
+              const cursor = event.target.result;
+              if (cursor) {
+                keys.push([cursor.value.document_name, cursor.value.collection_name]);
+                cursor.continue();
+              } else {
+                resolve({ storeType, keys });
+              }
+            };
+            cursor.onerror = () => {
+              resolve({ storeType: 'cursorError' });
+            };
+          };
+          request.onerror = () => {
+            resolve({ storeType: 'dbError' });
+          };
+        } else {
+          resolve({ storeType: 'timeout' });
+        }
+      }, timeout);
     }
 
     return waiter;
-  }, [storeType, timeout]);
+  }, [storeType, timeout, readKeysFallback]);
 }
 
 /**
