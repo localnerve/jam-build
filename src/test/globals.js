@@ -139,7 +139,8 @@ export default async function setup () {
     return () => {};
   }
 
-  debug('Setup globals...');
+  const startTime = (new Date()).toISOString();
+  debug('Setup globals, start: ', startTime);
 
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
 
@@ -152,6 +153,14 @@ export default async function setup () {
   process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
 
   debug('Setup globals success', process.env.AUTHZ_URL, process.env.BASE_URL);
+
+  const endTime = (new Date()).toISOString();
+  const runTime = (new Date(endTime)).getTime() - (new Date(startTime)).getTime();
+  const runMinutesAll = runTime / (1000 * 60);
+  const runMinutes = Math.floor(runMinutesAll);
+  const runSeconds = ((runMinutesAll - Math.trunc(runMinutesAll)) * 60).toFixed(2);
+  debug('Setup globals, end: ', endTime);
+  debug(`Total run time ${runMinutes} minutes, ${runSeconds} seconds`);
 
   return teardown;
 }
