@@ -104,7 +104,7 @@ export async function getAuthzClientID () {
 
 /**
  * Make the authorization user and save the .auth user role file for this worker.
- * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
+ * If process.env.LOCALAPP_URL is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright.dev test object
  * @param {String} [mainRole] - The main usage role for the desired user, defaults to 'user'
@@ -113,7 +113,7 @@ export async function getAuthzClientID () {
  */
 async function createAuthzUser (test, mainRole = 'user', signupRoles = ['user']) {
   const id = test.info().parallelIndex;
-  const authDir = path.resolve(process.env.LOCALHOST_PORT ? thisDir : test.info().project.outputDir, '.auth');
+  const authDir = path.resolve(process.env.LOCALAPP_URL ? thisDir : test.info().project.outputDir, '.auth');
   const fileName = path.join(authDir, `account-${mainRole}-${id}.json`);
 
   debug(`Checking for existence of auth file ${fileName}...`);
@@ -220,7 +220,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
 
 /**
  * Get (create if required) the user account for a role for this test worker.
- * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
+ * If process.env.LOCALAPP_URL is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright test fixture
  * @param {String} [mainRole] - The main usage role for the desired user, defaults to 'user'

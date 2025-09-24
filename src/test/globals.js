@@ -22,6 +22,7 @@ import fs from 'node:fs/promises';
 import * as tar from 'tar';
 import { glob } from 'glob';
 import debugLib from '@localnerve/debug';
+import { test } from './fixtures.js';
 import { getAuthzClientID } from './authz.js';
 import {
   createAppContainer,
@@ -129,13 +130,14 @@ async function teardown () {
 }
 
 export default async function setup () {
-  const localhostPort = process.env.LOCALHOST_PORT;
+  const localAppUrl = process.env.LOCALAPP_URL;
   
-  if (localhostPort) {
-    debug(`LOCALHOST_PORT detected, targeting localhost:${localhostPort}...`);
+  if (localAppUrl) {
+    debug(`LOCALAPP_URL detected, targeting ${localAppUrl}...`);
     // process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID are already set
     // Authorizer and local app are already running...
-    process.env.BASE_URL = `http://localhost:${localhostPort}`;
+    process.env.BASE_URL = localAppUrl;
+
     return () => {};
   }
 
@@ -157,8 +159,8 @@ export default async function setup () {
   const endTime = (new Date()).toISOString();
   const runTime = (new Date(endTime)).getTime() - (new Date(startTime)).getTime();
   const runMinutesAll = runTime / (1000 * 60);
-  const runMinutes = Math.floor(runMinutesAll);
-  const runSeconds = ((runMinutesAll - Math.trunc(runMinutesAll)) * 60).toFixed(2);
+  const runMinutes = Math.trunc(runMinutesAll);
+  const runSeconds = ((runMinutesAll - runMinutes) * 60).toFixed(2);
   debug('Setup globals, end: ', endTime);
   debug(`Total run time ${runMinutes} minutes, ${runSeconds} seconds`);
 

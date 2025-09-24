@@ -89,7 +89,7 @@ DB_APP_PASSWORD=deadbEef-47148f2f
 
 **For Local Testing:**
 ```bash
-LOCALHOST_PORT=5000
+LOCALAPP_URL=http://localhost:5000
 AUTHZ_CLIENT_ID=<CLIENT_ID you started the local docker service with>
 AUTHZ_URL=http://localhost:9010
 ```

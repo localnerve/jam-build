@@ -83,7 +83,7 @@ export async function stopJS (browserName, page, map) {
 
   if (page.url().startsWith(process.env.BASE_URL)) {
     let swCoverage = await getSwCoverage(page);
-    if (!process.env.LOCALHOST_PORT) {
+    if (!process.env.LOCALAPP_URL) {
       // Not local, so remap swCoverage baseDir by removing /home/node/app from testcontainer home
       const remoteRoot = '/home/node/app';
       const localRoot = '.';

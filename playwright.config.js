@@ -31,8 +31,19 @@ const puppeteerOptions = process.env.CI ? {
 
 const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
+let bypassCSP = false;
+if (process.env.LOCALAPP_URL) {
+  try {
+    new URL(process.env.LOCALAPP_URL);  // check validity only
+    bypassCSP = true;                   // local could be any build result
+  } catch (e) {
+    throw new Error('LOCALAPP_URL not valid url');
+  }
+} // bypassCSP NOT required for testcontainers bc the app was build:dev in the docker image
+
 export default defineConfig({
   use: {
+    bypassCSP,
     launchOptions: {
       ...puppeteerOptions
     }

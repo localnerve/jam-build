@@ -18,14 +18,14 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import { Authorizer } from '@authorizerdev/authorizer-js';
+import { Authorizer } from '@localnerve/authorizer-js';
 import debugLib from '@localnerve/debug';
 
 const debug = debugLib('_createlocaluser');
 
 const authRef = new Authorizer({
   authorizerURL: process.env.AUTHZ_URL,
-  redirectURL: `http://localhost:${process.env.LOCALHOST_PORT}`,
+  redirectURL: process.env.LOCALAPP_URL,
   clientID: process.env.AUTHZ_CLIENT_ID,
 });
 
