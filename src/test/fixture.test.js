@@ -24,7 +24,9 @@ import { expect, test } from './fixtures.js';
 const debug = debugLib('test:fixture:check');
 
 test.describe('Fixture check', () => {
-  test('Audit APIRequestContext fixtures', async ({ adminRequest, userRequest, request }) => {
+  test('Audit APIRequestContext fixtures', async ({ browser, browserName, adminRequest, userRequest, request }) => {
+    debug('Browser', browserName, browser.version());
+
     const adminState = await adminRequest.storageState();
     const userState = await userRequest.storageState();
     const publicState = await request.storageState();
