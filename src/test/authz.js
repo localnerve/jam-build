@@ -188,6 +188,37 @@ export async function authenticateAndSaveState (browser, account, fileName) {
   const context = await browser.newContext({ storageState: undefined });
   const page = await context.newPage();
 
+  // BUGFIX-START: Enable debugging and capture for playwright webkit cookie bug 😒
+  const isWebkit = browser.browserType().name() === 'webkit';
+  let resolvePendingSessionCookie;
+  const asyncPendingSessionCookie = new Promise(res => resolvePendingSessionCookie = res);
+
+  if (isWebkit) {
+    await page.route('**/*', (route, request) => {
+      route.continue();
+    });
+    page.on('response', async response => {
+      const allHeaders = await response.allHeaders();
+      const setCookieHeader = allHeaders['set-cookie'];
+      if (setCookieHeader) {
+        debug('RESPONSE Interception - Set-Cookie header:', setCookieHeader);
+        debug('RESPONSE Interception - URL:', response.url());
+      
+        // Match cookie_session= followed by everything up to "; Path=" 
+        // This captures the full base64 encoded value including %3D%3D at the end
+        const match = setCookieHeader.match(/cookie_session=([^;]+.*?)(?=;\s*Path=)/);
+        if (match) {
+          const pendingSessionCookie = decodeURIComponent(match[1]);
+          debug('RESPONSE Interception - Captured session cookie value', pendingSessionCookie);
+          resolvePendingSessionCookie(pendingSessionCookie);
+        }
+      } else {
+        debug('RESPONSE Interception - No Set-Cookie headers');
+      }
+    });
+  }
+  // BUGFIX-END
+
   debug(`Login to ${process.env.AUTHZ_URL}:${process.env.AUTHZ_CLIENT_ID} with account: `, account);
   await page.addScriptTag({
     path: 'node_modules/@localnerve/authorizer-js/lib/authorizer.min.js'
@@ -212,6 +243,30 @@ export async function authenticateAndSaveState (browser, account, fileName) {
     return data;
   }, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID, account]);
   debug('Successful login data: ', loginData);
+
+  // BUGFIX-START: Playwright webkit cookie bug means we have to add the cookie ourselves (even in secure contexts) bc REASONS 😒
+  if (isWebkit) {
+    const pendingSessionCookie = await asyncPendingSessionCookie;
+    if (pendingSessionCookie) {
+      debug('Webkit - Attempting to manually set captured cookie');
+      
+      await context.addCookies([{
+        name: 'cookie_session',
+        value: pendingSessionCookie,
+        domain: '.rp-localnerve.duckdns.org',
+        path: '/',
+        // expires: Math.floor(Date.now() / 1000) + (30 * 60),
+        expires: -1,
+        httpOnly: true,
+        secure: true,
+        sameSite: 'None'
+      }]);
+      
+      const verifycookies = await context.cookies();
+      debug('Webkit - Verification after manual add:', verifycookies.length);
+    }
+  }
+  // BUGFIX-END
 
   await page.close();
   await context.storageState({ path: fileName });
