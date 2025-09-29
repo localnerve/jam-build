@@ -98,7 +98,10 @@ export default defineConfig({
   }, {
     name: 'api-webkit',
     use: {
-      browserName: 'webkit'
+      browserName: 'webkit',
+      launchOptions: {
+        args: ['--disable-web-security']
+      }
     },
     testMatch: 'api/**/*.test.js',
     workers: 6,
@@ -115,7 +118,10 @@ export default defineConfig({
   }, {
     name: 'pages-webkit',
     use: {
-      browserName: 'webkit'
+      browserName: 'webkit',
+      launchOptions: {
+        args: ['--disable-web-security']
+      }
     },
     testMatch: 'pages/**/*.test.js'
   }, {
@@ -149,12 +155,15 @@ export default defineConfig({
     },
     dependencies: ['data']
   }, {
-    // This requires named, https setup first (webkit won't honor secure cookie over http on localhost)
+    // This requires named, https setup first (webkit won't honor cookie over http on localhost)
     name: 'Webkit',
     use: {
       slowMo,
       browserName: 'webkit',
-      viewport: desktopViewport
+      viewport: desktopViewport,
+      launchOptions: {
+        args: ['--disable-web-security']
+      }
     },
     testMatch: 'data/**/*.test.js',
     workers: 1,
