@@ -155,7 +155,8 @@ export default defineConfig({
     },
     dependencies: ['data']
   }, {
-    // This requires named, https setup first (webkit won't honor cookie over http on localhost)
+    // This either requires a named, proxied https setup (webkit won't honor secure cookie over http on localhost)
+    // Alternatively, run the localnerve authorizer fork on localhost with startup env APP_COOKIE_SECURE=false
     name: 'Webkit',
     use: {
       slowMo,
