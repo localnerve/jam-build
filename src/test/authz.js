@@ -250,15 +250,19 @@ export async function authenticateAndSaveState (browser, account, fileName) {
     if (pendingSessionCookie) {
       debug('Webkit - Attempting to manually set captured cookie');
       
+      const url = new URL(process.env.AUTHZ_URL);
+      const domain = `.${url.hostname}`;
+      const secure = url.protocol.match(/https/) !== null;
+  
       await context.addCookies([{
         name: 'cookie_session',
         value: pendingSessionCookie,
-        domain: '.rp-localnerve.duckdns.org',
+        domain,
         path: '/',
         // expires: Math.floor(Date.now() / 1000) + (30 * 60),
         expires: -1,
         httpOnly: true,
-        secure: true,
+        secure,
         sameSite: 'None'
       }]);
       
