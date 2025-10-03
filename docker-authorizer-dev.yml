@@ -1,7 +1,7 @@
 name: authorizer-dev
 services:
   authorizer:
-    image: lakhansamani/authorizer:1.4.4
+    image: localnerve/authorizer:v1.5.2
     environment:
       ENV: development
       ADMIN_SECRET: deadbeefcafebabe
