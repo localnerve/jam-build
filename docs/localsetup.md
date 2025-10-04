@@ -16,7 +16,6 @@ Title: Getting Started
    - Execute `docker compose --env-file .env.dev up` to build and start the services. Wait for it to complete.
    - Optionally, create your own `.env` file if needed.
    - Local ports 3306, 5000, 6379, and 9010 must be free prior to service start.
-3. **Restart `jam-build-container`**: Restart the `jam-build-container` (The authorizer.dev service needs a restart to pickup its CLIENT_ID).
 
 ### Configuration Steps
 1. **Remove Leftover Files**:
