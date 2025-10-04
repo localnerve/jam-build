@@ -142,7 +142,7 @@ export async function createDatabaseAndAuthorizer () {
     }'@'%' IDENTIFIED BY '${process.env.DB_APP_PASSWORD}';`);
 
     debug('Starting authorizer container...');
-    authorizerContainer = await new GenericContainer('lakhansamani/authorizer:1.4.4')
+    authorizerContainer = await new GenericContainer('localnerve/authorizer:v1.5.2')
       .withEnvironment({
         ENV: 'production',
         ADMIN_SECRET: process.env.AUTHZ_ADMIN_SECRET,
@@ -151,6 +151,7 @@ export async function createDatabaseAndAuthorizer () {
         DATABASE_NAME: 'authorizer',
         ROLES: 'admin,user',
         DEFAULT_ROLES: 'user',
+        APP_COOKIE_SECURE: !(process.env.WEBKIT == 1),
         //PROTECTED_ROLES: 'admin', // testing needs to use signup
         PORT: 9011
       })

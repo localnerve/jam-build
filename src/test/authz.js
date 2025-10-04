@@ -104,7 +104,7 @@ export async function getAuthzClientID () {
 
 /**
  * Make the authorization user and save the .auth user role file for this worker.
- * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
+ * If process.env.LOCALAPP_URL is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright.dev test object
  * @param {String} [mainRole] - The main usage role for the desired user, defaults to 'user'
@@ -113,7 +113,7 @@ export async function getAuthzClientID () {
  */
 async function createAuthzUser (test, mainRole = 'user', signupRoles = ['user']) {
   const id = test.info().parallelIndex;
-  const authDir = path.resolve(process.env.LOCALHOST_PORT ? thisDir : test.info().project.outputDir, '.auth');
+  const authDir = path.resolve(process.env.LOCALAPP_URL ? thisDir : test.info().project.outputDir, '.auth');
   const fileName = path.join(authDir, `account-${mainRole}-${id}.json`);
 
   debug(`Checking for existence of auth file ${fileName}...`);
@@ -188,6 +188,37 @@ export async function authenticateAndSaveState (browser, account, fileName) {
   const context = await browser.newContext({ storageState: undefined });
   const page = await context.newPage();
 
+  // BUGFIX-START: Enable debugging and capture for playwright webkit cookie bug 😒
+  const isWebkit = browser.browserType().name() === 'webkit';
+  let resolvePendingSessionCookie;
+  const asyncPendingSessionCookie = new Promise(res => resolvePendingSessionCookie = res);
+
+  if (isWebkit) {
+    await page.route('**/*', (route, request) => {
+      route.continue();
+    });
+    page.on('response', async response => {
+      const allHeaders = await response.allHeaders();
+      const setCookieHeader = allHeaders['set-cookie'];
+      if (setCookieHeader) {
+        debug('RESPONSE Interception - Set-Cookie header:', setCookieHeader);
+        debug('RESPONSE Interception - URL:', response.url());
+      
+        // Match cookie_session= followed by everything up to "; Path=" 
+        // This captures the full base64 encoded value including %3D%3D at the end
+        const match = setCookieHeader.match(/cookie_session=([^;]+.*?)(?=;\s*Path=)/);
+        if (match) {
+          const pendingSessionCookie = decodeURIComponent(match[1]);
+          debug('RESPONSE Interception - Captured session cookie value', pendingSessionCookie);
+          resolvePendingSessionCookie(pendingSessionCookie);
+        }
+      } else {
+        debug('RESPONSE Interception - No Set-Cookie headers');
+      }
+    });
+  }
+  // BUGFIX-END
+
   debug(`Login to ${process.env.AUTHZ_URL}:${process.env.AUTHZ_CLIENT_ID} with account: `, account);
   await page.addScriptTag({
     path: 'node_modules/@localnerve/authorizer-js/lib/authorizer.min.js'
@@ -213,6 +244,34 @@ export async function authenticateAndSaveState (browser, account, fileName) {
   }, [process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID, account]);
   debug('Successful login data: ', loginData);
 
+  // BUGFIX-START: Playwright webkit cookie bug means we have to add the cookie ourselves (even in secure contexts) bc REASONS 😒
+  if (isWebkit) {
+    const pendingSessionCookie = await asyncPendingSessionCookie;
+    if (pendingSessionCookie) {
+      debug('Webkit - Attempting to manually set captured cookie');
+      
+      const url = new URL(process.env.AUTHZ_URL);
+      const domain = `.${url.hostname}`;
+      const secure = url.protocol.match(/https/) !== null;
+  
+      await context.addCookies([{
+        name: 'cookie_session',
+        value: pendingSessionCookie,
+        domain,
+        path: '/',
+        // expires: Math.floor(Date.now() / 1000) + (30 * 60),
+        expires: -1,
+        httpOnly: true,
+        secure,
+        sameSite: 'None'
+      }]);
+      
+      const verifycookies = await context.cookies();
+      debug('Webkit - Verification after manual add:', verifycookies.length);
+    }
+  }
+  // BUGFIX-END
+
   await page.close();
   await context.storageState({ path: fileName });
   return context;
@@ -220,7 +279,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
 
 /**
  * Get (create if required) the user account for a role for this test worker.
- * If process.env.LOCALHOST_PORT is set, uses reusable store for client account storage.
+ * If process.env.LOCALAPP_URL is set, uses reusable store for client account storage.
  * 
  * @param {Object} test - The playwright test fixture
  * @param {String} [mainRole] - The main usage role for the desired user, defaults to 'user'

@@ -161,21 +161,21 @@ test.describe('mutation tests', () => {
     map = createMap();
   });
 
-  test.beforeEach(async ({ page, adminRequest, userRequest }) => {
-    await startJS(page);
+  test.beforeEach(async ({ browserName, page, adminRequest, userRequest }) => {
+    await startJS(browserName, page);
     await createTestDataApp(baseUrl, adminRequest);
     await createTestDataUser(baseUrl, userRequest);
     await manualLogin(baseUrl, page);
     needLogout = true;
   });
 
-  test.afterEach(async ({ page, adminRequest, userRequest }) => {
+  test.afterEach(async ({ browserName, page, adminRequest, userRequest }) => {
     if (needLogout) {
       await manualLogout(baseUrl, page);
     }
     await deleteTestDataApp(baseUrl, adminRequest);
     await deleteTestDataUser(baseUrl, userRequest);
-    await stopJS(page, map);
+    await stopJS(browserName, page, map);
   });
 
   /* eslint-disable-next-line no-empty-pattern */
@@ -253,19 +253,19 @@ test.describe('mutation tests', () => {
   });
 
   /* eslint-disable-next-line playwright/expect-expect */
-  test('close page batch terminus', async ({ browser }, testInfo) => {
+  test('close page batch terminus', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     let context = await browser.newContext();
     let page = await context.newPage();
-    await startJS(page);
+    await startJS(browserName, page);
     await manualLogin(baseUrl, page);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
 
     // trigger batch execution by terminating the page
-    await stopJS(page, map);
+    await stopJS(browserName, page, map);
     await page.close();
 
     // let it cook, then kill
@@ -274,18 +274,18 @@ test.describe('mutation tests', () => {
 
     context = await browser.newContext();
     page = await context.newPage();
-    await startJS(page);
+    await startJS(browserName, page);
     await manualLogin(baseUrl, page);
 
     userStateControl = page.locator('#user-home-state');
     await testMutations(page, userStateControl, mutations);
 
     await manualLogout(baseUrl, page);
-    await stopJS(page, map);
+    await stopJS(browserName, page, map);
     await context.close();
   });
 
-  test('whole document creation, clean admin login', async ({ browser, adminRequest }, testInfo) => {
+  test('whole document creation, clean admin login', async ({ browserName, browser, adminRequest }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     // Clean the app test data
@@ -294,7 +294,7 @@ test.describe('mutation tests', () => {
     // Admin login context
     const context = await browser.newContext();
     const page = await context.newPage();
-    await startJS(page);
+    await startJS(browserName, page);
     await manualAdminLogin(baseUrl, page);
 
     // Add a new app property
@@ -329,7 +329,7 @@ test.describe('mutation tests', () => {
     appState = page.locator('#app-public-home-state');
     await expect(appState.locator(`input[name="${newPropName}"]`)).toHaveCount(1);
 
-    await stopJS(page, map);
+    await stopJS(browserName, page, map);
     await context.close();
   });
 
@@ -345,7 +345,7 @@ test.describe('mutation tests', () => {
 
     const context = await browser.newContext();
     const page = await context.newPage();
-    await startJS(page);
+    await startJS(browserName, page);
     await manualLogin(baseUrl, page);
     
     // TODO: fix this. This should not be required.
@@ -392,16 +392,16 @@ test.describe('mutation tests', () => {
     await testMutations(page, userStateControl, mutations);
 
     // await new Promise(res => setTimeout(res, 5000)); // increase this to visually debug
-    await stopJS(page, map);
+    await stopJS(browserName, page, map);
     await context.close();
   });
 
-  test('simple version conflict', async ({ browser }, testInfo) => {
+  test('simple version conflict', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
-    await startJS(page1);
+    await startJS(browserName, page1);
     await manualLogin(baseUrl, page1);
   
     const userStateControl1 = page1.locator('#user-home-state');
@@ -418,7 +418,7 @@ test.describe('mutation tests', () => {
 
     const context2 = await browser.newContext();
     const page2 = await context2.newPage();
-    await startJS(page2);
+    await startJS(browserName, page2);
     await manualLogin(baseUrl, page2);
   
     const userStateControl2 = page2.locator('#user-home-state');
@@ -498,8 +498,8 @@ test.describe('mutation tests', () => {
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
     expect(object1).toEqual(mergeResult);
 
-    await stopJS(page2, map);
-    await stopJS(page1, map);
+    await stopJS(browserName, page2, map);
+    await stopJS(browserName, page1, map);
     context2.close();
     context1.close();
   });

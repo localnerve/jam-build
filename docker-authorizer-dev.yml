@@ -1,7 +1,7 @@
 name: authorizer-dev
 services:
   authorizer:
-    image: lakhansamani/authorizer:1.4.4
+    image: localnerve/authorizer:v1.5.2
     environment:
       ENV: development
       ADMIN_SECRET: deadbeefcafebabe
@@ -11,8 +11,6 @@ services:
       CLIENT_ID: 'deadbeef-cafe-babe-feed-baadc0deface'
       PORT: 9010
       ROLES: 'admin,user'
-      DEFAULT_ROLES: 'user'
-      PROTECTED_ROLES: 'admin'
       LOG_LEVEL: 'debug'
       ORGANIZATION_NAME: 'Business Name'
       ORGANIZATION_LOGO: 'http://localhost:5000/images/logo-e16f7a5e32.svg'

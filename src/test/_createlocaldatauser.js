@@ -22,7 +22,7 @@
 import { test } from './fixtures.js';
 import { createTestDataUser } from './testdata.js';
 
-const baseUrl = process.env.BASE_URL ?? `http://localhost:${process.env.LOCALHOST_PORT}`;
+const baseUrl = process.env.BASE_URL ?? process.env.LOCALAPP_URL;
 
 test('post local user home test data', async ({ userRequest }) => {
   await createTestDataUser(baseUrl, userRequest);

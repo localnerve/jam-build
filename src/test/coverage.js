@@ -54,13 +54,17 @@ export async function createReport (map, testInfo) {
   }));
 }
 
-export async function startJS (page) {
+export async function startJS (browserName, page) {
+  if (browserName !== 'chromium') return;
+
   await page.coverage.startJSCoverage({
     resetOnNavigation: false
   });
 }
 
-export async function stopJS (page, map) {
+export async function stopJS (browserName, page, map) {
+  if (browserName !== 'chromium') return;
+
   const coverage = await page.coverage.stopJSCoverage();
 
   for (const entry of coverage) {
@@ -79,7 +83,7 @@ export async function stopJS (page, map) {
 
   if (page.url().startsWith(process.env.BASE_URL)) {
     let swCoverage = await getSwCoverage(page);
-    if (!process.env.LOCALHOST_PORT) {
+    if (!process.env.LOCALAPP_URL) {
       // Not local, so remap swCoverage baseDir by removing /home/node/app from testcontainer home
       const remoteRoot = '/home/node/app';
       const localRoot = '.';

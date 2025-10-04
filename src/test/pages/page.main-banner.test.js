@@ -32,12 +32,12 @@ test.describe('main-banner tests', () => {
     map = createMap();
   });
 
-  test.beforeEach(async ({ page }) => {
-    await startJS(page);
+  test.beforeEach(async ({ browserName, page }) => {
+    await startJS(browserName, page);
   });
 
-  test.afterEach(async ({ page }) => {
-    await stopJS(page, map);
+  test.afterEach(async ({ browserName, page }) => {
+    await stopJS(browserName, page, map);
   });
 
   // eslint-disable-next-line no-empty-pattern
