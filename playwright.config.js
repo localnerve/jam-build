@@ -43,10 +43,7 @@ if (process.env.LOCALAPP_URL) {
 
 export default defineConfig({
   use: {
-    bypassCSP,
-    launchOptions: {
-      ...puppeteerOptions
-    }
+    bypassCSP
   },
   testDir: 'src/test',
   timeout: 5000,
@@ -80,6 +77,11 @@ export default defineConfig({
     testMatch: /fixture\.test\.js/
   }, {
     name: 'api',
+    use: {
+      launchOptions: {
+        ...puppeteerOptions
+      }
+    },
     testMatch: 'api/**/*.test.js',
     workers: 6,
     dependencies: ['fixtures']
@@ -105,6 +107,11 @@ export default defineConfig({
     dependencies: ['fixtures-webkit']
   }, {
     name: 'pages',
+    use: {
+      launchOptions: {
+        ...puppeteerOptions
+      }
+    },
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'pages-firefox',
@@ -120,10 +127,20 @@ export default defineConfig({
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'performance',
+    use: {
+      launchOptions: {
+        ...puppeteerOptions
+      }
+    },
     testMatch: 'pages/lighthouse.test.js',
     dependencies: ['fixtures']
   }, {
     name: 'data',
+    use: {
+      launchOptions: {
+        ...puppeteerOptions
+      }
+    },
     testMatch: 'data/**/*.test.js',
     workers: 1,
     dependencies: ['api', 'pages']
@@ -136,7 +153,10 @@ export default defineConfig({
     use: {
       slowMo,
       browserName: 'chromium',
-      viewport: desktopViewport
+      viewport: desktopViewport,
+      launchOptions: {
+        ...puppeteerOptions
+      }
     },
     testMatch: 'data/**/*.test.js',
     workers: 1,
@@ -145,7 +165,10 @@ export default defineConfig({
     name: 'Pixel3Emulate',
     use: {
       slowMo,
-      ...devices['Pixel 3']
+      ...devices['Pixel 3'],
+      launchOptions: {
+        ...puppeteerOptions
+      }
     },
     dependencies: ['data']
   }, {
