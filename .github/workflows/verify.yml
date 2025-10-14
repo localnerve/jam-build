@@ -29,5 +29,9 @@ jobs:
       run: npm run lint
     - name: Build
       run: npm run build
-    - name: Test
+    - name: Test Firefox
+      run: npm run test:ff
+    # - name: Test Webkit
+    #   run: npm run test:webkit
+    - name: Test Chromium
       run: npm test
