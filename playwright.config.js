@@ -98,10 +98,7 @@ export default defineConfig({
   }, {
     name: 'api-webkit',
     use: {
-      browserName: 'webkit',
-      launchOptions: {
-        args: ['--disable-web-security']
-      }
+      browserName: 'webkit'
     },
     testMatch: 'api/**/*.test.js',
     workers: 6,
@@ -118,10 +115,7 @@ export default defineConfig({
   }, {
     name: 'pages-webkit',
     use: {
-      browserName: 'webkit',
-      launchOptions: {
-        args: ['--disable-web-security']
-      }
+      browserName: 'webkit'
     },
     testMatch: 'pages/**/*.test.js'
   }, {
@@ -161,10 +155,7 @@ export default defineConfig({
     use: {
       slowMo,
       browserName: 'webkit',
-      viewport: desktopViewport,
-      launchOptions: {
-        args: ['--disable-web-security']
-      }
+      viewport: desktopViewport
     },
     testMatch: 'data/**/*.test.js',
     workers: 1,
