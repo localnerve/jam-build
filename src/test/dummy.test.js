@@ -18,3 +18,10 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import { expect, test } from './fixtures.js';
+
+test.describe('Dummy test suite', () => {
+  test('Dummy test', () => {
+    expect(0).toEqual(0);
+  });
+});
