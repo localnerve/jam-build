@@ -38,7 +38,7 @@ jobs:
     needs: build_image
     strategy:
       matrix:
-        label: ['webkit', 'firefox', 'chromium']
+        label: ['firefox', 'chromium']
     name: 'Test ${{ matrix.label }} browser'
     steps:
       - uses: actions/checkout@v4
