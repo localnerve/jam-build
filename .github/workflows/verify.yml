@@ -28,10 +28,10 @@ jobs:
       - name: Export Docker Image
         run: docker save jam-build-test:latest -o jam-build-test.tar
       - name: Upload Docker Image Artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: docker-image
-            path: jam-build-test.tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: jam-build-test.tar
 
   browser_tests:
     runs-on: ubuntu-24.04
@@ -52,8 +52,8 @@ jobs:
         run: npx playwright install --with-deps
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
-          with:
-            name: docker-image
+        with:
+          name: docker-image
       - name: Load Docker Image
         run: docker load -i jam-build-test.tar
       - name: Test ${{ matrix.label }}
