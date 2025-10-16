@@ -9,20 +9,40 @@ env:
   NODE_VERSION: '24.8'
 
 jobs:
-  build_cache_verify_publish:
+  build_verify:
     runs-on: ubuntu-24.04
-    name: 'Build, cache deps and docker image. Verify and publish production artifacts'
+    name: 'Build, verify, and cache'
     steps:
       - uses: actions/checkout@v5
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - name: Install Dependencies
+      - name: Cache Npm Dependencies
+        uses: actions/cache@v4
+        id: npm-cache
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install Npm Dependencies
         run: npm ci
-      - name: Install Playwright
-        run: npx playwright install --with-deps
+      - name: Cache Playwright Browser Binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - name: Install Playwright Browsers (if not cached)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install
+      - name: Install Playwright System Dependencies
+        run: npx playwright install-deps
       - name: Run Linter
         run: npm run lint
       - name: Check Production Build
@@ -47,24 +67,37 @@ jobs:
           path: jam-build-test.tar
 
   browser_tests:
-    runs-on: ubuntu-24.04
-    needs: build_cache_verify_publish
+    needs: build_verify
     strategy:
       fail-fast: false
       matrix:
         label: ['webkit', 'firefox', 'chromium']
-    name: 'Test ${{ matrix.label }} browser'
+        os: ['ubuntu-24.04']
+        include:
+          - label: 'webkit'
+            os: 'macos-15-intel'
+    runs-on: ${{ matrix.os }}
+    name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - name: Install Dependencies
-        run: npm ci
-      - name: Install Playwright
-        run: npx playwright install --with-deps
+      - name: Restore Npm Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            **/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+      - name: Restore Playwright Browser Binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+      - name: Install Playwright System Dependencies
+        run: npx playwright install-deps
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
