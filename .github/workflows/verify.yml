@@ -73,6 +73,9 @@ jobs:
       matrix:
         label: ['webkit', 'firefox', 'chromium']
         os: ['ubuntu-24.04']
+        exclude:
+          - label: 'webkit'
+            os: 'ubuntu-24.04'
         include:
           - label: 'webkit'
             os: 'macos-15-intel'
@@ -96,6 +99,13 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+      - name: Set Playwright Browser Path
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=~/.cache/ms-playwright" >> $GITHUB_ENV
+      - name: Install Docker on macOS
+        if: runner.os == 'macOS'
+        uses: douglascamata/setup-docker-macos-action@v1 # Use a marketplace action to handle Colima
+        with:
+          version: 'latest'
       - name: Install Playwright System Dependencies
         run: npx playwright install-deps
       - name: Download Docker Image Artifact
