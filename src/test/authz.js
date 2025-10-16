@@ -253,6 +253,9 @@ export async function authenticateAndSaveState (browser, account, fileName) {
       const url = new URL(process.env.AUTHZ_URL);
       const domain = `.${url.hostname}`;
       const secure = url.protocol.match(/https/) !== null;
+      // CRITICAL: sameSite None requires secure=true
+      // For http://localhost, use Lax with secure=false
+      const sameSite = secure ? 'None' : 'Lax';
   
       await context.addCookies([{
         name: 'cookie_session',
@@ -263,7 +266,7 @@ export async function authenticateAndSaveState (browser, account, fileName) {
         expires: -1,
         httpOnly: true,
         secure,
-        sameSite: 'None'
+        sameSite
       }]);
       
       const verifycookies = await context.cookies();
