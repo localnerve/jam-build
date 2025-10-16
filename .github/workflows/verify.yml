@@ -5,24 +5,55 @@ on:
   pull_request:
     branches: [ main, stage ]
 
+env:
+  NODE_VERSION: '24.8'
+
 jobs:
-  build_image:
+  build_cache_verify_publish:
     runs-on: ubuntu-24.04
-    name: 'Build and upload jam-build-test:latest docker image, verify lint and build'
+    name: 'Build, cache deps and docker image. Verify and publish production artifacts'
+    outputs:
+      playwright_version: ${{ steps.playwright-version.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '24.8'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Get Playwright Version
+        id: playwright-version
+        run: echo "version=$(node -e "console.log(require('./package-lock.json').dependencies['@playwright/test'].version)")" >> $GITHUB_OUTPUT
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v3
+        id: cache-primes
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-npm-${{ env.NODE_VERSION }}-${{ hashFiles('./package-lock.json') }}
+      - name: Cache Playwright Binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: /home/runner/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
       - name: Install Dependencies
+        if: steps.cache-primes.outputs.cache-hit != 'true'
         run: npm ci
       - name: Install Playwright
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
       - name: Run Linter
         run: npm run lint
       - name: Check Production Build
         run: npm run build
+      #- name: Archive Build Stats
+      #  if: ${{ success() }}
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: jam-build-bundles
+      #    overwrite: true
+      #    compression: 9
+      #    path: ./stats/
       - name: Build Docker Image
         run: npm run test:build    # builds jam-build-test:latest
       - name: Export Docker Image
@@ -31,24 +62,41 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
+          overwrite: true
           path: jam-build-test.tar
 
   browser_tests:
     runs-on: ubuntu-24.04
-    needs: build_image
+    needs: build_cache_verify_publish
     strategy:
+      fail-fast: false
       matrix:
-        label: ['firefox', 'chromium']
+        label: ['webkit', 'firefox', 'chromium']
     name: 'Test ${{ matrix.label }} browser'
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '24.8'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v3
+        id: cache-primes
+        with:
+          path: ./node_modules
+          key: ${{ runner.os }}-npm-${{ env.NODE_VERSION }}-${{ hashFiles('./package-lock.json') }}
+      - name: Cache Playwright Binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: /home/runner/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ needs.build_cache_verify_publish.outputs.playwright_version }}
       - name: Install Dependencies
+        if: steps.cache-primes.outputs.cache-hit != 'true'
         run: npm ci
       - name: Install Playwright
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
@@ -58,3 +106,26 @@ jobs:
         run: docker load -i jam-build-test.tar
       - name: Test ${{ matrix.label }}
         run: npm run test:${{ matrix.label }}
+      #- name: Archive Test Reports
+      #  if: success() && matrix.label == 'chromium'
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: test-reports
+      #    overwrite: true
+      #    compresion: 9
+      #    path: |
+      #      ./test-results/coverage/coverage-mutation-tests-0/
+      #      ./test-results/audits/
+      #      ./coverage/
+      #      !./coverage/**/tmp
+
+  cleanup:
+    runs-on: ubuntu-24.04
+    needs: browser_tests
+    if: always()
+    steps:
+      - name: Delete Test Docker Image
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: docker-image
+          failOnError: false
