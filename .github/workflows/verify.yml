@@ -14,20 +14,11 @@ jobs:
     name: 'Build, verify, and cache'
     steps:
       - uses: actions/checkout@v5
-      - name: Setup Node
+      - name: Setup Node with npm cache
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Cache Npm Dependencies
-        uses: actions/cache@v4
-        id: npm-cache
-        with:
-          path: |
-            **/node_modules
-            ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
       - name: Cache Playwright Browser Binaries
@@ -83,27 +74,32 @@ jobs:
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
       - uses: actions/checkout@v5
-      - name: Setup Node
+      - name: Setup Node with npm cache
         uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Restore Npm Dependencies
+          cache: 'npm'
+      # Since cache keys are OS-specific, a cache hit on macOS is unlikely
+      # if the cache was created on Ubuntu. The 'npm ci' command below
+      # handles this cache miss gracefully by installing dependencies.
+      - name: Install Npm Dependencies
+        run: npm ci
+      - name: Cache Playwright Browser Binaries
         uses: actions/cache@v4
-        with:
-          path: |
-            **/node_modules
-            ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-      - name: Restore Playwright Browser Binaries
-        uses: actions/cache@v4
+        id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - name: Install Playwright Browsers (if not cached)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install
       - name: Set Playwright Browser Path
-        run: echo "PLAYWRIGHT_BROWSERS_PATH=~/.cache/ms-playwright" >> $GITHUB_ENV
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright" >> $GITHUB_ENV
       - name: Install Docker on macOS
         if: runner.os == 'macOS'
-        uses: douglascamata/setup-docker-macos-action@v1 # Use a marketplace action to handle Colima
+        uses: douglascamata/setup-docker-macos-action@v1
         with:
           version: 'latest'
       - name: Install Playwright System Dependencies
