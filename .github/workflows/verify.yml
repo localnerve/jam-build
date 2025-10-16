@@ -7,12 +7,14 @@ on:
 
 env:
   NODE_VERSION: '24.8'
-  REPORT_ARTIFACTS: false
+  REPORT_ARTIFACTS: 'false'
 
 jobs:
   build_verify:
     runs-on: ubuntu-24.04
     name: 'Build, verify, and cache'
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0
     steps:
       - uses: actions/checkout@v5
       - name: Setup Node with npm cache
@@ -22,19 +24,6 @@ jobs:
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
-      - name: Cache Playwright Browser Binaries
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
-      - name: Install Playwright Browsers (if not cached)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install
-      - name: Install Playwright System Dependencies
-        run: npx playwright install-deps
       - name: Run Linter
         run: npm run lint
       - name: Check Production Build
@@ -67,6 +56,8 @@ jobs:
         os: ['ubuntu-24.04']
     runs-on: ${{ matrix.os }}
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
+    container:
+      image: mcr.microsoft.com/playwright:v1.56.0
     steps:
       - uses: actions/checkout@v5
       - name: Setup Node with npm cache
@@ -76,21 +67,6 @@ jobs:
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
-      - name: Cache Playwright Browser Binaries
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
-      - name: Install Playwright Browsers (if not cached)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install
-      - name: Set Playwright Browser Path
-        run: echo "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright" >> $GITHUB_ENV
-      - name: Install Playwright System Dependencies
-        run: npx playwright install-deps
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
