@@ -7,6 +7,7 @@ on:
 
 env:
   NODE_VERSION: '24.8'
+  REPORT_ARTIFACTS: false
 
 jobs:
   build_verify:
@@ -38,14 +39,14 @@ jobs:
         run: npm run lint
       - name: Check Production Build
         run: npm run build
-      #- name: Archive Build Stats
-      #  if: ${{ success() }}
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: jam-build-bundles
-      #    overwrite: true
-      #    compression: 9
-      #    path: ./stats/
+      - name: Archive Build Stats
+        if: success() && env.REPORT_ARTIFACTS
+        uses: actions/upload-artifact@v4
+        with:
+          name: jam-build-stats
+          overwrite: true
+          compression: 9
+          path: ./stats/
       - name: Build Docker Image
         run: npm run test:build    # builds jam-build-test:latest
       - name: Export Docker Image
@@ -64,12 +65,6 @@ jobs:
       matrix:
         label: ['webkit', 'firefox', 'chromium']
         os: ['ubuntu-24.04']
-        exclude:
-          - label: 'webkit'
-            os: 'ubuntu-24.04'
-        include:
-          - label: 'webkit'
-            os: 'macos-13'
     runs-on: ${{ matrix.os }}
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
@@ -79,9 +74,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-      # Since cache keys are OS-specific, a cache hit on macOS is unlikely
-      # if the cache was created on Ubuntu. The 'npm ci' command below
-      # handles this cache miss gracefully by installing dependencies.
       - name: Install Npm Dependencies
         run: npm ci
       - name: Cache Playwright Browser Binaries
@@ -97,11 +89,6 @@ jobs:
         run: npx playwright install
       - name: Set Playwright Browser Path
         run: echo "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright" >> $GITHUB_ENV
-      - name: Install Docker on macOS
-        if: runner.os == 'macOS'
-        uses: douglascamata/setup-docker-macos-action@v1
-        with:
-          colima-network-address: true
       - name: Install Playwright System Dependencies
         run: npx playwright install-deps
       - name: Download Docker Image Artifact
@@ -112,18 +99,18 @@ jobs:
         run: docker load -i jam-build-test.tar
       - name: Test ${{ matrix.label }}
         run: npm run test:${{ matrix.label }}
-      #- name: Archive Test Reports
-      #  if: success() && matrix.label == 'chromium'
-      #  uses: actions/upload-artifact@v4
-      #  with:
-      #    name: test-reports
-      #    overwrite: true
-      #    compresion: 9
-      #    path: |
-      #      ./test-results/coverage/coverage-mutation-tests-0/
-      #      ./test-results/audits/
-      #      ./coverage/
-      #      !./coverage/**/tmp
+      - name: Archive Test Reports
+        if: success() && matrix.label == 'chromium' && env.REPORT_ARTIFACTS
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          overwrite: true
+          compresion: 9
+          path: |
+            ./test-results/coverage/coverage-mutation-tests-0/
+            ./test-results/audits/
+            ./coverage/
+            !./coverage/**/tmp
 
   cleanup:
     runs-on: ubuntu-24.04
