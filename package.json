@@ -64,7 +64,7 @@
     "test:local:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
     "test:local:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000",
     "test:performance": "npm run test:env -- playwright test --project=performance --max-failures=1",
-    "test:webkit": "npm run test:env -- WEBKIT=1 playwright test --project=Webkit"
+    "test:webkit": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* WEBKIT=1 playwright test --project=Webkit"
   },
   "imports": {
     "#client-utils/*": "./src/application/client/scripts/utils/*",
