@@ -411,6 +411,8 @@ test.describe('mutation tests', () => {
   test('simple version conflict', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
+    const clickTimeout = !!process.env.CI ? 400 : 200;
+
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
     await startJS(browserName, page1);
@@ -457,13 +459,13 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickTimeout));
     let homes = await page1.getByLabel('Home').all();
     await homes[1].click();
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickTimeout));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
 
@@ -473,13 +475,13 @@ test.describe('mutation tests', () => {
     await page2.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickTimeout));
     homes = await page2.getByLabel('Home').all();
     await homes[1].click();
     await page2.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickTimeout));
 
     // merge result should be:
     const mergeResult = {
@@ -505,7 +507,7 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 100));
+    await new Promise(res => setTimeout(res, clickTimeout));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
     expect(object1).toEqual(mergeResult);
