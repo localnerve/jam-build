@@ -18,13 +18,16 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import debugLib from '@localnerve/debug';
+import { hashDigest } from '#client-utils/browser.js';
+import { makeStoreType } from '#client-utils/storeType.js';
 import { test, expect } from './fixtures.js';
 import { acquireAccount } from './authz.js';
 import { waitForDataUpdate, startPage } from './page.utils.js';
-import { hashDigest } from '#client-utils/browser.js';
-import { makeStoreType } from '#client-utils/storeType.js';
 
-const _serviceTimeout = 8000;
+const debug = debugLib('test:login.utils');
+
+const _serviceTimeout = 10000;
 export const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
 
 /**
@@ -145,7 +148,13 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   const notChrome = page.context().browser().browserType().name() !== 'chromium';
   const ci = !!process.env.CI;
-  const loginClickTimeout = ci && notChrome ? 1000 : 0;
+  const loginClickTimeout = ci && notChrome ? 1500 : 0;
+  const waitUntil = ci && notChrome ? 'load' : 'domcontentloaded';
+
+  debug('AUTHZ_URL', process.env.AUTHZ_URL);
+  debug('baseUrl', baseUrl);
+  debug('loginClickTimeout', loginClickTimeout);
+  debug('serviceTimeout', serviceTimeout);
 
   // Login
   const logins = await page.getByLabel('Log In').all();
@@ -166,11 +175,11 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   if (redirect) {
     const urlTest = url => url.origin === process.env.AUTHZ_URL;
+  
     await page.waitForURL(urlTest, {
       timeout: serviceTimeout,
-      waitUntil: 'domcontentloaded'
+      waitUntil
     });
-    await expect(page).toHaveURL(urlTest);
 
     const loginButton = page.getByText('Log In');
     const inputUser = page.locator('#authorizer-login-email-or-phone-number');
@@ -182,13 +191,13 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await loginButton.click();
     await new Promise(res => setTimeout(res, loginClickTimeout));
 
-    // Wait for auth callback
     const returnUrl = url => url.origin === baseUrl;
+
+    // Wait for auth callback
     await page.waitForURL(returnUrl, {
       timeout: serviceTimeout,
-      waitUntil: 'domcontentloaded'
+      waitUntil
     });
-    await expect(page).toHaveURL(returnUrl);
   } else {
     // Let it cook
     await new Promise(res => setTimeout(res, 100));
