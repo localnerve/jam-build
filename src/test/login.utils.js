@@ -157,15 +157,12 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   // click to login
   await topLogin.click();
+  await new Promise(res => setTimeout(res, 250));
 
   let account;
 
   if (redirect) {
-    const urlTest = url => {
-      console.log('@@@ url.origin', url.origin);
-      console.log('@@@ AUTHZ_URL', process.env.AUTHZ_URL);
-      return url.origin === process.env.AUTHZ_URL;
-    };
+    const urlTest = url => url.origin === process.env.AUTHZ_URL;
     await page.waitForURL(urlTest, {
       timeout: serviceTimeout,
       waitUntil: 'domcontentloaded'
@@ -180,6 +177,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await inputUser.fill(account.username);
     await inputPass.fill(account.password);
     await loginButton.click();
+    await new Promise(res => setTimeout(res, 250));
 
     // Wait for auth callback
     const returnUrl = url => url.origin === baseUrl;
@@ -188,9 +186,6 @@ export async function manualLogin (baseUrl, page, redirect = true) {
       waitUntil: 'domcontentloaded'
     });
     await expect(page).toHaveURL(returnUrl);
-
-    // context switch
-    await new Promise(res => setTimeout(res, 100));
   } else {
     // Let it cook
     await new Promise(res => setTimeout(res, 100));
