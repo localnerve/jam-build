@@ -39,6 +39,9 @@ test.describe('performance audits', () => {
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   } : {};
 
+  // We can only test these with chromium
+  test.skip(({ browserName }) => browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
+
   /**
    * Save a report for a test to the audit directory.
    * 
@@ -93,9 +96,6 @@ test.describe('performance audits', () => {
 
   test('public home page audit', async ({ browserName }, testInfo) => {
     test.setTimeout(testInfo.timeout + 10000);
-
-    // We can only test this with chromium
-    testInfo.skip(browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
   
     const debugPort = 9222;
     const args = [`--remote-debugging-port=${debugPort}`];
@@ -122,9 +122,6 @@ test.describe('performance audits', () => {
 
   test('authenticated home page audit', async ({ adminPage, browserName }, testInfo) => {
     test.setTimeout(testInfo.timeout + 10000);
-
-    // We can only test this with chromium
-    testInfo.skip(browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
 
     await adminPage.goto(baseUrl);
     const cookies = await adminPage.context().cookies();

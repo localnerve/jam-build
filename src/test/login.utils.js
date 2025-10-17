@@ -125,8 +125,7 @@ export async function manualAdminLogin (baseUrl, page) {
   // Go, expect redirect to /
   await loginButton.click();
   await page.waitForURL(baseUrl, {
-    timeout: serviceTimeout,
-    waitUntil: 'domcontentloaded'
+    timeout: serviceTimeout
   });
   await expect(page).toHaveURL(baseUrl);
 
@@ -163,8 +162,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   if (redirect) {
     const urlTest = url => url.origin === process.env.AUTHZ_URL;
     await page.waitForURL(urlTest, {
-      timeout: serviceTimeout,
-      waitUntil: 'domcontentloaded'
+      timeout: serviceTimeout
     });
     await expect(page).toHaveURL(urlTest);
 
@@ -180,8 +178,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     // Wait for auth callback
     const returnUrl = url => url.origin === baseUrl;
     await page.waitForURL(returnUrl, {
-      timeout: serviceTimeout,
-      waitUntil: 'domcontentloaded'
+      timeout: serviceTimeout
     });
     await expect(page).toHaveURL(returnUrl);
   } else {
