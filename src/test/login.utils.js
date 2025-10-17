@@ -174,9 +174,13 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   let account;
 
   if (redirect) {
-    const urlTest = url => url.origin === process.env.AUTHZ_URL;
+    const callCount = 0;
+    const authzUrlTest = url => {
+      debug(`call ${callCount}`, url.origin, '===', process.env.AUTHZ_URL);
+      return url.origin === process.env.AUTHZ_URL;
+    };
   
-    await page.waitForURL(urlTest, {
+    await page.waitForURL(authzUrlTest, {
       timeout: serviceTimeout,
       waitUntil
     });

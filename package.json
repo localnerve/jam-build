@@ -33,7 +33,7 @@
     "test:env": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 AUTHZ_ADMIN_SECRET=deadbEf-2af536fa DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
     "test:env:local": "npm run test:env -- AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} AUTHZ_URL=${AUTHZ_URL:-http://localhost:9010} LOCALAPP_URL=${LOCALAPP_URL:-http://localhost:5000}",
     "test:env:local:proxy": "npm run test:env -- AUTHZ_URL=${AUTHZ_URL:-https://rp-localnerve.duckdns.org} AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} LOCALAPP_URL=${LOCALAPP_URL:-https://ln.rp-localnerve.duckdns.org}",
-    "test:firefox": "npm run test:env -- DEBUG=test* playwright test --project=Firefox",
+    "test:firefox": "npm run test:env -- DEBUG=test:login.utils playwright test --project=Firefox",
     "test:local": "npm run build:dev:sw && npm run test:env:local -- playwright test --project=Chromium",
     "test:local:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=Chromium --max-failures=1 --workers=1 --timeout=600000 --headed",
     "test:local:api": "npm run test:env:local -- playwright test --project=api --max-failures=1",
@@ -64,7 +64,7 @@
     "test:local:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
     "test:local:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000",
     "test:performance": "npm run test:env -- playwright test --project=performance --max-failures=1",
-    "test:webkit": "npm run test:env -- DEBUG=test* WEBKIT=1 playwright test --project=Webkit"
+    "test:webkit": "npm run test:env -- DEBUG=test:login.utils WEBKIT=1 playwright test --project=Webkit"
   },
   "imports": {
     "#client-utils/*": "./src/application/client/scripts/utils/*",
