@@ -64,7 +64,7 @@
     "test:local:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
     "test:local:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000",
     "test:performance": "npm run test:env -- playwright test --project=performance --max-failures=1",
-    "test:webkit": "npm run test:env -- DEBUG=testcontainers*,server*,api*,test* WEBKIT=1 playwright test --project=Webkit"
+    "test:webkit": "npm run test:env -- WEBKIT=1 playwright test --project=Webkit"
   },
   "imports": {
     "#client-utils/*": "./src/application/client/scripts/utils/*",
@@ -148,13 +148,13 @@
     "modern-normalize": "^3.0.1",
     "pino-pretty": "^13.1.2",
     "plugin-error": "^2.0.1",
-    "puppeteer": "^24.24.1",
+    "puppeteer": "^24.25.0",
     "rimraf": "^6.0.1",
     "rollup": "^4.52.4",
     "rollup-plugin-istanbul": "^5.0.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
-    "rollup-plugin-visualizer": "^6.0.4",
+    "rollup-plugin-visualizer": "^6.0.5",
     "sass": "^1.93.2",
     "sitemap": "^8.0.0",
     "stylelint": "^16.25.0",

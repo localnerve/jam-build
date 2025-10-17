@@ -139,6 +139,9 @@ export async function manualAdminLogin (baseUrl, page) {
 export async function manualLogin (baseUrl, page, redirect = true) {
   await startPage(baseUrl, page);
 
+  const _serviceTimeout = 8000;
+  const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
+
   // Login
   const logins = await page.getByLabel('Log In').all();
   const topLogin = logins[1];
@@ -156,11 +159,12 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   let account;
 
   if (redirect) {
-    await page.waitForURL(url => {
-      return url.origin === process.env.AUTHZ_URL;
-    }, {
-      timeout: 8000
+    const urlTest = url => url.origin === process.env.AUTHZ_URL;
+    await page.waitForURL(urlTest, {
+      timeout: serviceTimeout,
+      waitUntil: 'domcontentloaded'
     });
+    await expect(page).toHaveURL(urlTest);
 
     const loginButton = page.getByText('Log In');
     const inputUser = page.locator('#authorizer-login-email-or-phone-number');
@@ -172,9 +176,11 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await loginButton.click();
 
     // Wait for auth callback
-    await page.waitForURL(`${baseUrl}/?state=**`, {
-      timeout: 8000
+    const returnUrl = url => url.origin === baseUrl;
+    await page.waitForURL(returnUrl, {
+      timeout: serviceTimeout
     });
+    await expect(page).toHaveURL(returnUrl);
   } else {
     // Let it cook
     await new Promise(res => setTimeout(res, 100));
