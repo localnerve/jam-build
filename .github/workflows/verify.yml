@@ -33,8 +33,6 @@ jobs:
       - name: Install Playwright Browsers (if not cached)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install
-      - name: Install Playwright System Dependencies
-        run: npx playwright install-deps
       - name: Run Linter
         run: npm run lint
       - name: Check Production Build

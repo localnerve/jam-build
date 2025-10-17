@@ -58,9 +58,6 @@ export default defineConfig({
     name: "deletelocaldata",
     testMatch: /_deletelocaldata(?:app|user)\.js/
   }, {
-    name: "dummy",
-    testMatch: /dummy\.test\.js/
-  }, {
     name: 'fixtures',
     testMatch: /fixture\.test\.js/
   }, {

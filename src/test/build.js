@@ -1,5 +1,17 @@
 /**
- * Do nothing.
+ * Build the test container image without playwright.
+ * 
+ * Required Environment Variables:
+ *   AUTHZ_ADMIN_SECRET
+ *   DB_DATABASE
+ *   DB_USER
+ *   DB_APP_USER
+ *   DB_PASSWORD
+ *   DB_ROOT_PASSWORD
+ *   DB_APP_PASSWORD
+ *   FORCE_BUILD (must be set)
+ * 
+ * Run from package.json as `npm run test:build`
  * 
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
@@ -18,10 +30,11 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import { expect, test } from './fixtures.js';
+import setup from './globals.js';
 
-test.describe('Dummy test suite', () => {
-  test('Dummy test', () => {
-    expect(0).toEqual(0);
-  });
-});
+/**
+ * Just run the global playwright setup and teardown... without playwright.
+ * Run with the env from npm scripts, (re)builds the TestContainer image.
+ */
+const teardown = await setup();
+await teardown();
