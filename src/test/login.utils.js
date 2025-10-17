@@ -176,7 +176,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   if (redirect) {
     let callCount = 0;
     const authzUrlTest = url => {
-      debug(`call ${callCount++}`, url.origin, '===', process.env.AUTHZ_URL);
+      debug(`authzUrlTest call ${callCount++}`, url.origin, '===', process.env.AUTHZ_URL);
       return url.origin === process.env.AUTHZ_URL;
     };
   
@@ -195,10 +195,14 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await loginButton.click();
     await new Promise(res => setTimeout(res, loginClickTimeout));
 
-    const returnUrl = url => url.origin === baseUrl;
+    callCount = 0;
+    const returnUrlTest = url => {
+      debug(`returnUrlTest call ${callCount++}`, url.origin, '===', baseUrl);
+      return url.origin === baseUrl;
+    };
 
     // Wait for auth callback
-    await page.waitForURL(returnUrl, {
+    await page.waitForURL(returnUrlTest, {
       timeout: serviceTimeout,
       waitUntil
     });
