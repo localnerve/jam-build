@@ -24,6 +24,9 @@ import { waitForDataUpdate, startPage } from './page.utils.js';
 import { hashDigest } from '#client-utils/browser.js';
 import { makeStoreType } from '#client-utils/storeType.js';
 
+const _serviceTimeout = 8000;
+const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
+
 /**
  * Verify a user was in fact logged in.
  * Check the data update event for the user id, check the login UI state, check the session cookie.
@@ -122,8 +125,10 @@ export async function manualAdminLogin (baseUrl, page) {
   // Go, expect redirect to /
   await loginButton.click();
   await page.waitForURL(baseUrl, {
-    timeout: 5000
+    timeout: serviceTimeout,
+    waitUntil: 'domcontentloaded'
   });
+  await expect(page).toHaveURL(baseUrl);
 
   await verifyLoggedIn(baseUrl, page, account);
 }
@@ -138,9 +143,6 @@ export async function manualAdminLogin (baseUrl, page) {
  */
 export async function manualLogin (baseUrl, page, redirect = true) {
   await startPage(baseUrl, page);
-
-  const _serviceTimeout = 8000;
-  const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
 
   // Login
   const logins = await page.getByLabel('Log In').all();

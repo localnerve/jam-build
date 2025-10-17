@@ -196,6 +196,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(`${baseUrl}/about`);
 
     // Let it cook
     await new Promise(res => setTimeout(res, 250));
@@ -206,6 +207,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(baseUrl, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(baseUrl);
 
     // Wait for a few milliseconds
     await new Promise(res => setTimeout(res, 100)); // update this to visually debug
@@ -312,6 +314,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(`${baseUrl}/contact`, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(`${baseUrl}/contact`);
 
     // Let it cook
     await new Promise(res => setTimeout(res, 250));
@@ -322,6 +325,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(baseUrl, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(baseUrl);
 
     // Should reflect live service data and have the new property
     await testMessageExists(page, false);
