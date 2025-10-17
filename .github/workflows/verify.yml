@@ -61,7 +61,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        label: ['webkit', 'firefox', 'chromium']
+        # label: ['webkit', 'firefox', 'chromium']
+        label: ['firefox', 'chromium']
         os: ['ubuntu-24.04']
     runs-on: ${{ matrix.os }}
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'

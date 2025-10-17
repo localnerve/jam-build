@@ -148,7 +148,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   const notChrome = page.context().browser().browserType().name() !== 'chromium';
   const ci = !!process.env.CI;
-  const loginClickTimeout = ci && notChrome ? 2000 : 0;
+  const loginClickWait = ci && notChrome ? 2000 : 0;
   // const waitUntil = ci && notChrome ? 'load' : 'domcontentloaded';
   const waitUntil = 'domcontentloaded';
 
@@ -170,7 +170,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   // click to login
   await topLogin.click();
-  await new Promise(res => setTimeout(res, loginClickTimeout));
+  await new Promise(res => setTimeout(res, loginClickWait));
 
   let account;
 
@@ -194,7 +194,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await inputUser.fill(account.username);
     await inputPass.fill(account.password);
     await loginButton.click();
-    await new Promise(res => setTimeout(res, loginClickTimeout));
+    await new Promise(res => setTimeout(res, loginClickWait));
 
     callCount = 0;
     const returnUrlTest = url => {
