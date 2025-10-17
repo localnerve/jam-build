@@ -154,7 +154,6 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   debug('AUTHZ_URL', process.env.AUTHZ_URL);
   debug('baseUrl', baseUrl);
-  debug('loginClickTimeout', loginClickTimeout);
   debug('serviceTimeout', serviceTimeout);
 
   // Login
