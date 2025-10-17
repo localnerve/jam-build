@@ -28,7 +28,7 @@ import { waitForDataUpdate, startPage } from './page.utils.js';
 const debug = debugLib('test:login.utils');
 
 const _serviceTimeout = 10000;
-export const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
+export const serviceTimeout = !!process.env.CI ? _serviceTimeout * 2 : _serviceTimeout;
 
 /**
  * Verify a user was in fact logged in.
@@ -148,7 +148,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   const notChrome = page.context().browser().browserType().name() !== 'chromium';
   const ci = !!process.env.CI;
-  const loginClickTimeout = ci && notChrome ? 1500 : 0;
+  const loginClickTimeout = ci && notChrome ? 2000 : 0;
   const waitUntil = ci && notChrome ? 'load' : 'domcontentloaded';
 
   debug('AUTHZ_URL', process.env.AUTHZ_URL);
@@ -174,9 +174,9 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   let account;
 
   if (redirect) {
-    const callCount = 0;
+    let callCount = 0;
     const authzUrlTest = url => {
-      debug(`call ${callCount}`, url.origin, '===', process.env.AUTHZ_URL);
+      debug(`call ${callCount++}`, url.origin, '===', process.env.AUTHZ_URL);
       return url.origin === process.env.AUTHZ_URL;
     };
   
