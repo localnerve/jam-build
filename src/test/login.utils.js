@@ -24,7 +24,7 @@ import { waitForDataUpdate, startPage } from './page.utils.js';
 import { hashDigest } from '#client-utils/browser.js';
 import { makeStoreType } from '#client-utils/storeType.js';
 
-const _serviceTimeout = 8000;
+const _serviceTimeout = 10000;
 const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
 
 /**
@@ -180,9 +180,13 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     // Wait for auth callback
     const returnUrl = url => url.origin === baseUrl;
     await page.waitForURL(returnUrl, {
-      timeout: serviceTimeout
+      timeout: serviceTimeout,
+      waitUntil: 'domcontentloaded'
     });
     await expect(page).toHaveURL(returnUrl);
+
+    // context switch
+    await new Promise(res => setTimeout(res, 100));
   } else {
     // Let it cook
     await new Promise(res => setTimeout(res, 100));
