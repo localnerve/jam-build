@@ -19,7 +19,12 @@
  *    in this material, copies, or source code of derived works.
  */
 import { test, expect } from '#test/fixtures.js';
-import { manualAdminLogin, manualLogin, manualLogout } from '#test/login.utils.js';
+import {
+  manualAdminLogin,
+  manualLogin,
+  manualLogout,
+  serviceTimeout
+} from '#test/login.utils.js';
 import {
   createTestDataApp,
   createTestDataUser,
@@ -162,15 +167,19 @@ test.describe('mutation tests', () => {
   });
 
   test.beforeEach(async ({ browserName, page, adminRequest, userRequest }) => {
+    test.setTimeout(serviceTimeout);
+
     await startJS(browserName, page);
     await createTestDataApp(baseUrl, adminRequest);
     await createTestDataUser(baseUrl, userRequest);
     await manualLogin(baseUrl, page);
+
     needLogout = true;
   });
 
   test.afterEach(async ({ browserName, page, adminRequest, userRequest }) => {
     if (needLogout) {
+      test.setTimeout(serviceTimeout);
       await manualLogout(baseUrl, page);
     }
     await deleteTestDataApp(baseUrl, adminRequest);

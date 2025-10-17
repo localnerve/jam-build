@@ -25,7 +25,7 @@ import { hashDigest } from '#client-utils/browser.js';
 import { makeStoreType } from '#client-utils/storeType.js';
 
 const _serviceTimeout = 10000;
-const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
+export const serviceTimeout = !!process.env.CI ? _serviceTimeout * 1.5 : _serviceTimeout;
 
 /**
  * Verify a user was in fact logged in.
@@ -157,7 +157,6 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   // click to login
   await topLogin.click();
-  await new Promise(res => setTimeout(res, 250));
 
   let account;
 
@@ -177,7 +176,6 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await inputUser.fill(account.username);
     await inputPass.fill(account.password);
     await loginButton.click();
-    await new Promise(res => setTimeout(res, 250));
 
     // Wait for auth callback
     const returnUrl = url => url.origin === baseUrl;
