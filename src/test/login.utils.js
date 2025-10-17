@@ -161,7 +161,11 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   let account;
 
   if (redirect) {
-    const urlTest = url => url.origin === process.env.AUTHZ_URL;
+    const urlTest = url => {
+      console.log('@@@ url.origin', url.origin);
+      console.log('@@@ AUTHZ_URL', process.env.AUTHZ_URL);
+      return url.origin === process.env.AUTHZ_URL;
+    };
     await page.waitForURL(urlTest, {
       timeout: serviceTimeout,
       waitUntil: 'domcontentloaded'
