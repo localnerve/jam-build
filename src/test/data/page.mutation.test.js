@@ -411,7 +411,8 @@ test.describe('mutation tests', () => {
   test('simple version conflict', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
-    const clickTimeout = !!process.env.CI ? 400 : 200;
+    const ci = !!process.env.CI;
+    const clickTimeout = ci ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
