@@ -149,7 +149,8 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   const notChrome = page.context().browser().browserType().name() !== 'chromium';
   const ci = !!process.env.CI;
   const loginClickTimeout = ci && notChrome ? 2000 : 0;
-  const waitUntil = ci && notChrome ? 'load' : 'domcontentloaded';
+  // const waitUntil = ci && notChrome ? 'load' : 'domcontentloaded';
+  const waitUntil = 'domcontentloaded';
 
   debug('AUTHZ_URL', process.env.AUTHZ_URL);
   debug('baseUrl', baseUrl);
