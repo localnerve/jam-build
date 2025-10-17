@@ -192,7 +192,6 @@ test.describe('mutation tests', () => {
     await createReport(map, testInfo);
   });
 
-  /* eslint-disable-next-line playwright/expect-expect */
   test('navigation batch terminus', async ({ page }, testInfo) => {
     test.setTimeout(testInfo.timeout + 20000);
 
