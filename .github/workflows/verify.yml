@@ -5,33 +5,121 @@ on:
   pull_request:
     branches: [ main, stage ]
 
+env:
+  NODE_VERSION: '24.8'
+  REPORT_ARTIFACTS: 'false'
+
 jobs:
-  verify:
-
+  build_verify:
     runs-on: ubuntu-24.04
-
-    strategy:
-      matrix:
-        node-version: [24.8]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
+    name: 'Build, verify, and cache'
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-    - name: Install Dependencies
-      run: npm ci
-    - name: Install Playwright
-      run: npx playwright install --with-deps
-    - name: Lint
-      run: npm run lint
-    - name: Build
-      run: npm run build
-    - name: Test Firefox
-      run: npm run test:ff
-    # - name: Test Webkit
-    #   run: npm run test:webkit
-    - name: Test Chromium
-      run: npm test
+      - uses: actions/checkout@v5
+      - name: Setup Node with npm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install Npm Dependencies
+        run: npm ci
+      - name: Cache Playwright Browser Binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - name: Install Playwright Browsers (if not cached)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install
+      - name: Run Linter
+        run: npm run lint
+      - name: Check Production Build
+        run: npm run build
+      - name: Archive Build Stats
+        if: success() && env.REPORT_ARTIFACTS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jam-build-stats
+          overwrite: true
+          compresion-level: 9
+          path: ./stats/
+      - name: Build Docker Image
+        run: npm run test:build    # builds jam-build-test:latest
+      - name: Export Docker Image
+        run: docker save jam-build-test:latest -o jam-build-test.tar
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          overwrite: true
+          path: jam-build-test.tar
+
+  browser_tests:
+    needs: build_verify
+    strategy:
+      fail-fast: false
+      matrix:
+        # Note: WebKit is tested locally on macOS due to GitHub Actions networking limitations
+        # with TestContainers. See docs/testing.md for details.
+        # label: ['webkit', 'firefox', 'chromium']
+        label: ['firefox', 'chromium']
+        os: ['ubuntu-24.04']
+    runs-on: ${{ matrix.os }}
+    name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node with npm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      - name: Install Npm Dependencies
+        run: npm ci
+      - name: Cache Playwright Browser Binaries
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - name: Install Playwright Browsers (if not cached)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install
+      - name: Set Playwright Browser Path
+        run: echo "PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright" >> $GITHUB_ENV
+      - name: Install Playwright System Dependencies
+        run: npx playwright install-deps
+      - name: Download Docker Image Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+      - name: Load Docker Image
+        run: docker load -i jam-build-test.tar
+      - name: Test ${{ matrix.label }}
+        run: npm run test:${{ matrix.label }}
+      - name: Archive Test Reports
+        if: success() && matrix.label == 'chromium' && env.REPORT_ARTIFACTS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          overwrite: true
+          compresion-level: 9
+          path: |
+            ./test-results/coverage/coverage-mutation-tests-0/
+            ./test-results/audits/
+            ./coverage/
+            !./coverage/**/tmp
+
+  cleanup:
+    runs-on: ubuntu-24.04
+    needs: browser_tests
+    if: always()
+    steps:
+      - name: Delete Test Docker Image
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: docker-image
+          failOnError: false
