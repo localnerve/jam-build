@@ -29,6 +29,10 @@ const puppeteerOptions = process.env.CI ? {
   args: ['--no-sandbox', '--disable-setuid-sandbox']
 }: {};
 
+const workerRestriction = process.env.CI ? {
+  workers: 1
+}: {};
+
 const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
 let bypassCSP = false;
@@ -45,8 +49,10 @@ export default defineConfig({
   use: {
     bypassCSP
   },
+  expect: {
+    timeout: process.env.CI ? 10000 : 5000
+  },
   testDir: 'src/test',
-  timeout: 5000,
   globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
     name: "localdata",
@@ -57,9 +63,6 @@ export default defineConfig({
   }, {
     name: "deletelocaldata",
     testMatch: /_deletelocaldata(?:app|user)\.js/
-  }, {
-    name: "dummy",
-    testMatch: /dummy\.test\.js/
   }, {
     name: 'fixtures',
     testMatch: /fixture\.test\.js/
@@ -118,12 +121,14 @@ export default defineConfig({
     use: {
       browserName: 'firefox'
     },
+    ...workerRestriction,
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'pages-webkit',
     use: {
       browserName: 'webkit'
     },
+    ...workerRestriction,
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'performance',

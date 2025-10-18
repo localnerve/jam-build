@@ -39,6 +39,10 @@ test.describe('performance audits', () => {
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   } : {};
 
+  // We can only test these with chromium
+  // eslint-disable-next-line playwright/no-skipped-test
+  test.skip(({ browserName }) => browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
+
   /**
    * Save a report for a test to the audit directory.
    * 
@@ -91,15 +95,14 @@ test.describe('performance audits', () => {
     baseUrl = process.env.BASE_URL;
   });
 
-  test('public home page audit', async ({ browserName }, testInfo) => {
+  // eslint-disable-next-line no-empty-pattern
+  test('public home page audit', async ({}, testInfo) => {
     test.setTimeout(testInfo.timeout + 10000);
-
-    // We can only test this with chromium
-    testInfo.skip(browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
   
     const debugPort = 9222;
     const args = [`--remote-debugging-port=${debugPort}`];
 
+    // eslint-disable-next-line playwright/no-conditional-in-test
     if (puppeteerLaunch.args) {
       puppeteerLaunch.args.push(...args);
     } else {
@@ -120,11 +123,8 @@ test.describe('performance audits', () => {
     await browser.close();
   });
 
-  test('authenticated home page audit', async ({ adminPage, browserName }, testInfo) => {
+  test('authenticated home page audit', async ({ adminPage }, testInfo) => {
     test.setTimeout(testInfo.timeout + 10000);
-
-    // We can only test this with chromium
-    testInfo.skip(browserName !== 'chromium', 'Lighthouse is only supported by the chromium browser');
 
     await adminPage.goto(baseUrl);
     const cookies = await adminPage.context().cookies();

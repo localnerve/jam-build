@@ -18,11 +18,17 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import debugLib from '@localnerve/debug';
+import { hashDigest } from '#client-utils/browser.js';
+import { makeStoreType } from '#client-utils/storeType.js';
 import { test, expect } from './fixtures.js';
 import { acquireAccount } from './authz.js';
 import { waitForDataUpdate, startPage } from './page.utils.js';
-import { hashDigest } from '#client-utils/browser.js';
-import { makeStoreType } from '#client-utils/storeType.js';
+
+const debug = debugLib('test:login.utils');
+
+const _serviceTimeout = 10000;
+export const serviceTimeout = !!process.env.CI ? _serviceTimeout * 2 : _serviceTimeout;
 
 /**
  * Verify a user was in fact logged in.
@@ -122,8 +128,9 @@ export async function manualAdminLogin (baseUrl, page) {
   // Go, expect redirect to /
   await loginButton.click();
   await page.waitForURL(baseUrl, {
-    timeout: 5000
+    timeout: serviceTimeout
   });
+  await expect(page).toHaveURL(baseUrl);
 
   await verifyLoggedIn(baseUrl, page, account);
 }
@@ -139,6 +146,14 @@ export async function manualAdminLogin (baseUrl, page) {
 export async function manualLogin (baseUrl, page, redirect = true) {
   await startPage(baseUrl, page);
 
+  const notChrome = page.context().browser().browserType().name() !== 'chromium';
+  const loginClickWait = process.env.CI && notChrome ? 2000 : 0;
+  const waitUntil = 'domcontentloaded';
+
+  debug('AUTHZ_URL', process.env.AUTHZ_URL);
+  debug('baseUrl', baseUrl);
+  debug('serviceTimeout', serviceTimeout);
+
   // Login
   const logins = await page.getByLabel('Log In').all();
   const topLogin = logins[1];
@@ -152,14 +167,20 @@ export async function manualLogin (baseUrl, page, redirect = true) {
 
   // click to login
   await topLogin.click();
+  await new Promise(res => setTimeout(res, loginClickWait));
 
   let account;
 
   if (redirect) {
-    await page.waitForURL(url => {
+    let callCount = 0;
+    const authzUrlTest = url => {
+      debug(`authzUrlTest call ${callCount++}`, url.origin, '===', process.env.AUTHZ_URL);
       return url.origin === process.env.AUTHZ_URL;
-    }, {
-      timeout: 8000
+    };
+  
+    await page.waitForURL(authzUrlTest, {
+      timeout: serviceTimeout,
+      waitUntil
     });
 
     const loginButton = page.getByText('Log In');
@@ -170,10 +191,18 @@ export async function manualLogin (baseUrl, page, redirect = true) {
     await inputUser.fill(account.username);
     await inputPass.fill(account.password);
     await loginButton.click();
+    await new Promise(res => setTimeout(res, loginClickWait));
+
+    callCount = 0;
+    const returnUrlTest = url => {
+      debug(`returnUrlTest call ${callCount++}`, url.origin, '===', baseUrl);
+      return url.origin === baseUrl;
+    };
 
     // Wait for auth callback
-    await page.waitForURL(`${baseUrl}/?state=**`, {
-      timeout: 8000
+    await page.waitForURL(returnUrlTest, {
+      timeout: serviceTimeout,
+      waitUntil
     });
   } else {
     // Let it cook

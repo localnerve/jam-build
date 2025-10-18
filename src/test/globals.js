@@ -22,7 +22,6 @@ import fs from 'node:fs/promises';
 import * as tar from 'tar';
 import { glob } from 'glob';
 import debugLib from '@localnerve/debug';
-import { test } from './fixtures.js';
 import { getAuthzClientID } from './authz.js';
 import {
   createAppContainer,

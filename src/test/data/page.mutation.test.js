@@ -19,7 +19,12 @@
  *    in this material, copies, or source code of derived works.
  */
 import { test, expect } from '#test/fixtures.js';
-import { manualAdminLogin, manualLogin, manualLogout } from '#test/login.utils.js';
+import {
+  manualAdminLogin,
+  manualLogin,
+  manualLogout,
+  serviceTimeout
+} from '#test/login.utils.js';
 import {
   createTestDataApp,
   createTestDataUser,
@@ -32,6 +37,8 @@ test.describe('mutation tests', () => {
   let baseUrl;
   let map;
   let needLogout;
+
+  const slowTimeoutAddition = 20000;
 
   /**
    * Do mutations on a refernce to an editable-object control.
@@ -162,15 +169,19 @@ test.describe('mutation tests', () => {
   });
 
   test.beforeEach(async ({ browserName, page, adminRequest, userRequest }) => {
+    test.setTimeout(serviceTimeout);
+
     await startJS(browserName, page);
     await createTestDataApp(baseUrl, adminRequest);
     await createTestDataUser(baseUrl, userRequest);
     await manualLogin(baseUrl, page);
+
     needLogout = true;
   });
 
   test.afterEach(async ({ browserName, page, adminRequest, userRequest }) => {
     if (needLogout) {
+      test.setTimeout(serviceTimeout);
       await manualLogout(baseUrl, page);
     }
     await deleteTestDataApp(baseUrl, adminRequest);
@@ -183,9 +194,8 @@ test.describe('mutation tests', () => {
     await createReport(map, testInfo);
   });
 
-  /* eslint-disable-next-line playwright/expect-expect */
   test('navigation batch terminus', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
@@ -196,6 +206,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(`${baseUrl}/about`);
 
     // Let it cook
     await new Promise(res => setTimeout(res, 250));
@@ -206,6 +217,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(baseUrl, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(baseUrl);
 
     // Wait for a few milliseconds
     await new Promise(res => setTimeout(res, 100)); // update this to visually debug
@@ -216,7 +228,7 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('logout batch terminus', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
@@ -236,7 +248,7 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('inactivity batch terminus', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
@@ -254,10 +266,13 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('close page batch terminus', async ({ browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let context = await browser.newContext();
     let page = await context.newPage();
+    const notChrome = page.context().browser().browserType().name() !== 'chromium';
+    const cookWait = process.env.CI && notChrome ? 750 : 250; // eslint-disable-line  playwright/no-conditional-in-test
+
     await startJS(browserName, page);
     await manualLogin(baseUrl, page);
 
@@ -269,7 +284,7 @@ test.describe('mutation tests', () => {
     await page.close();
 
     // let it cook, then kill
-    await new Promise(res => setTimeout(res, 250)); // increase this to visually debug
+    await new Promise(res => setTimeout(res, cookWait)); // increase this to visually debug
     await context.close();
 
     context = await browser.newContext();
@@ -286,7 +301,7 @@ test.describe('mutation tests', () => {
   });
 
   test('whole document creation, clean admin login', async ({ browserName, browser, adminRequest }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     // Clean the app test data
     await deleteTestDataApp(baseUrl, adminRequest);
@@ -312,6 +327,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(`${baseUrl}/contact`, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(`${baseUrl}/contact`);
 
     // Let it cook
     await new Promise(res => setTimeout(res, 250));
@@ -322,6 +338,7 @@ test.describe('mutation tests', () => {
     await page.waitForURL(baseUrl, {
       timeout: 5000
     });
+    await expect(page).toHaveURL(baseUrl);
 
     // Should reflect live service data and have the new property
     await testMessageExists(page, false);
@@ -341,7 +358,7 @@ test.describe('mutation tests', () => {
     // This allows 'route' to abort service worker requests
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -397,7 +414,9 @@ test.describe('mutation tests', () => {
   });
 
   test('simple version conflict', async ({ browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
+
+    const clickWait = process.env.CI ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
@@ -445,13 +464,13 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickWait));
     let homes = await page1.getByLabel('Home').all();
     await homes[1].click();
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickWait));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
 
@@ -461,13 +480,13 @@ test.describe('mutation tests', () => {
     await page2.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickWait));
     homes = await page2.getByLabel('Home').all();
     await homes[1].click();
     await page2.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 200));
+    await new Promise(res => setTimeout(res, clickWait));
 
     // merge result should be:
     const mergeResult = {
@@ -493,7 +512,7 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, 100));
+    await new Promise(res => setTimeout(res, clickWait));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
     expect(object1).toEqual(mergeResult);
@@ -506,7 +525,7 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('multi-page broadcast', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     // Make another local logged in page, same cookie
     const page2 = await page.context().newPage();

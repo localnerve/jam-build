@@ -6,7 +6,7 @@ Title: Getting Started
 
 # How to Run Locally
 
-> **Note:** Safari will not work locally without using named SSL proxy hosts in the procedure described [below](#ngnix-for-Local-ssl-proxy-hosts).
+> **Note:** Safari will not work as-is, interactively, locally without using named SSL proxy hosts in the procedure described [below](#ngnix-for-local-ssl-proxy-hosts).
 
 ## Docker Setup
 

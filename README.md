@@ -12,7 +12,7 @@
 * 📊 [Data Store and Flow Architecture](docs/nanostores.md)
 * 📡 [Batch Update and Conflict Flow](docs/batch-updates.md)
 * ⏳ [Service Worker Timer Architecture](docs/heartbeat-timer.md)
-* 🧪 [Testing Procedure](docs/testing-documentation.md)
+* 🧪 [Testing Procedure and Detail](docs/testing-documentation.md)
 * 🎭 [Performance Audits](docs/performance-audits.md)
 * 🔧 [Build Process Summary](docs/build.md)
 * ✨ [Command Reference](docs/commands.md)
