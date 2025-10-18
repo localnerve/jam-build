@@ -412,7 +412,7 @@ test.describe('mutation tests', () => {
     test.setTimeout(testInfo.timeout + 20000);
 
     const ci = !!process.env.CI;
-    const clickTimeout = ci ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
+    const clickWait = ci ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
@@ -460,13 +460,13 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, clickTimeout));
+    await new Promise(res => setTimeout(res, clickWait));
     let homes = await page1.getByLabel('Home').all();
     await homes[1].click();
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, clickTimeout));
+    await new Promise(res => setTimeout(res, clickWait));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
 
@@ -476,13 +476,13 @@ test.describe('mutation tests', () => {
     await page2.waitForURL(`${baseUrl}/about`, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, clickTimeout));
+    await new Promise(res => setTimeout(res, clickWait));
     homes = await page2.getByLabel('Home').all();
     await homes[1].click();
     await page2.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, clickTimeout));
+    await new Promise(res => setTimeout(res, clickWait));
 
     // merge result should be:
     const mergeResult = {
@@ -508,7 +508,7 @@ test.describe('mutation tests', () => {
     await page1.waitForURL(baseUrl, {
       timeout: 5000
     });
-    await new Promise(res => setTimeout(res, clickTimeout));
+    await new Promise(res => setTimeout(res, clickWait));
 
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
     expect(object1).toEqual(mergeResult);
