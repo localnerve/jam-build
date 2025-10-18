@@ -56,9 +56,6 @@ jobs:
         label: ['firefox', 'chromium']
         os: ['ubuntu-24.04']
     runs-on: ${{ matrix.os }}
-    container:
-      image: mcr.microsoft.com/playwright:v1.56.1-noble
-      options: --ipc=host --user root
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
       - uses: actions/checkout@v5
@@ -69,8 +66,8 @@ jobs:
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
-      - name: Setup Docker
-        uses: docker/setup-docker-action@v4
+      - name: Install Playwright
+        run: npx playwright install --with-deps
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
