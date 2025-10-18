@@ -29,6 +29,10 @@ const puppeteerOptions = process.env.CI ? {
   args: ['--no-sandbox', '--disable-setuid-sandbox']
 }: {};
 
+const workerRestriction = process.env.CI ? {
+  workers: 1
+}: {};
+
 const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
 let bypassCSP = false;
@@ -117,12 +121,14 @@ export default defineConfig({
     use: {
       browserName: 'firefox'
     },
+    ...workerRestriction,
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'pages-webkit',
     use: {
       browserName: 'webkit'
     },
+    ...workerRestriction,
     testMatch: 'pages/**/*.test.js'
   }, {
     name: 'performance',
