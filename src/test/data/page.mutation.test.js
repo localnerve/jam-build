@@ -38,6 +38,8 @@ test.describe('mutation tests', () => {
   let map;
   let needLogout;
 
+  const slowTimeoutAddition = 20000;
+
   /**
    * Do mutations on a refernce to an editable-object control.
    * Assumes input data presets from testdata.js
@@ -193,7 +195,7 @@ test.describe('mutation tests', () => {
   });
 
   test('navigation batch terminus', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
@@ -226,7 +228,7 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('logout batch terminus', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
@@ -246,7 +248,7 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('inactivity batch terminus', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
@@ -264,10 +266,13 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('close page batch terminus', async ({ browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     let context = await browser.newContext();
     let page = await context.newPage();
+    const notChrome = page.context().browser().browserType().name() !== 'chromium';
+    const cookWait = process.env.CI && notChrome ? 750 : 250; // eslint-disable-line  playwright/no-conditional-in-test
+
     await startJS(browserName, page);
     await manualLogin(baseUrl, page);
 
@@ -279,7 +284,7 @@ test.describe('mutation tests', () => {
     await page.close();
 
     // let it cook, then kill
-    await new Promise(res => setTimeout(res, 250)); // increase this to visually debug
+    await new Promise(res => setTimeout(res, cookWait)); // increase this to visually debug
     await context.close();
 
     context = await browser.newContext();
@@ -296,7 +301,7 @@ test.describe('mutation tests', () => {
   });
 
   test('whole document creation, clean admin login', async ({ browserName, browser, adminRequest }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     // Clean the app test data
     await deleteTestDataApp(baseUrl, adminRequest);
@@ -353,7 +358,7 @@ test.describe('mutation tests', () => {
     // This allows 'route' to abort service worker requests
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -409,10 +414,9 @@ test.describe('mutation tests', () => {
   });
 
   test('simple version conflict', async ({ browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    const ci = !!process.env.CI;
-    const clickWait = ci ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
+    const clickWait = process.env.CI ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
@@ -521,7 +525,7 @@ test.describe('mutation tests', () => {
 
   /* eslint-disable-next-line playwright/expect-expect */
   test('multi-page broadcast', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     // Make another local logged in page, same cookie
     const page2 = await page.context().newPage();
