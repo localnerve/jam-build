@@ -71,7 +71,7 @@ export async function getAuthzClientID () {
     // This is a React "feature". I could hook or poll, but this setup runs once, so I don't care too much,
     // and I'd rather not be coupled to the implementation details of the Authorization service admin page.
     // So here, we just wait for a period for the page "to run".
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 250));
   
     clientId = await page.$eval(clientIdInputBox, el => el.value);
 

@@ -69,8 +69,8 @@ jobs:
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
-      - name: Install Docker
-        run: apt-get update && apt-get install -y docker.io
+      - name: Setup Docker
+        uses: docker/setup-docker-action@v4
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
