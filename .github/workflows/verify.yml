@@ -62,8 +62,15 @@ jobs:
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
       - uses: actions/checkout@v5
+      - name: Setup Node with npm cache
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
+      - name: Install Docker
+        run: apt-get update && apt-get install -y docker.io
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
