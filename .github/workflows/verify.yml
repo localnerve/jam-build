@@ -58,7 +58,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     container:
       image: mcr.microsoft.com/playwright:v1.56.1-noble
-      options: --ipc=host --user 1001
+      options: --ipc=host --user root
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
       - uses: actions/checkout@v5
