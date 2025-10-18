@@ -101,7 +101,7 @@
     "express-version-request": "^1.7.0",
     "express-version-route": "^1.2.4",
     "mariadb": "^3.4.5",
-    "pino": "^10.0.0"
+    "pino": "^10.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
@@ -149,7 +149,7 @@
     "plugin-error": "^2.0.1",
     "puppeteer": "^24.25.0",
     "rimraf": "^6.0.1",
-    "rollup": "^4.52.4",
+    "rollup": "^4.52.5",
     "rollup-plugin-istanbul": "^5.0.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
