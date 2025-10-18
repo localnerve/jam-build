@@ -27,6 +27,7 @@ Jam-Build implements a sophisticated multi-layered testing approach that combine
 * ✨ [Advanced Testing Features](#advanced-testing-features)
 * 🛟 [Troubleshooting](#troubleshooting)
 * 💚 [Coverage Reports](#coverage-reports)
+* 🌐 [Multi-browser Testing and CI](browser-testing-doc.md)
 
 ## Test Organization
 
