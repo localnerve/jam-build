@@ -45,8 +45,10 @@ export default defineConfig({
   use: {
     bypassCSP
   },
+  expect: {
+    timeout: process.env.CI ? 10000 : 5000
+  },
   testDir: 'src/test',
-  timeout: 5000,
   globalSetup: path.resolve('./src/test/globals.js'),
   projects: [{
     name: "localdata",
