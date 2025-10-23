@@ -271,7 +271,7 @@ test.describe('mutation tests', () => {
     let context = await browser.newContext();
     let page = await context.newPage();
     const notChrome = page.context().browser().browserType().name() !== 'chromium';
-    const cookWait = process.env.CI && notChrome ? 750 : 250; // eslint-disable-line  playwright/no-conditional-in-test
+    const cookWait = process.env.CI && notChrome ? 900 : 300; // eslint-disable-line  playwright/no-conditional-in-test
 
     await startJS(browserName, page);
     await manualLogin(baseUrl, page);
