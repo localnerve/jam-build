@@ -44,7 +44,7 @@ services:
   # The cache
   cache:
     image: redis:7.4.6
-    restart: always
+    restart: unless-stopped
     ports:
       - 6379:6379
     command: redis-server --save 20 1 --loglevel warning
@@ -111,34 +111,92 @@ services:
       - backend
 
   # The database backup command
-  #backup:
-  #  image: busybox:stable-uclibc
-  #  environment:
-  #    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-  #  depends_on:
-  #    mariadb:
-  #      condition: service_healthy
-  #  entrypoint: ["sh", "-c", "mariadb-dump -h 172.19.0.10 -u root --password=\"$DB_ROOT_PASSWORD\" --all-databases > /backup/db.sql && tar -czf /backup/db.tar.gz /backup/db.sql && rm /backup/db.sql"]
-  #  volumes:
-  #    - backup:/backup
-  #  command: ["tail", "-f", "/dev/null"]
-  #  networks:
-  #    - backend
+  backup:
+    image: mariadb:11.8.3
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - backup:/backup
+    networks:
+      - backend
+    entrypoint: ["/bin/sh"]
+    command: ["-c", "mariadb-dump -h mariadb -u root --password=\"$DB_ROOT_PASSWORD\" --all-databases > /backup/db-$(date +%Y%m%d-%H%M%S).sql && tar -czf /backup/db-$(date +%Y%m%d-%H%M%S).tar.gz -C /backup db-$(date +%Y%m%d-%H%M%S).sql --remove-files && echo 'Backup complete: db-'$(date +%Y%m%d-%H%M%S).tar.gz"]
+    profiles:
+      - tools
+
+  # Extract backups to local bind mount
+  extract-backup:
+    image: alpine:latest
+    volumes:
+      - backup:/source
+      - ./volumes/backup:/dest
+    entrypoint: ["/bin/sh"]
+    command: ["-c", "cp -av /source/* /dest/ && echo 'Backup files extracted to ./volumes/backup'"]
+    profiles:
+      - tools
 
   # The database hydration command
-  #hydrate:
-  #  image: busybox:stable-uclibc
-  #  environment:
-  #    DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-  #  depends_on:
-  #    mariadb:
-  #      condition: service_started
-  #  entrypoint: ["sh", "-c", "tar -xzf /backup/db.tar.gz -C /backup && mariadb -u root --password=\"$DB_ROOT_PASSWORD\" -h 172.19.0.10 < /backup/db.sql && rm /backup/db.sql"]
-  #  volumes:
-  #    - backup:/backup
-  #  command: ["tail", "-f", "/dev/null"]
-  #  networks:
-  #    - backend
+  hydrate:
+    image: mariadb:11.8.3
+    environment:
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      BACKUP_FILE: ${BACKUP_FILE:-latest}  # Specify backup file or 'latest'
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    volumes:
+      - backup:/backup
+    networks:
+      - backend
+    entrypoint: ["/bin/sh"]
+    command:
+      - "-c"
+      - |
+        set -e
+        echo "Starting database restore..."
+        
+        # Find the backup file
+        if [ "$BACKUP_FILE" = "latest" ]; then
+          BACKUP_FILE=$(ls -t /backup/db-*.tar.gz 2>/dev/null | head -n1)
+          if [ -z "$BACKUP_FILE" ]; then
+            echo "Error: No backup files found in /backup/"
+            exit 1
+          fi
+          echo "Using latest backup: $BACKUP_FILE"
+        else
+          BACKUP_FILE="/backup/$BACKUP_FILE"
+          if [ ! -f "$BACKUP_FILE" ]; then
+            echo "Error: Backup file not found: $BACKUP_FILE"
+            exit 1
+          fi
+        fi
+        
+        # Extract the backup
+        echo "Extracting backup..."
+        tar -xzf "$BACKUP_FILE" -C /backup
+        SQL_FILE=$(tar -tzf "$BACKUP_FILE" | head -n1)
+        
+        # Drop all databases except system databases
+        echo "Dropping existing databases..."
+        mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" \
+          -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`', schema_name, '\`;') 
+              FROM information_schema.schemata 
+              WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')" \
+          -sN | mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD"
+        
+        # Restore from backup
+        echo "Restoring databases from $SQL_FILE..."
+        mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" < "/backup/$SQL_FILE"
+        
+        # Cleanup extracted SQL file
+        rm -f "/backup/$SQL_FILE"
+        
+        echo "Database restore complete!"
+    profiles:
+      - tools
 
 volumes:
   dbdata:
