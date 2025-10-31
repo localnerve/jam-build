@@ -1,14 +1,14 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: October 31, 2025
 Title: Commands
 ---
 
 # Commands
 
-The commands in package.json that are typically developer-useful, and a brief explanation of what they are intended to do.
+This is a sample of some of the commands in package.json that are typically useful, and a brief explanation of what they are intended to do.
 
-> All local commands require the data service `npm run dev` and the authorizer.dev service (and mariadb) to be running locally.
+> All local commands require the app `npm run dev`, the authorizer service, and mariadb to be running locally.
 
 | Command | Explanation |
 | :--- | :--- |
@@ -25,12 +25,13 @@ The commands in package.json that are typically developer-useful, and a brief ex
 | `npm run maint` | Start the application in maintenance mode, sets a 2 hour maintenance window |
 | `npm start` | Start the application in production mode |
 | **Utilities** | #################### |
-| `npm run install-arm` | Install the image processing tools for ARM architectures. Required for Apple Silicon |
 | `npm run lint` | Run eslint and stylelint linters |
 | `npm run lint:js` | Run eslint only |
 | `npm run lint:css` | Run stylelint only |
 | **Test** | #################### |
-| `npm test` | Run the full test suite against the application in self-contained docker |
+| `npm test` | Run the full test suite against the application in self-contained docker (Chromium browser) |
+| `npm run test:webkit` | Run the full test suite against the application in self-contained docker (Webkit browser) |
+| `npm run test:firefox` | Run the full test suite against the application in self-contained docker (Firefox browser) |
 | `npm run test:build` | Force rebuild the application data service testcontainer |
 | `npm run test:debug` | Run the full test suite against the application in self-contained docker in headed debug mode |
 | **Local Test** | #################### |
