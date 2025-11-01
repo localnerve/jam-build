@@ -22,7 +22,7 @@ import fs from 'node:fs';
 import gulp from 'gulp';
 import rev from 'gulp-rev';
 import revRewrite from 'gulp-rev-rewrite';
-import revDel from 'gulp-rev-delete-original';
+import revDel from '@localnerve/gulp-rev-delete-original';
 import filter from 'gulp-filter';
 
 /**
