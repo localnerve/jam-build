@@ -112,7 +112,7 @@ export async function createDatabaseAndAuthorizer () {
   const containerNetwork = await new Network().start();
 
   debug('Starting mariadb container...');
-  const mariadbContainer = await new MariaDbContainer('mariadb:11.7.2')
+  const mariadbContainer = await new MariaDbContainer('mariadb:12.0.2')
     .withDatabase(process.env.DB_DATABASE)
     .withUsername(process.env.DB_USER)
     .withRootPassword(process.env.DB_ROOT_PASSWORD)
