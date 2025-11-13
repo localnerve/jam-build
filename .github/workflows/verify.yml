@@ -6,7 +6,7 @@ on:
     branches: [ main, stage ]
 
 env:
-  NODE_VERSION: '24.8'
+  NODE_VERSION: '24.11.1'
   REPORT_ARTIFACTS: 'false'
 
 jobs:
