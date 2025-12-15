@@ -34,7 +34,7 @@ Backend Coverage
 Service Worker Custom Add-on Bundle (52k minified disk size)  
 ![Service Worker Bundle](/docs/images/sw.custom.png "Service Worker Bundle Snapshot")
 
-Main Bundles (6 bundles, 1k - 28k minified disk size)  
+Main Bundles (6 bundles, 1k - 31k minified disk size)  
 ![Main Bundles (6)](/docs/images/main.png "Main bundles (6) Snapshot")
 
 Build Output File Sizes on Disk  
