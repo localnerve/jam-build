@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 12, 2025
+Date: December 11, 2025
 Title: Getting Started
 ---
 
@@ -79,4 +79,4 @@ Title: Getting Started
       --MAINTENANCE="`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`"
       ```
 
-See [commands](docs/commands.md) for a list of all developer commands and brief explanations.
+See [commands](commands.md) for a list of all developer commands and brief explanations.

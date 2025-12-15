@@ -6,7 +6,7 @@ on:
     branches: [ main, stage ]
 
 env:
-  NODE_VERSION: '24.11.1'
+  NODE_VERSION: '24.12.0'
   REPORT_ARTIFACTS: 'false'
 
 jobs:
@@ -14,16 +14,16 @@ jobs:
     runs-on: ubuntu-24.04
     name: 'Build, verify, and cache'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Setup Node with npm cache
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
       - name: Cache Playwright Browser Binaries
-        uses: actions/cache@v4
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -39,7 +39,7 @@ jobs:
         run: npm run build
       - name: Archive Build Stats
         if: success() && env.REPORT_ARTIFACTS == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: jam-build-stats
           overwrite: true
@@ -50,7 +50,7 @@ jobs:
       - name: Export Docker Image
         run: docker save jam-build-test:latest -o jam-build-test.tar
       - name: Upload Docker Image Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: docker-image
           overwrite: true
@@ -69,16 +69,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       - name: Setup Node with npm cache
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
       - name: Cache Playwright Browser Binaries
-        uses: actions/cache@v4
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -93,7 +93,7 @@ jobs:
       - name: Install Playwright System Dependencies
         run: npx playwright install-deps
       - name: Download Docker Image Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: docker-image
       - name: Load Docker Image
@@ -102,7 +102,7 @@ jobs:
         run: npm run test:${{ matrix.label }}
       - name: Archive Test Reports
         if: success() && matrix.label == 'chromium' && env.REPORT_ARTIFACTS == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: test-reports
           overwrite: true
@@ -119,7 +119,7 @@ jobs:
     if: always()
     steps:
       - name: Delete Test Docker Image
-        uses: geekyeggo/delete-artifact@v5
+        uses: geekyeggo/delete-artifact@f275313e70c08f6120db482d7a6b98377786765b # v5.1.0
         with:
           name: docker-image
           failOnError: false
