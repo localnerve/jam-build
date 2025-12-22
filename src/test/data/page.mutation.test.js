@@ -416,13 +416,15 @@ test.describe('mutation tests', () => {
   test('simple version conflict', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    const clickWait = process.env.CI ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
+    const notChrome = browser.browserType().name() !== 'chromium';
+    const clickWait = process.env.CI || notChrome ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
     await startJS(browserName, page1);
     await manualLogin(baseUrl, page1);
-  
+    await new Promise(res => setTimeout(res, clickWait));
+
     const userStateControl1 = page1.locator('#user-home-state');
     const mutations1 = await doMutations(userStateControl1);
     await testMutations(page1, userStateControl1, mutations1);
@@ -439,6 +441,7 @@ test.describe('mutation tests', () => {
     const page2 = await context2.newPage();
     await startJS(browserName, page2);
     await manualLogin(baseUrl, page2);
+    await new Promise(res => setTimeout(res, clickWait));
   
     const userStateControl2 = page2.locator('#user-home-state');
     const mutations2 = await doMutations(userStateControl2, {

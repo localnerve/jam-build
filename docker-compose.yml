@@ -55,7 +55,7 @@ services:
   
   # The authorizer
   authorizer:
-    image: localnerve/authorizer:v1.5.2
+    image: localnerve/authorizer:1.5.3
     environment:
       ENV: production
       ADMIN_SECRET: ${AUTHZ_ADMIN_SECRET}
