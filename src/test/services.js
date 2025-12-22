@@ -142,7 +142,7 @@ export async function createDatabaseAndAuthorizer () {
     }'@'%' IDENTIFIED BY '${process.env.DB_APP_PASSWORD}';`);
 
     debug('Starting authorizer container...');
-    authorizerContainer = await new GenericContainer('localnerve/authorizer:v1.5.2')
+    authorizerContainer = await new GenericContainer('localnerve/authorizer:1.5.3')
       .withEnvironment({
         ENV: 'production',
         ADMIN_SECRET: process.env.AUTHZ_ADMIN_SECRET,

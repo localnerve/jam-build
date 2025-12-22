@@ -198,7 +198,7 @@ Create a `docker-compose.yml` file with the following configuration:
 name: authorizer-test
 services:
   authorizer:
-    image: localnerve/authorizer:v1.5.2
+    image: localnerve/authorizer:1.5.3
     environment:
       ENV: production
       ADMIN_SECRET: MySecretAdmin123!

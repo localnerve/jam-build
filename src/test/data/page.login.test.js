@@ -33,6 +33,8 @@ test.describe('login tests', () => {
   let baseUrl;
   let map;
 
+  const slowTimeoutAddition = 20000;
+
   test.beforeAll(async ({ adminRequest, userRequest }) => {
     baseUrl = process.env.BASE_URL;
     map = createMap();
@@ -57,18 +59,18 @@ test.describe('login tests', () => {
   /* eslint-disable playwright/expect-expect */
 
   test('Main login flow', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
     await manualLogin(baseUrl, page);
   });
 
   test('Main login and logout flow', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
     await manualLogin(baseUrl, page);
     await manualLogout(baseUrl, page);
   });
 
   test('Multi-page login/logout broadcast', async ({ page }, testInfo) => {
-    test.setTimeout(testInfo.timeout + 20000);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     const page2 = await page.context().newPage();
     startPage(baseUrl, page2);
