@@ -1,8 +1,8 @@
 #!/bin/sh
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" &> /dev/null && pwd)
-DOCKER_FILE=$SCRIPT_DIR/Dockerfile
 PROJECT_DIR=$(readlink -f $SCRIPT_DIR/..)
+DOCKER_FILE=$PROJECT_DIR/Dockerfile
 
 # If not exist, falls back to environment
 HOSTENV_FILE=$PROJECT_DIR/private/host-env.json

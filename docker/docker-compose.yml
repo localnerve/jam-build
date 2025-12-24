@@ -4,7 +4,7 @@ services:
   jam-build:
     build:
       context: ../
-      dockerfile: ./docker/Dockerfile
+      dockerfile: ./Dockerfile
       args:
         UID: ${UID}
         GID: ${GID}
@@ -44,7 +44,7 @@ services:
 
   # The cache
   cache:
-    image: redis:8.2.3
+    image: redis:8.4.0
     restart: unless-stopped
     ports:
       - 6379:6379
@@ -139,19 +139,8 @@ services:
     profiles:
       - tools
 
-  # Insert backups from local bind mount to container volume
-  backup-insert:
-    image: alpine:latest
-    volumes:
-      - backup:/dest
-      - ./volumes/backup:/source
-    entrypoint: ["/bin/sh"]
-    command: ["-c", "cp -av /source/* /dest/ && echo 'Backup files inserted into named backup volume'"]
-    profiles:
-      - tools
-
-  # The database hydration command
-  hydrate:
+  # The database hydration command: Restore from dump in the backup volume 
+  restore:
     image: mariadb:12.1.2
     environment:
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
@@ -195,9 +184,10 @@ services:
         SQL_FILE=$(tar -tzf "$$BACKUP_FILE_" | head -n1)
 
         # Drop all databases except system databases
+        # 'foreign_key_checks = 0' to ignore cross db fk constraints
         echo "Dropping existing databases..."
         { 
-          echo "SET foreign_key_checks = 0;"; 
+          echo "SET foreign_key_checks = 0;";
           mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" -sN \
             -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`', schema_name, '\`;') 
                 FROM information_schema.schemata 
@@ -212,6 +202,17 @@ services:
         rm -f "/backup/$$SQL_FILE"
 
         echo "Database restore complete!"
+    profiles:
+      - tools
+
+  # Insert dumps from local bind mount to container volume for restore
+  restore-insert:
+    image: alpine:latest
+    volumes:
+      - backup:/dest
+      - ./volumes/backup:/source
+    entrypoint: ["/bin/sh"]
+    command: ["-c", "cp -av /source/* /dest/ && echo 'Dump files inserted into named backup volume'"]
     profiles:
       - tools
 
