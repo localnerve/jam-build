@@ -4,6 +4,8 @@ node_modules
 dist
 tmp
 test-results
+stats
+docker
 docs
 art
 dump

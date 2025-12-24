@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: December 11, 2025
+Date: December 23, 2025
 Title: Getting Started
 ---
 
@@ -13,8 +13,9 @@ Title: Getting Started
 ### Installation Steps
 1. **Install Docker Desktop**: Download and install Docker Desktop from the official website.
 2. **Run Docker Compose**:
-   - Execute `docker compose --env-file .env.dev up` to build and start the services. Wait for it to complete.
-   - Optionally, create your own `.env` file if needed.
+   - Execute `docker compose --file docker/docker-compose.yml --env-file docker/.env.dev up` to build and start the services.
+     - Or just execute `docker/compose-container.sh` to build and compose the demo.
+     - Optionally, create your own `.env` file.
    - Local ports 3306, 5000, 6379, and 9010 must be free prior to service start.
 
 ### Configuration Steps
@@ -52,9 +53,9 @@ Title: Getting Started
     ```
 
 #### Authorizer.dev Setup
-- **Installation**: Use Docker to run and manage Authorizer.dev. A sample configuration file is provided in [**docker-authorizer-dev.yml**](/docker-authorizer-dev.yml) to run Authorizer.dev standalone using the local MariaDB instance.
+- **Installation**: Use Docker to run and manage Authorizer.dev. A sample configuration file is provided in [**authorizer-dev.yml**](/docker/authorizer-dev.yml) to run Authorizer.dev standalone using the local MariaDB instance.
 
-- Use [**docker-authorizer-dev.yml**](/docker-authorizer-dev.yml) to run authorizer.dev locally on port 9010 using the locally installed MariaDB instance.
+- Use [**authorizer-dev.yml**](/docker/authorizer-dev.yml) to run authorizer.dev locally on port 9010 using the locally installed MariaDB instance.
 - Generate `ADMIN_SECRET` and `CLIENT_ID` using local CLI tools like `uuidgen` and `openssl`.
 - Choose any port, but the default settings in `package.json` scripts are easiest to use.
 
