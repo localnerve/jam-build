@@ -3,7 +3,8 @@ services:
   # The app
   jam-build:
     build:
-      context: .
+      context: ../
+      dockerfile: ./docker/Dockerfile
       args:
         UID: ${UID}
         GID: ${GID}
@@ -99,10 +100,10 @@ services:
       - 3306:3306
     volumes:
       - dbdata:/var/lib/mysql
-      - ./data/database/mariadb-ddl-init.sh:/docker-entrypoint-initdb.d/1.sh
-      - ./data/database/mariadb-ddl-tables.sql:/docker-entrypoint-initdb.d/2.sql
-      - ./data/database/mariadb-ddl-procedures.sql:/docker-entrypoint-initdb.d/3.sql
-      - ./data/database/mariadb-ddl-privileges.sql:/docker-entrypoint-initdb.d/4.sql
+      - ../data/database/mariadb-ddl-init.sh:/docker-entrypoint-initdb.d/1.sh
+      - ../data/database/mariadb-ddl-tables.sql:/docker-entrypoint-initdb.d/2.sql
+      - ../data/database/mariadb-ddl-procedures.sql:/docker-entrypoint-initdb.d/3.sql
+      - ../data/database/mariadb-ddl-privileges.sql:/docker-entrypoint-initdb.d/4.sql
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin -u root --password=$DB_ROOT_PASSWORD ping -h localhost"]
       timeout: 20s
@@ -127,8 +128,8 @@ services:
     profiles:
       - tools
 
-  # Extract backups to local bind mount
-  extract-backup:
+  # Extract backups from container volume to local bind mount
+  backup-extract:
     image: alpine:latest
     volumes:
       - backup:/source
@@ -138,12 +139,23 @@ services:
     profiles:
       - tools
 
+  # Insert backups from local bind mount to container volume
+  backup-insert:
+    image: alpine:latest
+    volumes:
+      - backup:/dest
+      - ./volumes/backup:/source
+    entrypoint: ["/bin/sh"]
+    command: ["-c", "cp -av /source/* /dest/ && echo 'Backup files inserted into named backup volume'"]
+    profiles:
+      - tools
+
   # The database hydration command
   hydrate:
     image: mariadb:12.1.2
     environment:
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      BACKUP_FILE: ${BACKUP_FILE:-latest}  # Specify backup file or 'latest'
+      BACKUP_FILE: ${BACKUP_FILE}
     depends_on:
       mariadb:
         condition: service_healthy
@@ -151,49 +163,54 @@ services:
       - backup:/backup
     networks:
       - backend
-    entrypoint: ["/bin/sh"]
+    entrypoint: ["/bin/bash"]
     command:
       - "-c"
       - |
         set -e
         echo "Starting database restore..."
-        
+
+        # Update a local variable
+        BACKUP_FILE_="$$BACKUP_FILE" # can be unset or 'latest'
+
         # Find the backup file
-        if [ "$BACKUP_FILE" = "latest" ]; then
-          BACKUP_FILE=$(ls -t /backup/db-*.tar.gz 2>/dev/null | head -n1)
-          if [ -z "$BACKUP_FILE" ]; then
+        if [ -z "$$BACKUP_FILE_" ] || [ "$$BACKUP_FILE_" = "latest" ]; then
+          BACKUP_FILE_=$(ls -t /backup/db-*.tar.gz 2>/dev/null | head -n1)
+          if [ -z "$$BACKUP_FILE_" ]; then
             echo "Error: No backup files found in /backup/"
             exit 1
           fi
-          echo "Using latest backup: $BACKUP_FILE"
+          echo "Using latest backup: $$BACKUP_FILE_"
         else
-          BACKUP_FILE="/backup/$BACKUP_FILE"
-          if [ ! -f "$BACKUP_FILE" ]; then
-            echo "Error: Backup file not found: $BACKUP_FILE"
+          BACKUP_FILE_="/backup/$$BACKUP_FILE_"
+          if [ ! -f "$$BACKUP_FILE_" ]; then
+            echo "Error: Backup file not found: $$BACKUP_FILE_"
             exit 1
           fi
         fi
-        
+
         # Extract the backup
         echo "Extracting backup..."
-        tar -xzf "$BACKUP_FILE" -C /backup
-        SQL_FILE=$(tar -tzf "$BACKUP_FILE" | head -n1)
-        
+        tar -xzf "$$BACKUP_FILE_" -C /backup
+        SQL_FILE=$(tar -tzf "$$BACKUP_FILE_" | head -n1)
+
         # Drop all databases except system databases
         echo "Dropping existing databases..."
-        mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" \
-          -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`', schema_name, '\`;') 
-              FROM information_schema.schemata 
-              WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys')" \
-          -sN | mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD"
-        
+        { 
+          echo "SET foreign_key_checks = 0;"; 
+          mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" -sN \
+            -e "SELECT CONCAT('DROP DATABASE IF EXISTS \`', schema_name, '\`;') 
+                FROM information_schema.schemata 
+                WHERE schema_name NOT IN ('information_schema', 'mysql', 'performance_schema', 'sys');"
+        } | mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD"
+
         # Restore from backup
-        echo "Restoring databases from $SQL_FILE..."
-        mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" < "/backup/$SQL_FILE"
-        
+        echo "Restoring databases from $$SQL_FILE..."
+        mariadb -h mariadb -u root --password="$DB_ROOT_PASSWORD" < "/backup/$$SQL_FILE"
+
         # Cleanup extracted SQL file
-        rm -f "/backup/$SQL_FILE"
-        
+        rm -f "/backup/$$SQL_FILE"
+
         echo "Database restore complete!"
     profiles:
       - tools

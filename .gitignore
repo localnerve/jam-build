@@ -156,5 +156,8 @@ stats
 # no development docker compose
 *-dev-docker-compose.yml
 
+# no volume backups
+docker/volumes/backup/*.gz
+
 # no insights docs
 docs/insights
