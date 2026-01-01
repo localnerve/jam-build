@@ -6,6 +6,7 @@ services:
       ENV: development
       ADMIN_SECRET: deadbeefcafebabe
       DATABASE_TYPE: mariadb
+      APP_COOKIE_SECURE: true # false for safari w/o TLS, stops everything else from working, persisted in features in mariadb
       DATABASE_URL: admin:deadbeefcafebabe@tcp(host.docker.internal:3306)/authorizer
       DATABASE_NAME: authorizer
       CLIENT_ID: 'deadbeef-cafe-babe-feed-baadc0deface'
