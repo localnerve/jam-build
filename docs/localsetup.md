@@ -1,22 +1,21 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: December 23, 2025
+Date: December 30, 2025
 Title: Getting Started
 ---
 
 # How to Run Locally
 
-> **Note:** Safari will not work as-is, interactively, locally without using named SSL proxy hosts in the procedure described [below](#ngnix-for-local-ssl-proxy-hosts).
+> **Note:** Safari will not work as-is, interactively, locally without using named TLS proxy hosts in the procedure described [below](#setup-for-local-tls-proxy-hosts).
 
 ## Docker Setup
 
 ### Installation Steps
 1. **Install Docker Desktop**: Download and install Docker Desktop from the official website.
 2. **Run Docker Compose**:
-   - Execute `docker compose --file docker/docker-compose.yml --env-file docker/.env.dev up` to build and start the services.
-     - Or just execute `docker/compose-container.sh` to build and compose the demo.
-     - Optionally, create your own `.env` file.
-   - Local ports 3306, 5000, 6379, and 9010 must be free prior to service start.
+   - Execute `docker/compose-container.sh` to build and start the services.
+     - Optionally, create your own `docker/.env` file.
+     - Local ports 3306, 5000, 6379, and 9010 must be free prior to service start.
 
 ### Configuration Steps
 1. **Remove Leftover Files**:
@@ -37,7 +36,7 @@ Title: Getting Started
 ### Prerequisites
 - **NodeJS**: Version 22.15.0 or higher.
 - **MariaDB**: Version 11.7.2 or higher.
-- **Authorizer.dev**.
+- **Localnerve/Authorizer** Version 1.5.3 or higher. [Standalone download](https://hub.docker.com/r/localnerve/authorizer).
 
 ### Services Setup
 
@@ -59,13 +58,18 @@ Title: Getting Started
 - Generate `ADMIN_SECRET` and `CLIENT_ID` using local CLI tools like `uuidgen` and `openssl`.
 - Choose any port, but the default settings in `package.json` scripts are easiest to use.
 
-##### Ngnix for Local SSL Proxy Hosts
-- To set up a named proxy for local SSL using [DuckDNS](https://notthebe.ee/blog/easy-ssl-in-homelab-dns01/) and the Docker Nginx Proxy Manager:
-  > Presuming you setup localhost:9010 to point to `yourproxyhost.duckdns.org` and localhost:5000 to point to `app.yourproxyhost.duckdns.org`
+##### Setup for Local TLS Proxy Hosts
+For testing with TLS locally, I recommend using [Duckdns](https://duckdns.org) to setup domain names that refer to addresses (192.168) on your local lab network. These work because duckdns supports [DNS-01 challenge protocol](https://notthebe.ee/blog/easy-ssl-in-homelab-dns01/#how-does-it-work), so Let's Encrypt can issue certificates for your local hosts. From there, you can use a reverse proxy service locally to manage Let's Encrypt keys and map subdomains to services on local ports.
 
-  - Run builds with `AUTHZ_URL=https://yourproxyhost.duckdns.org npm run build`.
-  - Access the jam-build app in the browser as `https://app.yourproxyhost.duckdns.org`.
-  - This setup is necessary to test Safari on localhost and for secure development with SSL.
+After some experimentation, I've found that [caddy](https://caddyserver.com/docs/) works best in the role of local reverse proxy service. It is performant, stable, and easy to configure and manage. Here's my [configuration repo](https://github.com/localnerve/caddy-local) for caddy if you want a working reference.
+
+Notes:
+  - Configure the reverse proxy service to use authorizer service on localhost:9010 as `yourname.duckdns.org` and the app service on localhost:5000 as `app.yourname.duckdns.org`
+  - Run builds with `AUTHZ_URL=https://yourname.duckdns.org npm run build`.
+    * There are many test scripts in `package.json` that model this for various tasks with `proxy` in the name.
+  - Access the jam-build app in the browser as `https://app.yourname.duckdns.org`.
+  - This setup is necessary to manually test with Safari on native localhost with TLS.
+    * `npm run test:webkit` tests the services with safari in a local container without TLS (special config). 
 
 #### Data Service Setup
 - The data service runs in NodeJS on port 5000 by default. The main entry point is `src/application/server/index.js`.

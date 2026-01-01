@@ -67,7 +67,7 @@ This project serves as a starting point for a PWA (Progressive Web Application).
 
 * [Expressjs](https://expressjs.com)
 * [Workboxjs](https://developer.chrome.com/docs/workbox/)
-* [Authorizer](https://authorizer.dev)
+* [Authorizer](https://github.com/localnerve/authorizer)
 * [Mariadb](https://mariadb.com)
 
 ### Development Dependencies

@@ -10,7 +10,8 @@ services:
         GID: ${GID}
         AUTHZ_URL: ${AUTHZ_URL}
         AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
-    image: jam-build:latest
+    image: ${JB_IMAGE}
+    container_name: ${JB_CONTAINER_NAME}
     environment:
       DB_HOST: mariadb
       DB_DATABASE: jam_build
