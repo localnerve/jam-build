@@ -167,12 +167,12 @@ export async function createDatabaseAndAuthorizer () {
     
     debug('Creating jam_build database tables...');
     await client.importFile({
-      file: path.resolve(thisDir, toRoot, './data/database/mariadb-ddl-tables.sql')
+      file: path.resolve(thisDir, toRoot, './data/database/002-mariadb-ddl-tables.sql')
     });
 
     debug('Creating jam_build database procedures...');
     const procText = await fs.readFile(
-      path.resolve(thisDir, toRoot, './data/database/mariadb-ddl-procedures.sql'),
+      path.resolve(thisDir, toRoot, './data/database/003-mariadb-ddl-procedures.sql'),
       { encoding: 'utf8' }
     );
     const procs = procText.split('$$').filter(text => !text.includes('DELIMITER'));
@@ -182,7 +182,7 @@ export async function createDatabaseAndAuthorizer () {
 
     debug('Creating jam_build database privileges...');
     await client.importFile({
-      file: path.resolve(thisDir, toRoot, './data/database/mariadb-ddl-privileges.sql')
+      file: path.resolve(thisDir, toRoot, './data/database/004-mariadb-ddl-privileges.sql')
     });
 
     // sanity check - procs should exist and be granted to jbuser and jbadmin

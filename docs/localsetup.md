@@ -43,12 +43,12 @@ Title: Getting Started
 #### MariaDB Setup
 - **Installation**: Use Homebrew on macOS (`brew install mariadb`) or a similar package manager on other platforms to install and manage MariaDB. By default, MariaDB sets up the service on port 3306.
 - **Database Creation**:
-  - Create databases and users using `data/database/mariadb-ddl-init.sh` or equivalent scripts.
+  - Create databases and users using `data/database/001-mariadb-ddl-init.sh` or equivalent scripts.
   - Then, navigate to the command line, change directory to `data/database`, and run the following SQL files using the `mariadb` CLI tool:
     ```sh
-    source mariadb-ddl-tables.sql
-    source mariadb-ddl-procedures.sql
-    source mariadb-ddl-privileges.sql
+    source 002-mariadb-ddl-tables.sql
+    source 003-mariadb-ddl-procedures.sql
+    source 004-mariadb-ddl-privileges.sql
     ```
 
 #### Authorizer.dev Setup
