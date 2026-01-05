@@ -72,7 +72,11 @@ test.describe('performance audits', () => {
       output: 'html',
       onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
       // Use existing browser context
-      skipAudits: ['uses-http2']
+      skipAudits: ['uses-http2'],
+      chromeFlags: [
+        '--headless=new'
+      ],
+      skipAutolaunch: true
     });
     
     // Assert performance thresholds
@@ -100,7 +104,10 @@ test.describe('performance audits', () => {
     test.setTimeout(testInfo.timeout + 10000);
   
     const debugPort = 9222;
-    const args = [`--remote-debugging-port=${debugPort}`];
+    const args = [
+      `--remote-debugging-port=${debugPort}`,
+      '--headless=new'
+    ];
 
     // eslint-disable-next-line playwright/no-conditional-in-test
     if (puppeteerLaunch.args) {
@@ -128,6 +135,17 @@ test.describe('performance audits', () => {
 
     await adminPage.goto(baseUrl);
     const cookies = await adminPage.context().cookies();
+
+    const args = [
+      '--headless=new'
+    ];
+
+    // eslint-disable-next-line playwright/no-conditional-in-test
+    if (puppeteerLaunch.args) {
+      puppeteerLaunch.args.push(...args);
+    } else {
+      puppeteerLaunch.args = args;  
+    }
 
     const browser = await puppeteer.launch({ 
       ...puppeteerLaunch,
