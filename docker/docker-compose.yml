@@ -101,14 +101,13 @@ services:
       - 3306:3306
     volumes:
       - dbdata:/var/lib/mysql
-      - ../data/database/mariadb-ddl-init.sh:/docker-entrypoint-initdb.d/1.sh
-      - ../data/database/mariadb-ddl-tables.sql:/docker-entrypoint-initdb.d/2.sql
-      - ../data/database/mariadb-ddl-procedures.sql:/docker-entrypoint-initdb.d/3.sql
-      - ../data/database/mariadb-ddl-privileges.sql:/docker-entrypoint-initdb.d/4.sql
+      - ../data/database:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "mariadb-admin -u root --password=$DB_ROOT_PASSWORD ping -h localhost"]
       timeout: 20s
       retries: 10
+      interval: 5s
+      start_period: 30s
     networks:
       - backend
 
