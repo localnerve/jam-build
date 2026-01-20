@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.8.6",
+  "version": "2.8.7",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -101,7 +101,7 @@
     "express-version-request": "^1.7.0",
     "express-version-route": "^1.2.4",
     "mariadb": "^3.4.5",
-    "pino": "^10.1.1"
+    "pino": "^10.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -149,19 +149,19 @@
     "plugin-error": "^2.0.1",
     "puppeteer": "^24.35.0",
     "rimraf": "^6.1.2",
-    "rollup": "^4.55.1",
+    "rollup": "^4.55.2",
     "rollup-plugin-istanbul": "^5.0.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
     "rollup-plugin-visualizer": "^6.0.5",
     "sass": "^1.97.2",
     "sitemap": "^9.0.0",
-    "stylelint": "^16.26.1",
-    "stylelint-config-standard": "^39.0.1",
-    "stylelint-config-standard-scss": "^16.0.0",
+    "stylelint": "^17.0.0",
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-config-standard-scss": "^17.0.0",
     "stylelint-no-unsupported-browser-features": "^8.0.5",
     "svgo": "^4.0.0",
-    "tar": "^7.5.2",
+    "tar": "^7.5.4",
     "testcontainers": "^11.11.0",
     "v8-to-istanbul": "^9.3.0",
     "wasm-feature-detect": "^1.8.0",
@@ -170,7 +170,10 @@
     "workbox-window": "^7.4.0"
   },
   "overrides": {
-    "sourcemap-codec": "npm:@jridgewell/sourcemap-codec"
+    "sourcemap-codec": "npm:@jridgewell/sourcemap-codec",
+    "stylelint-no-unsupported-browser-features": {
+        "stylelint": "$stylelint"
+    }
   },
   "engines": {
     "node": ">=24.8 <25"
