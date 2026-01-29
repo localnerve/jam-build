@@ -5,6 +5,7 @@ services:
     build:
       context: ../
       dockerfile: ./Dockerfile
+      target: runtime-prod
       args:
         UID: ${UID}
         GID: ${GID}

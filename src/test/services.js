@@ -38,7 +38,7 @@ async function deleteImageByName (imageName) {
 }
 */
 
-async function checkImageExists (imageName) {
+async function checkImageExists(imageName) {
   const dockerode = (await getContainerRuntimeClient()).container.dockerode;
   try {
     await dockerode.getImage(imageName.toString()).inspect();
@@ -50,11 +50,38 @@ async function checkImageExists (imageName) {
   }
 }
 
-export async function createAppContainer (authorizerContainer, containerNetwork, mariadbContainer, appImageName) {
+/**
+ * Clean up dangling builder stage images from multi-stage builds.
+ * The TestContainers reaper cannot track intermediate build stages,
+ * so we need to manually clean them up.
+ */
+async function cleanupBuilderImages() {
+  const dockerode = (await getContainerRuntimeClient()).container.dockerode;
+  try {
+    debug('Cleaning up dangling builder stage images...');
+    const images = await dockerode.listImages({
+      filters: { dangling: ['true'] }
+    });
+
+    for (const image of images) {
+      try {
+        debug(`Removing dangling image ${image.Id}...`);
+        await dockerode.getImage(image.Id).remove({ force: false });
+      } catch (err) {
+        debug(`Could not remove image ${image.Id}:`, err.message);
+      }
+    }
+    debug('Builder image cleanup complete.');
+  } catch (err) {
+    debug('Error during builder image cleanup:', err.message);
+  }
+}
+
+export async function createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName) {
   const forceAppBuild = !!(process.env.FORCE_BUILD);
 
   debug(`Checking ${appImageName}... FORCE_BUILD=${forceAppBuild}`);
-  
+
   let appContainerImage;
   if (await checkImageExists(appImageName) && !forceAppBuild) {
     debug(`Using image ${appImageName} without building...`);
@@ -62,7 +89,8 @@ export async function createAppContainer (authorizerContainer, containerNetwork,
   } else {
     const userInfo = os.userInfo();
     debug(`Building image ${appImageName}`, userInfo, os.arch(), process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID);
-    appContainerImage = await GenericContainer.fromDockerfile(path.resolve(thisDir, toRoot))
+
+    appContainerImage = await GenericContainer.fromDockerfile(path.resolve(thisDir, toRoot), 'Dockerfile')
       .withBuildArgs({
         UID: `${userInfo.uid}`,
         GID: `${userInfo.gid}`,
@@ -72,14 +100,18 @@ export async function createAppContainer (authorizerContainer, containerNetwork,
         AUTHZ_URL: process.env.AUTHZ_URL,
         AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID
       })
+      .withTarget('runtime-dev')
       .withCache(true)
       .build(appImageName, {
         deleteOnExit: false
       });
+
+    // Clean up dangling builder stage images that the reaper cannot track
+    await cleanupBuilderImages();
   }
-  
+
   debug(`Starting ${appImageName}...`);
-  
+
   const appContainer = await appContainerImage
     .withName('jam-build')
     .withNetwork(containerNetwork)
@@ -99,13 +131,13 @@ export async function createAppContainer (authorizerContainer, containerNetwork,
     })
     .withWaitStrategy(Wait.forLogMessage(/listening on port \d+/))
     .start();
-  
+
   debug(`Container ${appImageName} started.`);
 
   return appContainer;
 }
 
-export async function createDatabaseAndAuthorizer () {
+export async function createDatabaseAndAuthorizer() {
   let client, authorizerContainer;
   const dbHost = 'mariadb';
 
@@ -129,17 +161,15 @@ export async function createDatabaseAndAuthorizer () {
       database: mariadbContainer.getDatabase(),
       user: 'root',
       password: mariadbContainer.getRootPassword(),
-      logger: () => {} // console.log // eslint-disable-line
+      logger: () => { } // console.log // eslint-disable-line
     });
-    
+
     debug('Creating prerequisite databases and users...');
     await client.query('CREATE DATABASE authorizer'); // must exist prior to authorizer
-    await client.query(`CREATE USER IF NOT EXISTS '${
-      process.env.DB_USER
-    }'@'%' IDENTIFIED BY '${process.env.DB_PASSWORD}'`);
-    await client.query(`CREATE USER IF NOT EXISTS '${
-      process.env.DB_APP_USER
-    }'@'%' IDENTIFIED BY '${process.env.DB_APP_PASSWORD}';`);
+    await client.query(`CREATE USER IF NOT EXISTS '${process.env.DB_USER
+      }'@'%' IDENTIFIED BY '${process.env.DB_PASSWORD}'`);
+    await client.query(`CREATE USER IF NOT EXISTS '${process.env.DB_APP_USER
+      }'@'%' IDENTIFIED BY '${process.env.DB_APP_PASSWORD}';`);
 
     debug('Starting authorizer container...');
     authorizerContainer = await new GenericContainer('localnerve/authorizer:1.5.3')
@@ -164,7 +194,7 @@ export async function createDatabaseAndAuthorizer () {
     // sanity checks - jam_build and authorizer databases exist, authorizer tables exist
     // await client.query('show databases');
     // await client.query('show tables from authorizer');
-    
+
     debug('Creating jam_build database tables...');
     await client.importFile({
       file: path.resolve(thisDir, toRoot, './data/database/002-mariadb-ddl-tables.sql')
@@ -187,7 +217,7 @@ export async function createDatabaseAndAuthorizer () {
 
     // sanity check - procs should exist and be granted to jbuser and jbadmin
     // await client.query('SHOW PROCEDURE STATUS WHERE Db = \'jam_build\'');
-  
+
   } finally {
     if (client) {
       await client.end();
