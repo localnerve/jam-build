@@ -27,4 +27,4 @@ export AUTHZ_URL=$(find_envvar AUTHZ_URL)
 export AUTHZ_CLIENT_ID=$(find_envvar AUTHZ_CLIENT_ID)
 
 echo Building "$IMAGE_TAG" image with AUTHZ_URL=$AUTHZ_URL and AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID
-docker buildx build --tag "$IMAGE_TAG" --secret id=jam-build,src=$HOSTENV_FILE --file $DOCKER_FILE $PROJECT_DIR --build-arg UID=`id -u` --build-arg GID=`id -g` --build-arg AUTHZ_URL --build-arg AUTHZ_CLIENT_ID
+docker buildx build --target runtime-prod --tag "$IMAGE_TAG" --secret id=jam-build,src=$HOSTENV_FILE --file $DOCKER_FILE $PROJECT_DIR --build-arg UID=`id -u` --build-arg GID=`id -g` --build-arg AUTHZ_URL --build-arg AUTHZ_CLIENT_ID
