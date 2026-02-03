@@ -76,9 +76,15 @@ USER node
 COPY --from=builder --chown=node:node /home/node/app/package*.json ./
 COPY --from=builder --chown=node:node /home/node/app/node_modules ./node_modules
 
+# Copy c8 configuration for coverage reporting
+COPY --from=builder --chown=node:node /home/node/app/.c8rc.json ./
+
 # Copy the specific folders required for your start script
 COPY --from=builder --chown=node:node /home/node/app/dist ./dist
 COPY --from=builder --chown=node:node /home/node/app/src/application/server ./src/application/server
+
+# Create coverage directory for c8 output
+RUN mkdir -p coverage && chown node:node coverage
 
 # Set runtime environment
 ENV NODE_ENV=production

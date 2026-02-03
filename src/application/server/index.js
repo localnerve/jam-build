@@ -69,7 +69,10 @@ if (!noCompression) {
 if (test) {
   server.post('/shutdown', (req, res) => {
     res.sendStatus(200);
-    process.exit(0);
+    // Give c8 time to flush coverage data before exiting
+    setTimeout(() => {
+      process.exit(0);
+    }, 500);
   });
 }
 
@@ -82,7 +85,7 @@ if (!maintenance) {
 
 server.use(express.static(rootDir, {
   index: 'home.html',
-  setHeaders: noHeaders ? () => {} : setHeaders.bind(null, logger)
+  setHeaders: noHeaders ? () => { } : setHeaders.bind(null, logger)
 }));
 server.use(notFoundHandler.bind(null, logger, rootDir));
 server.use(errorHandler.bind(null, logger, rootDir));
