@@ -18,7 +18,7 @@
 * ✨ [Command Reference](docs/commands.md)
 * 📈 [Project Stats Snapshots](docs/stats.md)
 
-> A Go Fiber API with monitoring and multi-database support, as a drop-in replacement for the ExpressJS API with MariaDB in this project, is available at [jam-build-propsdb](https://github.com/localnerve/jam-build-propsdb).
+> A Go Fiber API with monitoring and multi-database support, as a drop-in replacement for the backend in this project, is available at [jam-build-propsdb](https://github.com/localnerve/jam-build-propsdb).
 
 ## Project Summary
 
