@@ -417,7 +417,7 @@ test.describe('mutation tests', () => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     const notChrome = browser.browserType().name() !== 'chromium';
-    const clickWait = process.env.CI || notChrome ? 400 : 200; // eslint-disable-line  playwright/no-conditional-in-test
+    const clickWait = process.env.CI || notChrome ? 400 : 300; // eslint-disable-line  playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
