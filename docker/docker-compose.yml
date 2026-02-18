@@ -46,7 +46,7 @@ services:
 
   # The cache
   cache:
-    image: redis:8.4.0
+    image: redis:8.6.0
     restart: unless-stopped
     ports:
       - 6379:6379

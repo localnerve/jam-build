@@ -23,7 +23,7 @@ import url from 'node:url';
 import os from 'node:os';
 import fs from 'node:fs/promises';
 import { GenericContainer, Network, Wait, getContainerRuntimeClient, PullPolicy } from 'testcontainers';
-import mariadb from 'mariadb';
+import * as mariadb from 'mariadb';
 import { MariaDbContainer } from '@testcontainers/mariadb';
 import debugLib from '@localnerve/debug';
 

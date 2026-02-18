@@ -1,8 +1,12 @@
 /**
  * Service Worker Registration.
  * 
- * This is the only request not cached.
- * Update here to perform normative interruptive change.
+ * Handles service worker registration and custom install and update prompt triggers.
+ * 
+ * This is the only js module not cached.
+ * Update here to perform any normative interruptive change - Runs before the main app.
+ * 
+ * This is run in the main window context, loaded and executed after polyfills (if required), but before the main app.
  * 
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
@@ -43,9 +47,20 @@ function handleWaiting (wb) {
   });
 }
 
-if ('serviceWorker' in navigator) {
-  const wb = new Workbox('/sw.main.js');
-  wb.addEventListener('waiting', handleWaiting.bind(null, wb));
-  wb.addEventListener('controlling', handleAfterInstall);
-  wb.register();
+function registerSW () {
+  if ('serviceWorker' in navigator) {
+    const wb = new Workbox('/sw.main.js');
+    wb.addEventListener('waiting', handleWaiting.bind(null, wb));
+    wb.addEventListener('controlling', handleAfterInstall);
+    wb.register();
+  }
 }
+
+window.addEventListener('pageshow', (event) => {
+  // If event.persisted is true, the page was restored from bfcache
+  // and we should skip the redundant registration.
+  // Service worker registration is idempotent, but BF cache is a special case.
+  if (!event.persisted) {
+    registerSW();
+  }
+});

@@ -30,7 +30,7 @@
  */
 import debugLib from '@localnerve/debug';
 import express from 'express';
-import mariadb from 'mariadb';
+import * as mariadb from 'mariadb';
 import {
   getProperties,
   getCollectionsAndProperties,
