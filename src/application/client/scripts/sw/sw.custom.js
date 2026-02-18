@@ -47,19 +47,16 @@ function updateRuntimeCache () {
     .then(cache => cache.addAll(urls));
 }
 
-function sendResponse (event, response) {
+async function sendResponse (event, response) {
   debug('Sending response: ', event, response);
 
-  let result;
   const respondTo = (event.ports?.length > 0 && event.ports[0]) || event.source;
 
   if (respondTo) {
     respondTo.postMessage(response);
   } else {
-    sendMessage(null, response);
+    sendMessage(null, response); // async broadcast
   }
-
-  return result || Promise.resolve();
 }
 
 self.addEventListener('install', event => {
@@ -87,7 +84,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('message', event => {
   const { action, payload = {} } = event.data;
   const backgroundSyncSupportTest = 'ln-background-sync-support-test';
-  const waitOrPassThru = 'waitUntil' in event ? event.waitUntil.bind(event): val => val;
+  const waitOrPassThru = 'waitUntil' in event ? event.waitUntil.bind(event) : val=>val;
   const sendReply = sendResponse.bind(null, event);
 
   debug('Message event handler called:', event);
