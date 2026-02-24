@@ -120,7 +120,7 @@ async function replayRequestQueue ({ queue }) {
   debug('Replaying queue requests...', queue);
 
   if (!queue) {
-    throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+    throw new _private.WorkboxError('queue-replay-failed', { name: queueName });
   }
 
   const getRequests = [];
@@ -145,7 +145,7 @@ async function replayRequestQueue ({ queue }) {
       queue.push(entry);
     } else {
       const { storeType, document, collections, op } = meta;
-  
+
       if (Array.isArray(collections) && collections.length > 0) {
         for (const coll of collections) {
           if (isObj(coll)) {
@@ -195,11 +195,11 @@ async function replayRequestQueue ({ queue }) {
     try {
       const meta = getEntry.metadata;
       reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
-      
+
       if (completed[reqKey]) {
         continue;
       }
-      
+
       await dataAPICall(getEntry.request, {
         asyncResponseHandler: getResponseHandler.bind(null, meta),
         metadata: meta,
@@ -208,7 +208,7 @@ async function replayRequestQueue ({ queue }) {
       completed[reqKey] = true;
     } catch {
       debug('Failed to replay get request: ', getEntry.request.url);
-      
+
       for (const get of getRequests) {
         const meta = getEntry.metadata;
         reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
@@ -217,7 +217,7 @@ async function replayRequestQueue ({ queue }) {
         }
       }
 
-      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+      throw new _private.WorkboxError('queue-replay-failed', { name: queueName });
     }
   } // for - get requests
 }
@@ -269,7 +269,7 @@ async function dataAPICall (request, {
 
   let result = -1;
   let response = null;
-  
+
   try {
     response = await fetch(request.clone(), {
       signal: abortController.signal
@@ -362,10 +362,9 @@ export async function refreshData ({ storeType, document, collections }) {
 
   const resource = makeStoreTypeURLFragment(storeType);
   const baseUrl = `/api/data/${resource}`;
-  const path = document ? `/${document}${
-    typeof collections === 'string' ? `/${collections}`
-      : collections?.length === 1 ? `/${collections[0]}` : ''
-  }`: '';
+  const path = document ? `/${document}${typeof collections === 'string' ? `/${collections}`
+    : collections?.length === 1 ? `/${collections[0]}` : ''
+    }` : '';
   let url = `${baseUrl}${path}`;
 
   if (document && collections?.length > 1) {
@@ -389,7 +388,7 @@ export async function refreshData ({ storeType, document, collections }) {
       storeType,
       document,
       collections,
-      op : opGet
+      op: opGet
     }
   });
 }
@@ -459,7 +458,7 @@ async function upsertData ({ storeType, document, collections = null }) {
  */
 async function deleteData ({ storeType, document, collections }) {
   debug(`deleteData, ${storeType}:${document}`, collections);
-  
+
   if (!storeType || !document) {
     throw new Error('Bad input passed to deleteData');
   }
@@ -614,7 +613,7 @@ async function processBatchUpdates () {
     put: upsertData,
     delete: deleteData
   };
-  
+
   debug(`processBatchUpdates processing ${totalRecords} records...`);
 
   // For iterating in descending id+storeType+document+collection order

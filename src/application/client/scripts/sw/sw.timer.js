@@ -112,7 +112,7 @@ function checkHeartbeat (timerName, resolution) {
   const clientCount = heartbeat[timerName].size;
   let lastTime = Number.MAX_SAFE_INTEGER;
   let inactiveCount = 0;
-  
+
   // Get the shortest heartbeat time and track the client activity
   for (const beat of heartbeat[timerName].values()) {
     if (beat.time < lastTime) lastTime = beat.time;
@@ -139,7 +139,7 @@ function serviceTimer (timerName) {
 
     const callback = timers[timerName].callback;
     callback();
-    
+
     stopHeartbeat(timerName);
     delete timers[timerName];
   } else {

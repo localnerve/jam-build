@@ -37,7 +37,7 @@ export async function sendMessage (meta, payload) {
 
     const message = meta ? { meta, payload } : payload;
     debug(`sendMessage (${freshClients.length})`, message);
-    
+
     for (let i = 0; i < freshClients.length; i++) {
       freshClients[i].postMessage(message);
     }
