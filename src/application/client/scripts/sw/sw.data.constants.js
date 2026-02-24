@@ -40,4 +40,7 @@ export const offlineRetentionTime = 30; // 30 minutes, session time
 export const queueName = `${dbname}-requests-${apiVersion}`;
 export const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older than this are considered expired
 export const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
+export const conflictBackoffBase = 100;    // base delay in ms
+export const conflictBackoffMax = 5000;    // max delay cap in ms
+export const conflictMaxRetries = 5;       // max retry attempts before giving up
 export const mainStoreTypes = ['app', 'user'];

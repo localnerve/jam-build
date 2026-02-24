@@ -32,136 +32,17 @@ import {
   deleteTestDataUser
 } from '#test/testdata.js';
 import { startJS, stopJS, createMap, createReport } from '#test/coverage.js';
+import {
+  doMutations,
+  testMessageExists,
+  testMutations,
+  slowTimeoutAddition
+} from '#test/data.utils.js';
 
 test.describe('mutation tests', () => {
   let baseUrl;
   let map;
   let needLogout;
-
-  const slowTimeoutAddition = 20000;
-
-  /**
-   * Do mutations on a refernce to an editable-object control.
-   * Assumes input data presets from testdata.js
-   * 
-   * By default:
-   * Update property1, property2
-   * Delete property3, property4
-   * Create property5
-   * 
-   * @param {EditableObjectControl} control - The editable-object control to operate on
-   * @param {Object} [mutations] - The creates, updates, and deletes to do
-   * @param {Array<Array>} [mutations.doCreates] - Array of [name, value] pairs to create
-   * @param {Array<String>} [mutations.doUpdates] - Array of property names to update (values are always increment the lastchar)
-   * @param {Array<String>} [mutations.doDeletes] - Array of property names to delete
-   * @param {Number} [mutations.deletePosition] - The position in the property array to start consecutive delets from
-   * @returns {Object} of updateProps, createProps, and deleteProps
-   */
-  async function doMutations (control, {
-    doCreates = [ ['property5', 'value55'] ],
-    doUpdates = ['property1', 'property2'],
-    doDeletes = ['property3', 'property4'],
-    deletePosition = 2
-  } = {}) {
-    /**
-     * Updates
-     */
-    let lastProp;
-    const updateProps = doUpdates.reduce((acc, cur) => {
-      acc[cur] = null;
-      return acc;
-    }, {});
-    for (const propName of Object.keys(updateProps)) {
-      lastProp = control.getByLabel(propName);
-      
-      const value = await lastProp.inputValue();
-      const newValue = `${value}${value.charAt(value.length - 1)}`;
-      updateProps[propName] = newValue;
-
-      await lastProp.dblclick(); // set to edit mode
-      await lastProp.fill(newValue);
-      await lastProp.press('Enter');
-    }
-
-    // assist any visual debugging
-    await lastProp.scrollIntoViewIfNeeded();
-
-    // mutationQueue 67ms, plus 
-    await new Promise(res => setTimeout(res, 167)); // increase this to visually debug
-
-    /**
-     * Delete props
-     */
-    const deleteProps = doDeletes;
-    for (const propName of deleteProps) {
-      const prop = control.getByLabel(propName);
-      // * not sure why I have to click before this, but I do. probably visibility in the control...
-      await prop.click();
-
-      const propLI = (await control.getByRole('listitem').all())[deletePosition];
-      await propLI.getByTitle('Remove').click();
-    }
-
-    // mutationQueue 67ms, plus 
-    await new Promise(res => setTimeout(res, 167)); // increase this to visually debug
-
-    /**
-     * Create props
-     */
-    const createProps = doCreates.reduce((acc, [name, value]) => {
-      acc[name] = value;
-      return acc;
-    }, {});
-    for (const [newPropName, newPropValue] of Object.entries(createProps)) {
-      const newProp = control.getByLabel('New Property and Value');
-      await newProp.fill(`${newPropName}:${newPropValue}`);
-      await newProp.press('Enter');
-    }
-
-    // mutationQueue 67ms, plus 
-    await new Promise(res => setTimeout(res, 167)); // increase this to visually debug
-
-    return {
-      updateProps,
-      createProps,
-      deleteProps
-    };
-  }
-
-  /**
-   * Quick test to see if a stale data message exists.
-   */
-  async function testMessageExists (page, expectMessageExists = false) {
-    // Check for an app message.
-    const message = page.locator('.pp-message');
-    if (!expectMessageExists) {
-      await expect(message).toBeHidden();
-    } else {
-      await expect(message).toBeVisible();
-    }
-  }
-
-  /**
-   * Verify the mutations from doMutations were successful at this moment.
-   */
-  async function testMutations (page, control, mutations, messageExists = false) {
-    await testMessageExists(page, messageExists);
-
-    // Test updates
-    for (const [propName, propValue] of Object.entries(mutations.updateProps)) {
-      await expect(control.getByLabel(propName)).toHaveValue(propValue);
-    }
-
-    // Test creates
-    for (const [propName, propValue] of Object.entries(mutations.createProps)) {
-      await expect(control.getByLabel(propName)).toHaveValue(propValue);
-    }
-
-    // Test deletes
-    for (const propName of mutations.deleteProps) {
-      await expect(control.locator(`input[name="${propName}"]`)).toHaveCount(0);
-    }
-  }
 
   test.beforeAll(() => {
     baseUrl = process.env.BASE_URL;
@@ -416,8 +297,7 @@ test.describe('mutation tests', () => {
   test('simple version conflict', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    const notChrome = browser.browserType().name() !== 'chromium';
-    const clickWait = process.env.CI || notChrome ? 400 : 300; // eslint-disable-line  playwright/no-conditional-in-test
+    const clickWait = 400;
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
