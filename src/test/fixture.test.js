@@ -39,7 +39,7 @@ test.describe('Fixture check', () => {
     debug('User request state', userState);
   });
 
-  test('Audit Page fixtures', async({ adminPage, userPage, page }) => {
+  test('Audit Page fixtures', async ({ adminPage, userPage, page }) => {
     const adminState = await adminPage.context().storageState();
     const userState = await userPage.context().storageState();
     const publicState = await page.context().storageState();

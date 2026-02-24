@@ -65,7 +65,7 @@ export async function getDB () {
 export async function installDatabase () {
   /* eslint-disable no-unused-vars */
   db = await openDB(dbname, schemaVersion, {
-    upgrade(db, oldVersion, newVersion, transaction, event) {
+    upgrade (db, oldVersion, newVersion, transaction, event) {
 
       //
       // MAIN STORES (app, user)
@@ -207,10 +207,10 @@ export async function installDatabase () {
         }
       }
     },
-    blocked(currentVersion, blockedVersion, event) {
+    blocked (currentVersion, blockedVersion, event) {
       blocked = true;
     },
-    async blocking(currentVersion, blockedVersion, event) {
+    async blocking (currentVersion, blockedVersion, event) {
       db.close();
       await sendMessage('database-update-required');
     }

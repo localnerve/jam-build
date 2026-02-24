@@ -364,7 +364,7 @@ export async function refreshData ({ storeType, document, collections }) {
   const baseUrl = `/api/data/${resource}`;
   const path = document ? `/${document}${typeof collections === 'string' ? `/${collections}`
     : collections?.length === 1 ? `/${collections[0]}` : ''
-    }` : '';
+  }` : '';
   let url = `${baseUrl}${path}`;
 
   if (document && collections?.length > 1) {
@@ -692,7 +692,7 @@ async function processBatchUpdates () {
             properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
             properties.hasProps = item.propertyName ? true : false;
           } else { // this is a document delete
-            properties = { set(){}, get(){}, hasProps: false };
+            properties = { set () { }, get () { }, hasProps: false };
           }
         }
         networkCallOrder.unshift(item.op); // add to head so newest will be last

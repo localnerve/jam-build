@@ -27,12 +27,17 @@ const commonRules = {
   ...js.configs.recommended.rules,
   'no-console': 'warn',
   'no-param-reassign': 'error',
+  'space-before-function-paren': ['error', {
+    'anonymous': 'always',
+    'named': 'always',
+    'asyncArrow': 'always'
+  }],
   indent: [2, 2, {
     SwitchCase: 1,
     MemberExpression: 1
   }],
   quotes: [2, 'single'],
-  'dot-notation': [2, {allowKeywords: true}],
+  'dot-notation': [2, { allowKeywords: true }],
   'linebreak-style': [
     'error',
     'unix'
