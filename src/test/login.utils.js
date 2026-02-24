@@ -177,7 +177,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
       debug(`authzUrlTest call ${callCount++}`, url.origin, '===', process.env.AUTHZ_URL);
       return url.origin === process.env.AUTHZ_URL;
     };
-  
+
     await page.waitForURL(authzUrlTest, {
       timeout: serviceTimeout,
       waitUntil
