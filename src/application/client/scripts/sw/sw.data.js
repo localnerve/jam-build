@@ -794,6 +794,8 @@ async function processBatchUpdates () {
       logoutData(storeType, !storeTypeReplay.get(storeType), !next);
     }
   }
+
+  return networkResult;
 }
 
 /**

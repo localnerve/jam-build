@@ -150,9 +150,10 @@ export async function testMutations (page, control, mutations, messageExists = f
  *
  * @param {Page} page - The page to navigate
  * @param {String} away - aria-label label of the away anchor
+ * @param {String} baseUrl - The baseUrl
  * @param {Number} clickWait - The wait time after navigation clicks
  */
-export async function forceBatchTerminusNav (page, away, clickWait) {
+export async function forceBatchTerminusNav (page, away, baseUrl, clickWait) {
   const activeLocator = page.locator('a[class="active"]');
   const activeAnchor = await activeLocator.nth(1);
   const activeLabel = await activeAnchor.getAttribute('aria-label');
@@ -178,4 +179,6 @@ export async function forceBatchTerminusNav (page, away, clickWait) {
     timeout: 5000
   });
   await expect(page).toHaveURL(backUrl);
+
+  await new Promise(res => setTimeout(res, clickWait));
 }

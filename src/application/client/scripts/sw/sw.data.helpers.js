@@ -99,7 +99,8 @@ async function storeMutationResult (storeType, document, result) {
   await db.put(versionStoreName, {
     storeType,
     document,
-    version: result.newVersion
+    version: result.newVersion,
+    retryCount: 0
   });
 }
 
@@ -160,7 +161,8 @@ export async function storeData (storeType, data) {
     await db.put(versionStoreName, {
       storeType,
       document: doc_name,
-      version: doc.__version
+      version: doc.__version,
+      retryCount: 0
     });
     delete doc.__version;
 
@@ -242,7 +244,8 @@ export async function loadData (storeType, document, collections = null) {
     await db.put(versionStoreName, {
       storeType,
       document,
-      version: record.version
+      version: record.version,
+      retryCount: 0
     });
   }
   result.version = record.version;
@@ -329,9 +332,9 @@ export async function clearBaseStoreRecords (storeType, document, collection = '
   const baseRecords = await db.transaction(baseStoreName, 'readwrite').store.index('collection');
   for await (const cursor of baseRecords.iterate([storeType, document, collection])) {
     const item = cursor.value;
-    
+
     item.reference -= 1;
-    
+
     if (item.reference <= 0) {
       deleteCount++;
       await cursor.delete();
@@ -360,7 +363,7 @@ async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = 
   if (!storeType || !document) {
     throw new Error('Bad input passed to mayUpdate');
   }
-  
+
   /* eslint-disable no-param-reassign */
   collection = collection ?? '';
   /* eslint-enable no-param-reassign */

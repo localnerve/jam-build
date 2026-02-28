@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.9.3",
+  "version": "2.10.0",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -45,6 +45,7 @@
     "test:local:api:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=api --max-failures=1 --workers=1 --timeout=600000 --headed",
     "test:local:data": "npm run test:env:local -- playwright test --project=data --max-failures=1",
     "test:local:data:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=data-debug --max-failures=1 --workers=1 --timeout=600000 --headed",
+    "test:local:data:conflict:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=data-conflict-debug --max-failures=1 --workers=1 --timeout=600000 --headed",
     "test:local:debug": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=Chromium --max-failures=1 --workers=1 --timeout=600000 --headed",
     "test:local:ff": "npm run test:env:local -- playwright test --project=Firefox",
     "test:local:ff:debug": "npm run test:env:local -- playwright test --project=Firefox --max-failures=1 --workers=1 --timeout=600000 --headed",
@@ -171,7 +172,9 @@
   },
   "overrides": {
     "sourcemap-codec": "npm:@jridgewell/sourcemap-codec",
-    "glob": "^13.0.5"
+    "glob": "^13.0.5",
+    "multimatch": "^8.0.0",
+    "minimatch": "^10.2.2"
   },
   "engines": {
     "node": ">=24.8 <25"

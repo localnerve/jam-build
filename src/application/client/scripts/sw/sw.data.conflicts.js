@@ -23,11 +23,16 @@ import { hasOwnProperty, isNullish, isObj } from '#client-utils/javascript.js';
 import { getStoreTypeScope } from '#client-utils/storeType.js';
 import {
   baseStoreType,
+  conflictBackoffBase,
+  conflictBackoffMax,
+  conflictMaxRetries,
   conflictStoreType,
+  nominalTimerInterval,
   dbname,
   versionStoreType
 } from './sw.data.constants.js';
 import { debug, sendMessage } from './sw.utils.js';
+import { startTimer } from './sw.timer.js';
 import { getDB, makeStoreName } from './sw.data.source.js';
 
 const jsonDiffPatch = jsonDiffPatchLib.create({ omitRemovedValues: true });
@@ -103,7 +108,7 @@ function threeWayMerge (base, remote, local) {
       }
       return newValue;
     };
-  
+
     // Handle diffs, always choose local over remote
     for (const path of Object.keys(diffs)) {
       const { remote, local, type } = diffs[path];
@@ -130,6 +135,59 @@ function threeWayMerge (base, remote, local) {
 }
 
 /**
+ * Compute a timer resolution that targets a median value.
+ * Never give a resolution below a minimum floor value.
+ * Favor overshooting over undershooting.
+ */
+function computeTimerResolution (delay) {
+  const target = nominalTimerInterval;
+  const floor = Math.ceil(nominalTimerInterval * 0.6);
+
+  if (delay <= floor) return floor;
+
+  // Use Math.ceil to ensure we don't under-count intervals
+  // Example: 1300 / 500 = 2.6 -> 3 intervals
+  const intervalCount = Math.ceil(delay / target);
+  
+  // Use Math.ceil again to ensure the interval duration 
+  // slightly overshoots the target delay rather than undershooting.
+  // Example: 1300 / 3 = 433.33 -> 434ms
+  const resolution = Math.ceil(delay / intervalCount);
+
+  // Ensure we respect the CPU floor
+  return Math.max(resolution, floor);
+}
+
+/**
+ * Complete processVersionConflicts by restarting the batch loop, update the UI on success.
+ * The loop restart contained here is done on a timer during conflict thrashing.
+ * 
+ * @param {String} instanceId - The instanceId of the processVersionConflicts this belongs to
+ * @param {Object} message - The message notification data from the merged newData objects written to the local object stores
+ * @param {Function} processBatchUpdates - The processBatchUpdates function
+ */
+async function completeProcessVersionConflicts (instanceId, message, processBatchUpdates) {
+  const result = await processBatchUpdates();
+
+  if (result === 0) { // complete success
+    // Notify the app the data was updated
+    for (const [, payload] of Object.entries(message)) {
+      await sendMessage('database-data-update', {
+        ...payload,
+        message: {
+          text: 'The data was synchronized with the latest version',
+          class: 'info'
+        }
+      });
+    }
+
+    debug('processVersionConflicts sent client messages', message);
+  }
+
+  debug(`[${instanceId}] Ending processVersionConflicts...`);
+}
+
+/**
  * Read the versionConflict objectStore and process the version conflicts:
  * 
  * 1. Read the conflictStore for all the current version remote data saved with type, op, and collection info
@@ -150,7 +208,12 @@ export async function processVersionConflicts ({
   processBatchUpdates,
   addToBatch
 }) {
+  const instanceId = Math.random().toString(36).substring(7);
+  debug(`[${instanceId}] Starting processVersionConflicts...`);
+
   const conflictStoreName = makeStoreName(conflictStoreType);
+  const versionStoreName = makeStoreName(versionStoreType);
+
   const db = await getDB();
   const totalRecords = await db.count(conflictStoreName);
 
@@ -161,8 +224,61 @@ export async function processVersionConflicts ({
 
   debug(`processVersionConflicts processing ${totalRecords} records from ${conflictStoreName}...`);
 
-  const conflictDocs = await db.transaction(conflictStoreName).store.index('version');
+  // Read retryCount from version_documents for all involved docs to find the max
+  let maxRetryCount = 0;
+  const allConflictValues = await db.getAll(conflictStoreName);
+  const conflictKeys = allConflictValues.map(val => [val.storeType, val.document_name]);
+  const versionRecords = await Promise.all(
+    conflictKeys.map(key => db.get(versionStoreName, key))
+  );
+  for (const versionRecord of versionRecords) {
+    if (versionRecord?.retryCount > maxRetryCount) {
+      maxRetryCount = versionRecord.retryCount;
+    }
+  }
 
+  // Check max retries BEFORE doing any merge work to avoid orphans and unnecessary CPU
+  if (maxRetryCount >= conflictMaxRetries) {
+    debug(`processVersionConflicts max retries (${conflictMaxRetries}) exceeded`);
+
+    const uniqueStoreTypes = new Set();
+    const unqiueConflictValues = [];
+
+    // Delete all the conflict records (cleanup) and collect uniqueStoreTypes
+    for (const val of allConflictValues) {
+      if (!uniqueStoreTypes.has(val.storeType)) {
+        uniqueStoreTypes.add(val.storeType);
+        unqiueConflictValues.push(val);
+      }
+      await db.delete(conflictStoreName, [val.storeType, val.document_name, val.collection_name]);
+    }
+    debug(`deleted ${allConflictValues.length} conflict records (max retries exceeded)`);
+
+    // Notify for each distinct storeType conflict, only show message on last one
+    const lastIndex = unqiueConflictValues.length - 1;
+    let message = false;
+    for (let i = 0; i < unqiueConflictValues.length; i++) {
+      const val = unqiueConflictValues[i];
+      if (i == lastIndex) {
+        message = {
+          text: 'A data conflict could not be resolved automatically. You are viewing local data.',
+          class: 'error'
+        };
+      }
+      await sendMessage('database-data-update', {
+        dbname,
+        storeName: makeStoreName(val.storeType),
+        storeType: val.storeType,
+        scope: getStoreTypeScope(val.storeType),
+        keys: [[val.document_name, val.collection_name]], // representative key
+        message
+      });
+    }
+
+    return; // fail
+  }
+
+  const conflictDocs = await db.transaction(conflictStoreName).store.index('version');
   debug('conflictDocs version index records: ', await conflictDocs.count());
 
   // Read all conflict doc records, latest version first
@@ -183,7 +299,7 @@ export async function processVersionConflicts ({
     } = cursor.value;
 
     // eslint-disable-next-line compat/compat
-    const version = typeof BigInt(42) === 'bigint' ? BigInt(new_version) : +new_version; 
+    const version = typeof BigInt(42) === 'bigint' ? BigInt(new_version) : +new_version;
 
     // Build base properties if they don't exist
     versions[storeType] = versions[storeType] ?? {};
@@ -216,10 +332,10 @@ export async function processVersionConflicts ({
   for (const storeType of Object.keys(remoteData)) {
     const storeName = makeStoreName(storeType);
     const scope = getStoreTypeScope(storeType);
-    
+
     for (const doc of Object.keys(remoteData[storeType])) {
       const records = await db.getAllFromIndex(storeName, 'document', [scope, doc]);
-      
+
       for (const rec of records) {
         localData[storeType] = localData[storeType] ?? {};
         localData[storeType][rec.document_name] =
@@ -305,15 +421,15 @@ export async function processVersionConflicts ({
 
   debug('processVersionConflicts wrote new records contained in the keys: ', message);
 
-  // Update the version objectStore with the new versions for the docs
-  const versionStoreName = makeStoreName(versionStoreType);
+  // Update the version objectStore with the new versions and incremented retryCount
   for (const storeType of Object.keys(versions)) {
     for (const [document, version] of Object.entries(versions[storeType])) {
       if (document && version > 0) {
         await db.put(versionStoreName, {
           storeType,
           document,
-          version: `${version}`
+          version: `${version}`,
+          retryCount: maxRetryCount + 1
         });
       }
     }
@@ -378,18 +494,25 @@ export async function processVersionConflicts ({
 
   debug(`deleted ${conflictDeletes} conflict records before re-processing`);
 
-  await processBatchUpdates();
+  if (maxRetryCount > 0) {
+    // Exponential backoff with jitter
+    const backoffDelay = Math.min(
+      conflictBackoffBase * Math.pow(2, maxRetryCount),
+      conflictBackoffMax
+    );
+    const jitter = Math.random() * backoffDelay;
+    const delay = backoffDelay + jitter;
+    
+    debug(`processVersionConflicts backoff delay: ${delay.toFixed(0)}ms (retry attempt ${maxRetryCount})`);
 
-  // Notify the app the data was updated
-  for (const [, payload] of Object.entries(message)) {
-    await sendMessage('database-data-update', {
-      ...payload,
-      message: {
-        text: 'The data was synchronized with the latest version',
-        class: 'info'
-      }
-    });
+    const resolution = computeTimerResolution(delay);
+    startTimer(
+      delay,
+      'backoff-batch-timer',
+      completeProcessVersionConflicts.bind(null, instanceId, message, processBatchUpdates),
+      resolution
+    );
+  } else {
+    await completeProcessVersionConflicts(instanceId, message, processBatchUpdates);
   }
-
-  debug('processVersionConflicts sent client messages', message);
 }

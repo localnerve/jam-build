@@ -20,6 +20,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import { nominalTimerInterval } from './sw.data.constants.js';
 import { debug, sendMessage } from './sw.utils.js';
 
 const timers = Object.create(null);
@@ -170,7 +171,7 @@ export function serviceAllTimers () {
  * @param {Function} callback - The callback,
  * @param {Number} [resolution] - The timer resolution, defaults to 500 ms
  */
-export function startTimer (duration, timerName, callback, resolution = 500) {
+export function startTimer (duration, timerName, callback, resolution = nominalTimerInterval) {
   if (timers[timerName]) {
     clearInterval(timers[timerName].intervalId);
   } else {
