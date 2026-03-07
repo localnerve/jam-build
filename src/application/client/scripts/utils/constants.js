@@ -21,3 +21,6 @@
 
 export const opPut = 'put';
 export const opDel = 'delete';
+export const conflictBackoffBase = 100;  // exponential backoff base delay in ms
+export const conflictBackoffMax  = 8000; // max delay cap in ms, [2^(conflictMaxRetries-1)]*conflictBackoffBase + jitterMs
+export const conflictMaxRetries  = 7;    // max retry attempts before giving up, [2^(conflictMaxRetries-1)]*conflictBackoffBase is the base delay

@@ -23,7 +23,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-export * from '#client-utils/constants.js';
+export * from '#client-utils/constants.js'; // shared constants
 export const opGet = 'get';
 export const opLogout = 'logout';
 export const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
@@ -41,7 +41,4 @@ export const offlineRetentionTime = 30; // 30 minutes, session time
 export const queueName = `${dbname}-requests-${apiVersion}`;
 export const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older than this are considered expired
 export const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
-export const conflictBackoffBase = 100;  // base delay in ms
-export const conflictBackoffMax = 8000; // max delay cap in ms, [2^(conflictMaxRetries-1)]*conflictBackoffBase + jitterMs
-export const conflictMaxRetries = 7;     // max retry attempts before giving up, [2^(conflictMaxRetries-1)]*conflictBackoffBase is the base delay
 export const mainStoreTypes = ['app', 'user'];
