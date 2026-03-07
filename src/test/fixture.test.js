@@ -33,7 +33,7 @@ test.describe('Fixture check', () => {
 
     expect(adminState.cookies.length).toBeGreaterThan(0);
     expect(userState.cookies.length).toBeGreaterThan(0);
-    expect(publicState.cookies.length).toEqual(0);
+    expect(publicState.cookies.length).toHaveLength(0);
 
     debug('Admin request state', adminState);
     debug('User request state', userState);
@@ -46,7 +46,7 @@ test.describe('Fixture check', () => {
 
     expect(adminState.cookies.length).toBeGreaterThan(0);
     expect(userState.cookies.length).toBeGreaterThan(0);
-    expect(publicState.cookies.length).toEqual(0);
+    expect(publicState.cookies.length).toHaveLength(0);
 
     debug('Admin request state', adminState);
     debug('User request state', userState);

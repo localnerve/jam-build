@@ -90,7 +90,7 @@ async function heartbeatStart (name, interval, maxInactive) {
   
   heartbeatStop(name);
 
-  const reg = await navigator.serviceWorker.ready; // eslint-disable-line compat/compat
+  const reg = await navigator.serviceWorker.ready;
 
   heartbeats[name] = {
     interval: setInterval(name => {
