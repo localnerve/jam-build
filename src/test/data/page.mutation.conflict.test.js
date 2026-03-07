@@ -52,6 +52,7 @@ test.describe('conflict resolution tests', () => {
   let baseUrl;
   let map;
   let needLogout;
+  let activeClickWait;
 
   const clickWait = 400;
 
@@ -151,10 +152,15 @@ test.describe('conflict resolution tests', () => {
 
   test.beforeEach(async ({ browserName, page, adminRequest, userRequest }) => {
     test.setTimeout(serviceTimeout);
+
+    const notChrome = page.context().browser().browserType().name() !== 'chromium';
+    activeClickWait = process.env.CI && notChrome ? 800 : clickWait;
+
     await startJS(browserName, page);
     await createTestDataApp(baseUrl, adminRequest);
     await createTestDataUser(baseUrl, userRequest);
     await manualLogin(baseUrl, page);
+    
     needLogout = true;
   });
 
@@ -177,14 +183,11 @@ test.describe('conflict resolution tests', () => {
   test('concurrent conflict resolution', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    const notChrome = page.context().browser().browserType().name() !== 'chromium';
-    const myClickWait = process.env.CI && notChrome ? 800 : clickWait; // eslint-disable-line  playwright/no-conditional-in-test
-
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
     await startJS(browserName, page1);
     await manualLogin(baseUrl, page1);
-    await new Promise(res => setTimeout(res, myClickWait));
+    await new Promise(res => setTimeout(res, activeClickWait));
 
     const userStateControl1 = page1.locator('#user-home-state');
     const mutations1 = await doMutations(userStateControl1);
@@ -202,7 +205,7 @@ test.describe('conflict resolution tests', () => {
     const page2 = await context2.newPage();
     await startJS(browserName, page2);
     await manualLogin(baseUrl, page2);
-    await new Promise(res => setTimeout(res, myClickWait));
+    await new Promise(res => setTimeout(res, activeClickWait));
 
     const userStateControl2 = page2.locator('#user-home-state');
     await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 5000 });
@@ -224,10 +227,10 @@ test.describe('conflict resolution tests', () => {
     expect(object2).toEqual(expected2);
 
     // Force page 1 to batch (no conflict yet, it's first)
-    await forceBatchTerminusNav(page1, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(page1, 'About', baseUrl, activeClickWait);
 
     // Force page 2 to batch (will conflict with page 1's changes, triggers conflict)
-    await forceBatchTerminusNav(page2, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(page2, 'About', baseUrl, activeClickWait);
 
     // Settle
     await new Promise(res => setTimeout(res, 1000));
@@ -243,7 +246,7 @@ test.describe('conflict resolution tests', () => {
     expect(object2).toEqual(mergeResult);
 
     // Force page 1 to reconcile by refreshing
-    await forceBatchTerminusNav(page1, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(page1, 'About', baseUrl, activeClickWait);
     object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
     expect(object1).toEqual(mergeResult);
 
@@ -257,24 +260,21 @@ test.describe('conflict resolution tests', () => {
   test('cascading conflict, three clients', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    const notChrome = page.context().browser().browserType().name() !== 'chromium';
-    const myClickWait = process.env.CI && notChrome ? 800 : clickWait; // eslint-disable-line  playwright/no-conditional-in-test
-
     const clients = await startThreeClients(browser, browserName);
     const { pageA, pageB, pageC } = clients;
 
     // Fire batch terminus in rapid succession on all three pages
-    await forceBatchTerminusNav(pageA, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageB, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageC, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(pageA, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageB, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
 
     // Allow backoff delays to settle
     await new Promise(res => setTimeout(res, 1000));
 
     // Refresh all pages to get final state
-    await forceBatchTerminusNav(pageA, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageB, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageC, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(pageA, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageB, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
 
     await new Promise(res => setTimeout(res, 1000));
 
@@ -307,8 +307,8 @@ test.describe('conflict resolution tests', () => {
     const { contextC, pageA, pageB, pageC } = clients;
 
     // Force pageA first, then pageB (pageB will conflict)
-    await forceBatchTerminusNav(pageA, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageB, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(pageA, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageB, 'About', baseUrl, activeClickWait);
 
     let mutationCount = 0;
     const mutationMax = conflictMaxRetries - 2;
@@ -340,7 +340,7 @@ test.describe('conflict resolution tests', () => {
     });
 
     // Force pageC batch update, start conflict exponential backoff
-    await forceBatchTerminusNav(pageC, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
 
     // Get last delay and wait for the conflicts to transpire
     let lastDelay = Math.min(
@@ -355,9 +355,9 @@ test.describe('conflict resolution tests', () => {
     await contextC.unroute(userDataRoute);
 
     // Refresh all pages to get final state
-    await forceBatchTerminusNav(pageA, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageB, 'About', baseUrl, myClickWait);
-    await forceBatchTerminusNav(pageC, 'About', baseUrl, myClickWait);
+    await forceBatchTerminusNav(pageA, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageB, 'About', baseUrl, activeClickWait);
+    await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
     await new Promise(res => setTimeout(res, 1000));
 
     // All pages need to converge to the same state
