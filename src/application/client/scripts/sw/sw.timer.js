@@ -171,16 +171,17 @@ export function serviceAllTimers () {
  * @param {Function} callback - The callback,
  * @param {Number} [resolution] - The timer resolution, defaults to 500 ms
  */
-export function startTimer (duration, timerName, callback, resolution = nominalTimerInterval) {
+export async function startTimer (duration, timerName, callback, resolution = nominalTimerInterval) {
   if (timers[timerName]) {
     clearInterval(timers[timerName].intervalId);
-  } else {
-    startHeartbeat(
-      timerName,
-      parseInt(Math.floor(resolution * 0.95), 10),
-      parseInt(Math.ceil(resolution * 16), 10)
-    );
+    await stopHeartbeat(timerName);
   }
+
+  startHeartbeat(
+    timerName,
+    parseInt(Math.floor(resolution * 0.95), 10),
+    parseInt(Math.ceil(resolution * 16), 10)
+  );
 
   timers[timerName] = {
     timeLeft: duration,
