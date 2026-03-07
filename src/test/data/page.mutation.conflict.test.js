@@ -20,6 +20,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import debugLib from '@localnerve/debug';
 import { test, expect } from '#test/fixtures.js';
 import {
   manualLogin,
@@ -39,6 +40,13 @@ import {
   slowTimeoutAddition,
   forceBatchTerminusNav
 } from '#test/data.utils.js';
+import {
+  conflictMaxRetries,
+  conflictBackoffBase,
+  conflictBackoffMax
+} from '#client-utils/constants.js';
+
+const debug = debugLib('test:data:conflict');
 
 test.describe('conflict resolution tests', () => {
   let baseUrl;
@@ -46,6 +54,95 @@ test.describe('conflict resolution tests', () => {
   let needLogout;
 
   const clickWait = 400;
+
+  /**
+   * Create three authenticated, concurrent browser contexts and pages for each.
+   * 
+   * @param {Browser} browser - The built-in playwright Browser fixture
+   * @param {String} browserName - The built-in playwright browserName fixture
+   * @returns {Object} browsing contexts and pages for clients A, B, and C
+   */
+  async function startThreeClients (browser, browserName) {
+    // Page A: login and mutate property1, property2
+    const contextA = await browser.newContext();
+    const pageA = await contextA.newPage();
+    await startJS(browserName, pageA);
+    await manualLogin(baseUrl, pageA);
+    await new Promise(res => setTimeout(res, clickWait));
+
+    const controlA = pageA.locator('#user-home-state');
+    const mutationsA = await doMutations(controlA, {
+      doUpdates: ['property1'],
+      doCreates: [['propertyA', 'valueA']],
+      doDeletes: [],
+      deletePosition: 0
+    });
+    await testMutations(pageA, controlA, mutationsA);
+
+    // Page B: login and mutate property2, property3
+    const contextB = await browser.newContext();
+    const pageB = await contextB.newPage();
+    await startJS(browserName, pageB);
+    await manualLogin(baseUrl, pageB);
+    await new Promise(res => setTimeout(res, clickWait));
+
+    const controlB = pageB.locator('#user-home-state');
+    const mutationsB = await doMutations(controlB, {
+      doUpdates: ['property2'],
+      doCreates: [['propertyB', 'valueB']],
+      doDeletes: [],
+      deletePosition: 0
+    });
+    await testMutations(pageB, controlB, mutationsB);
+
+    // Page C: login and mutate property3, property4
+    const contextC = await browser.newContext();
+    const pageC = await contextC.newPage();
+    await startJS(browserName, pageC);
+    await manualLogin(baseUrl, pageC);
+    await new Promise(res => setTimeout(res, clickWait));
+
+    const controlC = pageC.locator('#user-home-state');
+    const mutationsC = await doMutations(controlC, {
+      doUpdates: ['property3'],
+      doCreates: [['propertyC', 'valueC']],
+      doDeletes: [],
+      deletePosition: 0
+    });
+    await testMutations(pageC, controlC, mutationsC);
+
+    return {
+      contextA,
+      pageA,
+      contextB,
+      pageB,
+      contextC,
+      pageC
+    };
+  }
+
+  /**
+   * Destroy three authenticated, concurrent browser contexts and pages for each.
+   *
+   * @param {String} browserName - The built-in playwright browserName fixture
+   * @param {Object} clients - browsing contexts and pages for clients A, B, and C
+   * @param {BrowserContext} clients.contextA - BrowserContext for client A
+   * @param {Page} clients.pageA - Page for client A
+   * @param {BrowserContext} clients.contextB - BrowserContext for client B
+   * @param {Page} clients.pageB - Page for client B
+   * @param {BrowserContext} clients.contextC - BrowserContext for client C
+   * @param {Page} clients.pageC - Page for client C
+   */
+  async function stopThreeClients (browserName, {
+    contextA, contextB, contextC, pageA, pageB, pageC
+  }) {
+    await stopJS(browserName, pageC, map);
+    await stopJS(browserName, pageB, map);
+    await stopJS(browserName, pageA, map);
+    contextC.close();
+    contextB.close();
+    contextA.close();
+  }
 
   test.beforeAll(() => {
     baseUrl = process.env.BASE_URL;
@@ -150,56 +247,12 @@ test.describe('conflict resolution tests', () => {
     context1.close();
   });
 
-  test('cascading conflict with backoff', async ({ browserName, browser }, testInfo) => {
+  // This test will occasionally work to exercise the backoff for pageC
+  test('cascading conflict, three clients', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    // Page A: login and mutate property1, property2
-    const contextA = await browser.newContext();
-    const pageA = await contextA.newPage();
-    await startJS(browserName, pageA);
-    await manualLogin(baseUrl, pageA);
-    await new Promise(res => setTimeout(res, clickWait));
-
-    const controlA = pageA.locator('#user-home-state');
-    const mutationsA = await doMutations(controlA, {
-      doUpdates: ['property1'],
-      doCreates: [['propertyA', 'valueA']],
-      doDeletes: [],
-      deletePosition: 0
-    });
-    await testMutations(pageA, controlA, mutationsA);
-
-    // Page B: login and mutate property2, property3
-    const contextB = await browser.newContext();
-    const pageB = await contextB.newPage();
-    await startJS(browserName, pageB);
-    await manualLogin(baseUrl, pageB);
-    await new Promise(res => setTimeout(res, clickWait));
-
-    const controlB = pageB.locator('#user-home-state');
-    const mutationsB = await doMutations(controlB, {
-      doUpdates: ['property2'],
-      doCreates: [['propertyB', 'valueB']],
-      doDeletes: [],
-      deletePosition: 0
-    });
-    await testMutations(pageB, controlB, mutationsB);
-
-    // Page C: login and mutate property3, property4
-    const contextC = await browser.newContext();
-    const pageC = await contextC.newPage();
-    await startJS(browserName, pageC);
-    await manualLogin(baseUrl, pageC);
-    await new Promise(res => setTimeout(res, clickWait));
-
-    const controlC = pageC.locator('#user-home-state');
-    const mutationsC = await doMutations(controlC, {
-      doUpdates: ['property3'],
-      doCreates: [['propertyC', 'valueC']],
-      doDeletes: [],
-      deletePosition: 0
-    });
-    await testMutations(pageC, controlC, mutationsC);
+    const clients = await startThreeClients(browser, browserName);
+    const { pageA, pageB, pageC } = clients;
 
     // Fire batch terminus in rapid succession on all three pages
     await forceBatchTerminusNav(pageA, 'About', baseUrl, clickWait);
@@ -207,12 +260,14 @@ test.describe('conflict resolution tests', () => {
     await forceBatchTerminusNav(pageC, 'About', baseUrl, clickWait);
 
     // Allow backoff delays to settle
-    await new Promise(res => setTimeout(res, 2000));
+    await new Promise(res => setTimeout(res, 1000));
 
     // Refresh all pages to get final state
     await forceBatchTerminusNav(pageA, 'About', baseUrl, clickWait);
     await forceBatchTerminusNav(pageB, 'About', baseUrl, clickWait);
     await forceBatchTerminusNav(pageC, 'About', baseUrl, clickWait);
+
+    await new Promise(res => setTimeout(res, 1000));
 
     // All pages need to converge to the same state
     const objectA = await pageA.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
@@ -228,12 +283,89 @@ test.describe('conflict resolution tests', () => {
     expect(objectA).toHaveProperty('propertyB', 'valueB');
     expect(objectA).toHaveProperty('propertyC', 'valueC');
 
-    await stopJS(browserName, pageC, map);
-    await stopJS(browserName, pageB, map);
-    await stopJS(browserName, pageA, map);
-    contextC.close();
-    contextB.close();
-    contextA.close();
+    await stopThreeClients(browserName, clients);
+  });
+
+  // This test will ALWAYS work to exercise the backoff for pageC
+  test('cascading conflict, three clients, force backoff', async ({ browserName, browser }, testInfo) => {
+    testInfo.skip(browser.browserType().name() !== 'chromium',
+      'Route interception for service worker requests requires chromium');
+    expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
+
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
+
+    const clients = await startThreeClients(browser, browserName);
+    const { contextC, pageA, pageB, pageC } = clients;
+
+    // Force pageA first, then pageB (pageB will conflict)
+    await forceBatchTerminusNav(pageA, 'About', baseUrl, clickWait);
+    await forceBatchTerminusNav(pageB, 'About', baseUrl, clickWait);
+
+    let mutationCount = 0;
+    const mutationMax = conflictMaxRetries - 2;
+    const userDataRoute = '**/api/data/user/**';
+  
+    // Intercept POST /api/data/user/* to always return versionError
+    // This forces repeated conflicts that will force the backoff behavior
+    await contextC.route(userDataRoute, async route => {
+      const request = route.request();
+      const mutation = request.method() === 'POST' || request.method() === 'DELETE';
+
+      if (mutation && mutationCount < mutationMax) {
+        mutationCount++;
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: false,
+            versionError: true,
+            message: 'Version conflict'
+          })
+        });
+      } else {
+        if (mutation) {
+          mutationCount++;
+        }
+        await route.continue();
+      }
+    });
+
+    // Force pageC batch update, start conflict exponential backoff
+    await forceBatchTerminusNav(pageC, 'About', baseUrl, clickWait);
+
+    // Get last delay and wait for the conflicts to transpire
+    let lastDelay = Math.min(
+      conflictBackoffBase * Math.pow(2, mutationMax),
+      conflictBackoffMax
+    );
+    lastDelay += Math.random() * lastDelay;
+    lastDelay += 400; // padding
+    debug(`Waiting ${lastDelay}ms for backoff...`);
+    await new Promise(res => setTimeout(res, lastDelay));
+
+    await contextC.unroute(userDataRoute);
+
+    // Refresh all pages to get final state
+    await forceBatchTerminusNav(pageA, 'About', baseUrl, clickWait);
+    await forceBatchTerminusNav(pageB, 'About', baseUrl, clickWait);
+    await forceBatchTerminusNav(pageC, 'About', baseUrl, clickWait);
+    await new Promise(res => setTimeout(res, 1000));
+
+    // All pages need to converge to the same state
+    const objectA = await pageA.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
+    const objectB = await pageB.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
+    const objectC = await pageC.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
+
+    // All three pages must agree on the final state
+    expect(objectA).toEqual(objectB);
+    expect(objectB).toEqual(objectC);
+
+    // The merged state must contain all the new properties (none conflicted)
+    expect(objectA).toHaveProperty('propertyA', 'valueA');
+    expect(objectA).toHaveProperty('propertyB', 'valueB');
+    expect(objectA).toHaveProperty('propertyC', 'valueC');
+
+    await stopThreeClients(browserName, clients);
   });
 
   // eslint-disable-next-line playwright/no-skipped-test
