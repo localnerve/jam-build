@@ -506,7 +506,7 @@ export async function processVersionConflicts ({
     debug(`processVersionConflicts backoff delay: ${delay.toFixed(0)}ms (retry attempt ${maxRetryCount})`);
 
     const resolution = computeTimerResolution(delay);
-    startTimer(
+    await startTimer(
       delay,
       'backoff-batch-timer',
       completeProcessVersionConflicts.bind(null, instanceId, message, processBatchUpdates),
