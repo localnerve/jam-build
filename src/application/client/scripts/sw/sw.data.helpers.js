@@ -96,11 +96,12 @@ async function storeMutationResult (storeType, document, result) {
   const versionStoreName = makeStoreName(versionStoreType);
   const db = await getDB();
 
+  const existing = await db.get(versionStoreName, [storeType, document]);
   await db.put(versionStoreName, {
     storeType,
     document,
     version: result.newVersion,
-    retryCount: 0
+    retryCount: existing?.retryCount ?? 0
   });
 }
 

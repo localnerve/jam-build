@@ -715,6 +715,7 @@ async function processBatchUpdates () {
 
   let networkResult = 0;
   let storeTypeReplay = new Map();
+  const successfulDocs = [];
 
   const reconcile = [];
   for (const op of networkCallOrder) { // replay oldest to newest
@@ -733,6 +734,10 @@ async function processBatchUpdates () {
 
       storeTypeReplay.set(request.storeType, networkResult === E_REPLAY);
 
+      if (networkResult === 0) {
+        successfulDocs.push({ storeType: request.storeType, document: request.document });
+      }
+
       debug(`processBatchUpdates '${network[op].name}' completed with '${networkResult}' for '${op}' with '${request.storeType}:${request.document}'`, {
         ...request.collections
       });
@@ -750,7 +755,12 @@ async function processBatchUpdates () {
       }, e);
     }
 
-    // Always delete. If it threw, it's not going to work by retrying, the input is bad
+    if (networkResult === E_CONFLICT) {
+      debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
+      break; // We were invoked in subsequent resolution
+    }
+
+    // From here, always delete. If it threw, it's not going to work by retrying, the input is bad
     const deleteRecords = await db.transaction(batchStoreName, 'readwrite').store.index('delete');
     let count = 0;
     for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
@@ -758,11 +768,6 @@ async function processBatchUpdates () {
       await cursor.delete();
     }
     debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
-
-    if (networkResult === E_CONFLICT) {
-      debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
-      break; // We were invoked in subsequent resolution
-    }
   } // for - networkCallOrder
 
   // This happens if:
@@ -783,6 +788,19 @@ async function processBatchUpdates () {
 
   // If complete invocation, process any additional batch ops
   if (networkResult !== E_CONFLICT) {
+    // Reset retryCount for all docs that completed successfully in this batch run.
+    // This is the ONLY correct place to zero retryCount - after a fully clean (non-conflicting)
+    // batch completes. Resetting it on each individual success (storeMutationResult) is wrong
+    // because a sibling peer may still be in a conflict retry loop at that point.
+    const versionStoreName = makeStoreName(versionStoreType);
+    for (const { storeType, document } of successfulDocs) {
+      const versionRecord = await db.get(versionStoreName, [storeType, document]);
+      if (versionRecord?.retryCount > 0) {
+        await db.put(versionStoreName, { ...versionRecord, retryCount: 0 });
+        debug(`processBatchUpdates reset retryCount for ${storeType}:${document}`);
+      }
+    }
+
     const batchOpsIndex = await db.transaction(batchStoreName, 'readwrite').store.index('ops');
     // op === opLogout
     for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only(opLogout))) {
@@ -816,7 +834,7 @@ async function _batchUpdate ({ storeType, document, op, collection, propertyName
   }
 
   if (!skipTimer) {
-    startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
+    await startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
   }
 
   /* eslint-disable no-param-reassign */
