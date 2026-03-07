@@ -226,6 +226,9 @@ test.describe('conflict resolution tests', () => {
     // Force page 2 to batch (will conflict with page 1's changes, triggers conflict)
     await forceBatchTerminusNav(page2, 'About', baseUrl, clickWait);
 
+    // Settle
+    await new Promise(res => setTimeout(res, 1000));
+
     // The merge result incorporating both: local (page2) preferred when conflicting with remote (page1)
     const mergeResult = {
       property2: 'value22',
