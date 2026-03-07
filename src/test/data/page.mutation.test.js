@@ -250,7 +250,7 @@ test.describe('mutation tests', () => {
     await page.goto(baseUrl);
 
     // go offline, make offline mutations, save mutations
-    context.route('**', route => route.abort());
+    await context.route('**', route => route.abort());
     const userStateControl = page.locator('#user-home-state');
     const mutations = await doMutations(userStateControl);
     await testMutations(page, userStateControl, mutations);
@@ -272,7 +272,7 @@ test.describe('mutation tests', () => {
     await testMutations(page, userStateControl, mutations, true);
 
     // go online
-    context.unroute('**');
+    await context.unroute('**');
 
     // artifically force replay like a 'sync' message
     await page.evaluate(async () => {
