@@ -301,6 +301,8 @@ test.describe('conflict resolution tests', () => {
       'Route interception for service worker requests requires chromium');
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
+    const delayPadding = process.env.CI ? 1400 : 400;
+
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
     const clients = await startThreeClients(browser, browserName);
@@ -348,7 +350,7 @@ test.describe('conflict resolution tests', () => {
       conflictBackoffMax
     );
     lastDelay += Math.random() * lastDelay;
-    lastDelay += 400; // padding
+    lastDelay += delayPadding;
     debug(`Waiting ${lastDelay}ms for backoff...`);
     await new Promise(res => setTimeout(res, lastDelay));
 
@@ -358,7 +360,7 @@ test.describe('conflict resolution tests', () => {
     await forceBatchTerminusNav(pageA, 'About', baseUrl, activeClickWait);
     await forceBatchTerminusNav(pageB, 'About', baseUrl, activeClickWait);
     await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
-    await new Promise(res => setTimeout(res, 1000));
+    await new Promise(res => setTimeout(res, 1000 + delayPadding));
 
     // All pages need to converge to the same state
     const objectA = await pageA.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
