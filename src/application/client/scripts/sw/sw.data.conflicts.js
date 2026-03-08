@@ -261,6 +261,7 @@ export async function processVersionConflicts ({
       const val = unqiueConflictValues[i];
       if (i == lastIndex) {
         message = {
+          // test waits for "could not be resolved"
           text: 'A data conflict could not be resolved automatically. You are viewing local data.',
           class: 'error'
         };

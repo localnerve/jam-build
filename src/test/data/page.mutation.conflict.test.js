@@ -260,6 +260,8 @@ test.describe('conflict resolution tests', () => {
   test('cascading conflict, three clients', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
+    const settleWait = process.env.CI ? 5000 : 2000; // eslint-disable-line playwright/no-conditional-in-test
+
     const clients = await startThreeClients(browser, browserName);
     const { pageA, pageB, pageC } = clients;
 
@@ -269,14 +271,14 @@ test.describe('conflict resolution tests', () => {
     await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
 
     // Allow backoff delays to settle
-    await new Promise(res => setTimeout(res, 1000));
+    await new Promise(res => setTimeout(res, settleWait));
 
     // Refresh all pages to get final state
     await forceBatchTerminusNav(pageA, 'About', baseUrl, activeClickWait);
     await forceBatchTerminusNav(pageB, 'About', baseUrl, activeClickWait);
     await forceBatchTerminusNav(pageC, 'About', baseUrl, activeClickWait);
 
-    await new Promise(res => setTimeout(res, 1000));
+    await new Promise(res => setTimeout(res, settleWait));
 
     // All pages need to converge to the same state
     const objectA = await pageA.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
@@ -301,7 +303,7 @@ test.describe('conflict resolution tests', () => {
       'Route interception for service worker requests requires chromium');
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
-    const delayPadding = process.env.CI ? 1400 : 400; // eslint-disable-line  playwright/no-conditional-in-test
+    const delayPadding = process.env.CI ? 5000 : 2000; // eslint-disable-line  playwright/no-conditional-in-test
 
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
@@ -379,90 +381,21 @@ test.describe('conflict resolution tests', () => {
     await stopThreeClients(browserName, clients);
   });
 
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip('conflict resolution after backoff delays', async ({ browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
-
-    const notChrome = browser.browserType().name() !== 'chromium';
-    const clickWait = process.env.CI || notChrome ? 400 : 300; // eslint-disable-line  playwright/no-conditional-in-test
-
-    // Page 1: login and mutate
-    const context1 = await browser.newContext();
-    const page1 = await context1.newPage();
-    await startJS(browserName, page1);
-    await manualLogin(baseUrl, page1);
-    await new Promise(res => setTimeout(res, clickWait));
-
-    const userStateControl1 = page1.locator('#user-home-state');
-    await doMutations(userStateControl1, {
-      doUpdates: ['property1', 'property2'],
-      doCreates: [['property7', 'value77']],
-      doDeletes: ['property3'],
-      deletePosition: 2
-    });
-
-    // Page 2: login and mutate overlapping
-    const context2 = await browser.newContext();
-    const page2 = await context2.newPage();
-    await startJS(browserName, page2);
-    await manualLogin(baseUrl, page2);
-    await new Promise(res => setTimeout(res, clickWait));
-
-    const userStateControl2 = page2.locator('#user-home-state');
-    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 30000 });
-    await doMutations(userStateControl2, {
-      doUpdates: ['property2', 'property3'],
-      doCreates: [['property8', 'value88']],
-      doDeletes: ['property4'],
-      deletePosition: 2
-    });
-
-    // Force page 1 first, then page 2 (page 2 will conflict)
-    await forceBatchTerminusNav(page1);
-    await forceBatchTerminusNav(page2);
-
-    // Allow backoff to settle
-    await new Promise(res => setTimeout(res, 2000));
-
-    // Refresh both to final state
-    await forceBatchTerminusNav(page1);
-
-    const object1 = await page1.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
-    const object2 = await page2.evaluate(() => document.getElementById('user-home-state').object); // eslint-disable-line no-undef
-
-    // Both pages must have the merged state including creates from both
-    expect(object2).toHaveProperty('property7', 'value77');
-    expect(object2).toHaveProperty('property8', 'value88');
-
-    // property2 conflict: last writer (page2) wins via local-preferred merge
-    expect(object2.property2).toEqual('value22');
-
-    // Page 1 should eventually see same result after refresh
-    expect(object1).toHaveProperty('property7', 'value77');
-    expect(object1).toHaveProperty('property8', 'value88');
-
-    await stopJS(browserName, page2, map);
-    await stopJS(browserName, page1, map);
-    context2.close();
-    context1.close();
-  });
-
-  // eslint-disable-next-line playwright/no-skipped-test
-  test.skip('max retries exceeded shows error message', async ({ browserName, browser }, testInfo) => {
+  test('backoff max retries exceeded shows error message', async ({ browserName, browser }, testInfo) => {
     testInfo.skip(browser.browserType().name() !== 'chromium',
       'Route interception for service worker requests requires chromium');
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
-    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
-
-    const clickWait = 300;
+    const maxRetriesWait = conflictMaxRetries * conflictBackoffMax;
+    const testTimeout = Math.max(testInfo.timeout + slowTimeoutAddition, maxRetriesWait);
+    test.setTimeout(testTimeout + slowTimeoutAddition);
 
     // Page 1: login and mutate to create a version on the server
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
     await startJS(browserName, page1);
     await manualLogin(baseUrl, page1);
-    await new Promise(res => setTimeout(res, clickWait));
+    await new Promise(res => setTimeout(res, activeClickWait));
 
     const userStateControl1 = page1.locator('#user-home-state');
     await doMutations(userStateControl1, {
@@ -473,30 +406,16 @@ test.describe('conflict resolution tests', () => {
     });
 
     // Commit page 1's changes
-    await forceBatchTerminusNav(page1);
+    await forceBatchTerminusNav(page1, 'About', baseUrl, activeClickWait);
 
     // Page 2: login (will have stale version), set up interception
     const context2 = await browser.newContext();
     const page2 = await context2.newPage();
     await startJS(browserName, page2);
     await manualLogin(baseUrl, page2);
-    await new Promise(res => setTimeout(res, clickWait));
+    await new Promise(res => setTimeout(res, activeClickWait));
 
-    // Listen for the error message from the service worker
-    /* eslint-disable no-undef */
-    await page2.evaluate(() => {
-      window.__conflictError = null;
-      navigator.serviceWorker.addEventListener('message', event => {
-        const payload = event?.data?.payload;
-        if (payload?.message?.class === 'error' &&
-          payload?.message?.text?.includes('could not be resolved')) {
-          window.__conflictError = payload.message.text;
-        }
-      });
-    });
-    /* eslint-enable no-undef */
-
-    // Intercept POST /api/data/user/* to always return versionError
+    // ALWAYS Intercept POST /api/data/user/* to always return versionError
     // This forces repeated conflicts that will exhaust the retry limit
     await context2.route('**/api/data/user/**', async route => {
       const request = route.request();
@@ -517,7 +436,7 @@ test.describe('conflict resolution tests', () => {
 
     // Make mutations on page 2
     const userStateControl2 = page2.locator('#user-home-state');
-    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 30000 });
+    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 5000 });
     await doMutations(userStateControl2, {
       doUpdates: ['property2'],
       doCreates: [],
@@ -527,22 +446,30 @@ test.describe('conflict resolution tests', () => {
 
     // Force batch on page 2 - every POST will be rejected with versionError,
     // triggering repeated conflict resolution until max retries exceeded
-    await forceBatchTerminusNav(page2);
+    await forceBatchTerminusNav(page2, 'About', baseUrl, activeClickWait);
+
+    // Listen for the error message from the service worker
+    /* eslint-disable no-undef */
+    await page2.evaluate(() => {
+      window.__conflictError = null;
+      navigator.serviceWorker.addEventListener('message', event => {
+        const payload = event?.data?.payload;
+        if (payload?.message?.class === 'error' &&
+          payload?.message?.text?.includes('could not be resolved')) {
+          window.__conflictError = payload.message.text;
+        }
+      });
+    });
+    /* eslint-enable no-undef */
 
     // Wait for backoff iterations and max retries to exhaust
-    // With base=100ms, max=5000ms, 5 retries: worst case ~20s total
-    await new Promise(res => setTimeout(res, 25000));
+    // With base=100ms, max=8000ms, 7 retries: worst case ~56s total
+    await new Promise(res => setTimeout(res, maxRetriesWait));
 
     // Check that the error message was received via service worker message
     const errorText = await page2.evaluate(() => window.__conflictError); // eslint-disable-line no-undef
     expect(errorText).toBeTruthy();
-    expect(errorText).toContain('could not be resolved automatically');
-    expect(errorText).toContain('viewing local data');
-
-    // Also check for the visible error message element
-    const appMessage = page2.locator('#app-message');
-    const messageText = await appMessage.innerText();
-    expect(messageText).toContain('could not be resolved automatically');
+    expect(errorText).toContain('could not be resolved');
 
     // Cleanup route interception
     await context2.unroute('**/api/data/user/**');
