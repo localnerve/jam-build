@@ -69,7 +69,8 @@ import {
   mayUpdate,
   storeData,
   storeAndBroadcastMutation,
-  storeVersionConflict
+  storeVersionConflict,
+  resetRetryCount
 } from './sw.data.helpers.js';
 export { mayUpdate } from './sw.data.helpers.js';
 import { processVersionConflicts } from './sw.data.conflicts.js';
@@ -786,20 +787,9 @@ async function processBatchUpdates () {
     }
   } // for - reconcile
 
-  // If complete invocation, process any additional batch ops
+  // If complete invocation, cleanup and process any additional batch ops
   if (networkResult !== E_CONFLICT) {
-    // Reset retryCount for all docs that completed successfully in this batch run.
-    // This is the ONLY correct place to zero retryCount - after a fully clean (non-conflicting)
-    // batch completes. Resetting it on each individual success (storeMutationResult) is wrong
-    // because a sibling peer may still be in a conflict retry loop at that point.
-    const versionStoreName = makeStoreName(versionStoreType);
-    for (const { storeType, document } of successfulDocs) {
-      const versionRecord = await db.get(versionStoreName, [storeType, document]);
-      if (versionRecord?.retryCount > 0) {
-        await db.put(versionStoreName, { ...versionRecord, retryCount: 0 });
-        debug(`processBatchUpdates reset retryCount for ${storeType}:${document}`);
-      }
-    }
+    await resetRetryCount(successfulDocs);
 
     const batchOpsIndex = await db.transaction(batchStoreName, 'readwrite').store.index('ops');
     // op === opLogout

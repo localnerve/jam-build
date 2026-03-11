@@ -225,6 +225,25 @@ export async function storeVersionConflict (storeType, op, collections, data) {
 }
 
 /**
+ * Reset versionStore retryCount for all given docs.
+ *
+ * @param {Array<Object>} docs - An array of { storeType, document }
+ */
+export async function resetRetryCount (docs) {
+  const db = await getDB();
+  const versionStoreName = makeStoreName(versionStoreType);
+
+  for (const { storeType, document } of docs) {
+    const versionRecord = await db.get(versionStoreName, [storeType, document]);
+
+    if (versionRecord?.retryCount > 0) {
+      await db.put(versionStoreName, { ...versionRecord, retryCount: 0 });
+      debug(`processBatchUpdates reset retryCount for ${storeType}:${document}`);
+    }
+  }
+}
+
+/**
  * Load data from local objectStores by document name or document and possible collection name(s).
  * Format the local data for *upsert* to the remote data service.
  *

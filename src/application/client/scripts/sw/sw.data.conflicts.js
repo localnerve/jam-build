@@ -31,6 +31,9 @@ import {
   dbname,
   versionStoreType
 } from './sw.data.constants.js';
+import {
+  resetRetryCount
+} from './sw.data.helpers.js';
 import { debug, sendMessage } from './sw.utils.js';
 import { startTimer } from './sw.timer.js';
 import { getDB, makeStoreName } from './sw.data.source.js';
@@ -227,9 +230,25 @@ export async function processVersionConflicts ({
   // Read retryCount from version_documents for all involved docs to find the max
   let maxRetryCount = 0;
   const allConflictValues = await db.getAll(conflictStoreName);
-  const conflictKeys = allConflictValues.map(val => [val.storeType, val.document_name]);
+  const uniqueStoreTypeDocuments = new Set();
+  const storeTypeDocuments = [];
+  const versionKeys = [];
+
+  // Get unique versionKeys, unique storeTypes, and a representative conflict record for messaging
+  for (const val of allConflictValues) {
+    const storeTypeDoc = `${val.storeType}-${val.document_name}`;
+    if (!uniqueStoreTypeDocuments.has(storeTypeDoc)) {
+      uniqueStoreTypeDocuments.add(storeTypeDoc);
+      versionKeys.push([val.storeType, val.document_name]);
+      storeTypeDocuments.push({
+        storeType: val.storeType,
+        document: val.document_name
+      });
+    }
+  }
+
   const versionRecords = await Promise.all(
-    conflictKeys.map(key => db.get(versionStoreName, key))
+    versionKeys.map(key => db.get(versionStoreName, key))
   );
   for (const versionRecord of versionRecords) {
     if (versionRecord?.retryCount > maxRetryCount) {
@@ -241,24 +260,20 @@ export async function processVersionConflicts ({
   if (maxRetryCount >= conflictMaxRetries) {
     debug(`processVersionConflicts max retries (${conflictMaxRetries}) exceeded`);
 
-    const uniqueStoreTypes = new Set();
-    const unqiueConflictValues = [];
-
-    // Delete all the conflict records (cleanup) and collect uniqueStoreTypes
+    // Delete all the conflict records (cleanup)
     for (const val of allConflictValues) {
-      if (!uniqueStoreTypes.has(val.storeType)) {
-        uniqueStoreTypes.add(val.storeType);
-        unqiueConflictValues.push(val);
-      }
       await db.delete(conflictStoreName, [val.storeType, val.document_name, val.collection_name]);
     }
     debug(`deleted ${allConflictValues.length} conflict records (max retries exceeded)`);
 
-    // Notify for each distinct storeType conflict, only show message on last one
-    const lastIndex = unqiueConflictValues.length - 1;
+    // Reset the version retry count
+    await resetRetryCount(storeTypeDocuments);
+
+    // Notify for each conflict, only show message on last one
+    const lastIndex = allConflictValues.length - 1;
     let message = false;
-    for (let i = 0; i < unqiueConflictValues.length; i++) {
-      const val = unqiueConflictValues[i];
+    for (let i = 0; i < allConflictValues.length; i++) {
+      const val = allConflictValues[i];
       if (i == lastIndex) {
         message = {
           // test waits for "could not be resolved"
@@ -271,7 +286,7 @@ export async function processVersionConflicts ({
         storeName: makeStoreName(val.storeType),
         storeType: val.storeType,
         scope: getStoreTypeScope(val.storeType),
-        keys: [[val.document_name, val.collection_name]], // representative key
+        keys: [[val.document_name, val.collection_name]],
         message
       });
     }
