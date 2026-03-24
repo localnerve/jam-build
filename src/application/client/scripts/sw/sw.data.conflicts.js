@@ -43,6 +43,11 @@ const jsonDiffPatch = jsonDiffPatchLib.create({ omitRemovedValues: true });
 /**
  * Perform a three way merge.
  * Conflict is resolved by always prefering local OVER remote changes/values.
+ * 
+ * @param {Object} base - The snapshot base object before changes
+ * @param {Object} remote - The remote version of the object with changes
+ * @param {Object} local - The local version of the object with changes
+ * @returns {Object} The result of the three way merge of the remote and local changes into the base
  */
 function threeWayMerge (base, remote, local) {
   if (!base) {
@@ -138,9 +143,12 @@ function threeWayMerge (base, remote, local) {
 }
 
 /**
- * Compute a timer resolution that targets a median value.
+ * Compute a timer resolution interval that targets a median value (nominalTimerInterval).
  * Never give a resolution below a minimum floor value.
  * Favor overshooting over undershooting.
+ * 
+ * @param {Number} delay - The total time delay to derive a timer resolution from
+ * @returns {Number} The calculated interval resolution time closest to nominalTimerInterval
  */
 function computeTimerResolution (delay) {
   const target = nominalTimerInterval;
