@@ -303,7 +303,7 @@ test.describe('conflict resolution tests', () => {
       'Route interception for service worker requests requires chromium');
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
-    const delayPadding = process.env.CI ? 5000 : 2800; // eslint-disable-line  playwright/no-conditional-in-test
+    const delayPadding = process.env.CI ? 6000 : 2800; // eslint-disable-line  playwright/no-conditional-in-test
 
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
