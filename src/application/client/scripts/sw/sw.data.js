@@ -592,7 +592,7 @@ export async function logout ({ storeType }) {
  * Presumes the local idb is the source of truth that need to be conveyed to the remote data service.
  * Called from the batch timer @see batchUpdate, or on sync event or equivalent.
  * 
- * @returns {Promise<undefined>} fulfills when the function completes.
+ * @returns {Promise<Integer>} fulfills when the function completes to the last significant network result code.
  */
 async function processBatchUpdates () {
   const batchStoreName = makeStoreName(batchStoreType);
