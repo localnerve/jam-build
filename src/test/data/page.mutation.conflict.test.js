@@ -150,8 +150,10 @@ test.describe('conflict resolution tests', () => {
     map = createMap();
   });
 
-  test.beforeEach(async ({ browserName, page, adminRequest, userRequest }) => {
-    test.setTimeout(serviceTimeout);
+  test.beforeEach(async ({ browserName, page, adminRequest, userRequest }, testInfo) => {
+    if (testInfo.timeout < serviceTimeout) {
+      test.setTimeout(serviceTimeout);
+    }
 
     const notChrome = page.context().browser().browserType().name() !== 'chromium';
     activeClickWait = process.env.CI && notChrome ? 800 : clickWait;
@@ -164,9 +166,11 @@ test.describe('conflict resolution tests', () => {
     needLogout = true;
   });
 
-  test.afterEach(async ({ browserName, page, adminRequest, userRequest }) => {
+  test.afterEach(async ({ browserName, page, adminRequest, userRequest }, testInfo) => {
     if (needLogout) {
-      test.setTimeout(serviceTimeout);
+      if (testInfo.timeout < serviceTimeout) {
+        test.setTimeout(serviceTimeout);
+      }
       await manualLogout(baseUrl, page);
     }
     await deleteTestDataApp(baseUrl, adminRequest);
