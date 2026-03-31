@@ -156,7 +156,7 @@ test.describe('conflict resolution tests', () => {
     }
 
     // const notChrome = page.context().browser().browserType().name() !== 'chromium';
-    activeClickWait = process.env.CI ? 800 : clickWait;
+    activeClickWait = process.env.CI ? 1200 : clickWait;
 
     await startJS(browserName, page);
     await createTestDataApp(baseUrl, adminRequest);
