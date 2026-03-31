@@ -264,7 +264,7 @@ test.describe('conflict resolution tests', () => {
   test('cascading conflict, three clients', async ({ browserName, browser }, testInfo) => {
     test.setTimeout(testInfo.timeout + slowTimeoutAddition);
 
-    const settleWait = process.env.CI ? 5000 : 2000; // eslint-disable-line playwright/no-conditional-in-test
+    const settleWait = process.env.CI ? 6000 : 2000; // eslint-disable-line playwright/no-conditional-in-test
 
     const clients = await startThreeClients(browser, browserName);
     const { pageA, pageB, pageC } = clients;
