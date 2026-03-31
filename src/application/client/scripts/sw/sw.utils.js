@@ -80,3 +80,52 @@ export class CriticalSection {
     this.lock = false;
   }
 }
+
+/**
+ * A class to serialize access with a reentrant, recursive mutex
+ */
+export class AffiliatedLock {
+  constructor () {
+    this.heldId = null;
+    this.queue = [];
+  }
+
+  /**
+   * Acquire an affiliated lock.
+   * If you have the currently held affiliation id, or none has been issued (heldId is null), you are granted immedate access.
+   * If the lock is busy (heldId is occupied), and you don't have the currently held affiliation id, you are queued and get a promise that resolves to the new affilation id when the lock is free.
+   * Can block for the duration of a previous recusive execution.
+   * 
+   * @param {Symbol} [affiliationId] - An optional lock affiliation id
+   * @returns Promise<Symbol> - A promise that resolves to the affiliation id
+   */
+  acquire (affiliationId = null) {
+    // Affiliated re-entry: bypass queue
+    if (affiliationId !== null && affiliationId === this.heldId) {
+      return Promise.resolve(affiliationId);
+    }
+    // Free: take lock immediately
+    if (this.heldId === null) {
+      this.heldId = Symbol('batch-process-id');
+      return Promise.resolve(this.heldId);
+    }
+    // Unaffiliated: enqueue and wait, receive id when granted
+    return new Promise(resolve => this.queue.push(resolve));
+  }
+
+  /**
+   * Release the affiliated lock.
+   * If there is a waiter, create a new AffiliatedLock by id and release it. Otherwise enter an unoccupied state.
+   * 
+   * @param {Symbol} affiliationId - The id of the AffiliatedLock to release
+   */
+  release (affiliationId) {
+    if (affiliationId !== this.heldId) return;
+    if (this.queue.length > 0) {
+      this.heldId = Symbol('batch-process-id'); // pre-assign to next holder
+      this.queue.shift()(this.heldId);          // wake them with their new id
+    } else {
+      this.heldId = null;
+    }
+  }
+}

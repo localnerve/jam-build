@@ -36,7 +36,7 @@ import { _private } from 'workbox-core';
 import { getStoreTypeStore, getStoreTypeScope } from '#client-utils/storeType.js';
 import { isObj } from '#client-utils/javascript.js';
 import { startTimer, serviceAllTimers } from './sw.timer.js';
-import { sendMessage, CriticalSection, debug } from './sw.utils.js';
+import { sendMessage, CriticalSection, AffiliatedLock, debug } from './sw.utils.js';
 import {
   apiVersion,
   batchCollectionWindow,
@@ -76,6 +76,7 @@ export { mayUpdate } from './sw.data.helpers.js';
 import { processVersionConflicts } from './sw.data.conflicts.js';
 
 const csBatchUpdate = new CriticalSection();
+const alBatchUpdate = new AffiliatedLock();
 
 /**
  * RE: background sync setup -
@@ -252,13 +253,15 @@ function makeStoreTypeURLFragment (storeType) {
  * @param {AsyncFunction} [options.staleResponse] - stale response handler
  * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
  * @param {Boolean} [options.retry] - true if failures should be queued for replay
+ * @param {Symbol} [options.affiliationId] - lock affiliationId
  * @returns {Number} 0 on success or conflict resolution, E_REPLAY if queued for replay. Throws on error
  */
 async function dataAPICall (request, {
   asyncResponseHandler = null,
   staleResponse = null,
   metadata = null,
-  retry = true
+  retry = true,
+  affiliationId = null
 } = {}) {
   debug('dataAPICall ', request.url, request.method);
 
@@ -297,7 +300,7 @@ async function dataAPICall (request, {
         const resp = await response.json();
 
         if (resp.versionError) {
-          await versionConflict(metadata);
+          await versionConflict(metadata, { affiliationId });
           handled = true;
           result = E_CONFLICT;
         }
@@ -401,8 +404,12 @@ export async function refreshData ({ storeType, document, collections }) {
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to which the update applies
  * @param {Array<String>} [payload.collections] - The collections to upsert, omit for all
+ * @param {Object} [options] - option parameters
+ * @param {Symbol} [options.affiliationId] - Lock affiliation Id
  */
-async function upsertData ({ storeType, document, collections = null }) {
+async function upsertData ({ storeType, document, collections = null }, {
+  affiliationId = null
+} = {}) {
   debug(`upsertData, ${storeType}:${document}`, collections);
 
   if (!storeType || !document) {
@@ -440,7 +447,8 @@ async function upsertData ({ storeType, document, collections = null }) {
       document,
       collections,
       op: opPut
-    }
+    },
+    affiliationId
   });
 
   return result;
@@ -456,8 +464,12 @@ async function upsertData ({ storeType, document, collections = null }) {
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to which the delete applies
  * @param {String|Array<String>|Object|Array<Object>} [payload.collections] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
+ * @param {Object} [options] - options
+ * @param {Symbol} [options.affiliationId] - Lock affiliationId
  */
-async function deleteData ({ storeType, document, collections }) {
+async function deleteData ({ storeType, document, collections }, {
+  affiliationId = null
+} = {}) {
   debug(`deleteData, ${storeType}:${document}`, collections);
 
   if (!storeType || !document) {
@@ -520,7 +532,8 @@ async function deleteData ({ storeType, document, collections }) {
       document,
       collections,
       op: opDel
-    }
+    },
+    affiliationId
   });
 
   return result;
@@ -592,9 +605,10 @@ export async function logout ({ storeType }) {
  * Presumes the local idb is the source of truth that need to be conveyed to the remote data service.
  * Called from the batch timer @see batchUpdate, or on sync event or equivalent.
  * 
+ * @param {Symbol} [affiliationId] - AffiliatedLock id of the outer call owner
  * @returns {Promise<Integer>} fulfills when the function completes to the last significant network result code.
  */
-async function processBatchUpdates () {
+async function _processBatchUpdates (affiliationId = null) {
   const batchStoreName = makeStoreName(batchStoreType);
   const db = await getDB();
   const totalRecords = await db.count(batchStoreName);
@@ -731,7 +745,9 @@ async function processBatchUpdates () {
     }
 
     try {
-      networkResult = await network[op](request);
+      networkResult = await network[op](request, {
+        affiliationId
+      });
 
       storeTypeReplay.set(request.storeType, networkResult === E_REPLAY);
 
@@ -804,6 +820,23 @@ async function processBatchUpdates () {
   }
 
   return networkResult;
+}
+
+/**
+ * Call _processBatchUpdates in reentrant, recursive mutex lock
+ * 
+ * @param {Symbol} [affiliationId] - AffiliatedLock id, do not supply if top-level caller
+ * @returns {Promise<Integer>} Promise resolves to batch process network result
+ */
+async function processBatchUpdates (affiliationId = null) {
+  const lockId = await alBatchUpdate.acquire(affiliationId);
+  const isOwner = lockId !== affiliationId;
+  
+  try {
+    return await _processBatchUpdates(lockId);
+  } finally {
+    if (isOwner) alBatchUpdate.release(lockId);
+  }
 }
 
 /**
@@ -898,8 +931,12 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
  * @param {String} payload.document - The document name
  * @param {String} payload.op - opPut or opDel
  * @param {String|Array<String>|Array<Object>} payload.collections - The network request format of collections
+ * @param {Object} [options] - The options
+ * @param {Symbol} [options.affiliationId] - Lock affiliation Id
  */
-async function versionConflict ({ storeType, document, op, collections }) {
+async function versionConflict ({ storeType, document, op, collections }, {
+  affiliationId = null
+} = {}) {
   const resource = makeStoreTypeURLFragment(storeType);
   const url = `/api/data/${resource}/${document}`;
 
@@ -921,7 +958,7 @@ async function versionConflict ({ storeType, document, op, collections }) {
 
   if (result !== E_REPLAY) {
     await processVersionConflicts({
-      processBatchUpdates,
+      processBatchUpdates: () => processBatchUpdates(affiliationId),
       addToBatch: conditionalBatchUpdate
     });
   }
