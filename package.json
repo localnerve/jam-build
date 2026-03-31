@@ -110,7 +110,7 @@
     "@localnerve/csp-hashes": "^6.0.0",
     "@localnerve/editable-object": "^0.3.18",
     "@localnerve/fast-is-equal": "^2.0.4",
-    "@localnerve/gulp-images": "^0.2.0",
+    "@localnerve/gulp-images": "^0.3.0",
     "@localnerve/gulp-rev-delete-original": "^1.0.2",
     "@localnerve/sass-asset-functions": "^7.9.0",
     "@playwright/test": "^1.58.2",
