@@ -39,6 +39,41 @@ if (typeof BroadcastChannel !== 'undefined') {
   broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
 }
 
+// In-memory sentinel: Set of 'storeType:document' keys under active conflict resolution
+const conflictSentinel = new Set();
+
+/**
+ * Add a sentinel for the given storeType+document to guard.
+ * 
+ * @param {String} storeType - Full storeType store:scope
+ * @param {String} document - The document name
+ */
+export function setConflictSentinel (storeType, document) {
+  conflictSentinel.add(`${storeType}:${document}`);
+}
+
+/**
+ * Remove the sentinel for the given storeType+document.
+ * 
+ * @param {String} storeType - Full storeType store:scope
+ * @param {String} document - The document name
+ */
+export function clearConflictSentinel (storeType, document) {
+  conflictSentinel.delete(`${storeType}:${document}`);
+}
+
+/**
+ * Check for the sentinel for the given storeType+document.
+ * 
+ * @param {String} storeType - Full storeType store:scope
+ * @param {String} document - The document name
+ * @returns {Boolean} True if sentinel exists, false otherwise
+ */
+export function isConflictSentinel (storeType, document) {
+  return conflictSentinel.has(`${storeType}:${document}`);
+}
+
+
 /**
  * Read data from local objectstores and send to the app.
  * localData is the fallback (stale) data in a Network First strategy.
@@ -396,7 +431,8 @@ async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = 
   if (collection) {
     const baseCopy = await db.getFromIndex(baseStoreName, 'collection', [storeType, document, collection]);
     const staleBase = baseCopy && (Date.now() - baseCopy.timestamp) >= STALE_BASE_LIFESPAN;
-    const willDelete = staleBase || clearOnly;
+    const protectedByConflict = baseCopy && isConflictSentinel(storeType, document);
+    const willDelete = (staleBase && !protectedByConflict) || clearOnly;
 
     if (!baseCopy || willDelete) {
       if (willDelete && baseCopy) {

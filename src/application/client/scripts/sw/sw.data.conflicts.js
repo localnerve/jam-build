@@ -32,7 +32,10 @@ import {
   versionStoreType
 } from './sw.data.constants.js';
 import {
-  resetRetryCount
+  resetRetryCount,
+  isConflictSentinel,
+  setConflictSentinel,
+  clearConflictSentinel
 } from './sw.data.helpers.js';
 import { debug, sendMessage } from './sw.utils.js';
 import { startTimer } from './sw.timer.js';
@@ -176,8 +179,10 @@ function computeTimerResolution (delay) {
  * @param {String} instanceId - The instanceId of the processVersionConflicts this belongs to
  * @param {Object} message - The message notification data from the merged newData objects written to the local object stores
  * @param {Function} processBatchUpdates - The processBatchUpdates function
+ * @param {Function} cleanup - A cleanup function
  */
-async function completeProcessVersionConflicts (instanceId, message, processBatchUpdates) {
+async function completeProcessVersionConflicts (instanceId, message, processBatchUpdates, cleanup) {
+  cleanup();
   const result = await processBatchUpdates();
 
   if (result === 0) { // complete success
@@ -241,6 +246,11 @@ export async function processVersionConflicts ({
   const uniqueStoreTypeDocuments = new Set();
   const storeTypeDocuments = [];
   const versionKeys = [];
+  const clearConflictSentinels = () => {
+    for (const { storeType, document } of storeTypeDocuments) {
+      clearConflictSentinel(storeType, document);
+    }
+  }
 
   // Get unique versionKeys, unique storeTypes, and a representative conflict record for messaging
   for (const val of allConflictValues) {
@@ -255,6 +265,21 @@ export async function processVersionConflicts ({
     }
   }
 
+  // Guard re-entry: If any involved doc is already under resolution, exit
+  // (new conflict data is already in conflictStore, will be picked up on next processBatchUpdates)
+  for (const { storeType, document } of storeTypeDocuments) {
+    if (isConflictSentinel(storeType, document)) {
+      debug(`processVersionConflicts sentinel active for ${storeType}:${document}, deferring`);
+      return;
+    }
+  }
+
+  // Set sentinels for all involved documents
+  for (const { storeType, document } of storeTypeDocuments) {
+    setConflictSentinel(storeType, document);
+  }
+
+  // Get the highest version conflict retryCount
   const versionRecords = await Promise.all(
     versionKeys.map(key => db.get(versionStoreName, key))
   );
@@ -273,6 +298,9 @@ export async function processVersionConflicts ({
       await db.delete(conflictStoreName, [val.storeType, val.document_name, val.collection_name]);
     }
     debug(`deleted ${allConflictValues.length} conflict records (max retries exceeded)`);
+
+    // Clear all related conflict sentinels
+    clearConflictSentinels();
 
     // Reset the version retry count
     await resetRetryCount(storeTypeDocuments);
@@ -533,10 +561,21 @@ export async function processVersionConflicts ({
     await startTimer(
       delay,
       'backoff-batch-timer',
-      completeProcessVersionConflicts.bind(null, instanceId, message, processBatchUpdates),
+      completeProcessVersionConflicts.bind(
+        null,
+        instanceId,
+        message,
+        processBatchUpdates,
+        clearConflictSentinels
+      ),
       resolution
     );
   } else {
-    await completeProcessVersionConflicts(instanceId, message, processBatchUpdates);
+    await completeProcessVersionConflicts(
+      instanceId,
+      message,
+      processBatchUpdates,
+      clearConflictSentinels
+    );
   }
 }
