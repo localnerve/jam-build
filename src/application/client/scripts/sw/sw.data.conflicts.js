@@ -250,7 +250,7 @@ export async function processVersionConflicts ({
     for (const { storeType, document } of storeTypeDocuments) {
       clearConflictSentinel(storeType, document);
     }
-  }
+  };
 
   // Get unique versionKeys, unique storeTypes, and a representative conflict record for messaging
   for (const val of allConflictValues) {
