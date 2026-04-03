@@ -651,7 +651,8 @@ export async function processVersionConflicts ({
         processBatchUpdates,
         clearConflictSentinels
       ),
-      resolution
+      resolution,
+      true // ignoreInactivity
     );
 
     // Send telemetry beacon
