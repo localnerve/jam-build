@@ -186,7 +186,7 @@ async function replayRequestQueue ({ queue }) {
 
   // Process any/all left over conflicts into the batch queue, run batch
   await processVersionConflicts({
-    processBatchUpdates, addToBatch: conditionalBatchUpdate
+    processBatchUpdates, addToBatch: conditionalBatchUpdate, refreshData
   });
   await processBatchUpdates();
 
@@ -355,13 +355,21 @@ async function dataAPICall (request, {
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} [payload.document] - document name
  * @param {String|Array<String>} [payload.collections] - collection name(s) to get
+ * @param {Object} [options] - options parameters
+ * @param {Boolean} [options.forceRemote] - true to force remote refresh, false otherwise
+ * @param {Function} [options.asyncResponseHandler] - override the default asyncResponseHandler
  */
-export async function refreshData ({ storeType, document, collections }) {
+export async function refreshData ({ storeType, document, collections }, {
+  forceRemote = false,
+  asyncResponseHandler = null  // overrides default storeData call
+} = {}) {
   debug(`refreshData, ${storeType}:${document}`, collections);
 
-  const hasUpdates = await hasPendingUpdates(queue);
-  if (hasUpdates) {
-    return localData(storeType, document, collections);
+  if (!forceRemote) {
+    const hasUpdates = await hasPendingUpdates(queue);
+    if (hasUpdates) {
+      return localData(storeType, document, collections);
+    }
   }
 
   const resource = makeStoreTypeURLFragment(storeType);
@@ -383,11 +391,12 @@ export async function refreshData ({ storeType, document, collections }) {
     }
   });
 
+  const dfltStaleResponse = localData.bind(null, storeType, document, collections);
+  const dfltAsyncResponse = data => storeData(storeType, data);
+
   await dataAPICall(request, {
-    asyncResponseHandler: async data => {
-      await storeData(storeType, data);
-    },
-    staleResponse: localData.bind(null, storeType, document, collections),
+    asyncResponseHandler: asyncResponseHandler ?? dfltAsyncResponse,
+    staleResponse: forceRemote ? null : dfltStaleResponse,
     metadata: {
       storeType,
       document,
@@ -959,7 +968,8 @@ async function versionConflict ({ storeType, document, op, collections }, {
   if (result !== E_REPLAY) {
     await processVersionConflicts({
       processBatchUpdates: () => processBatchUpdates(affiliationId),
-      addToBatch: conditionalBatchUpdate
+      addToBatch: conditionalBatchUpdate,
+      refreshData
     });
   }
 }

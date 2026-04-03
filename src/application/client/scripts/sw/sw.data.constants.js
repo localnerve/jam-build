@@ -28,6 +28,7 @@ export const opGet = 'get';
 export const opLogout = 'logout';
 export const schemaVersion = SCHEMA_VERSION; // eslint-disable-line -- assigned at bundle time
 export const apiVersion = API_VERSION; // eslint-disable-line -- assigned at bundle time
+export const appVersion = APP_VERSION; // eslint-disable-line -- assigned at bundle time
 export const versionStoreType = 'version';
 export const batchStoreType = 'batch';
 export const conflictStoreType = 'conflict';
@@ -42,3 +43,4 @@ export const queueName = `${dbname}-requests-${apiVersion}`;
 export const STALE_BASE_LIFESPAN = 60000; // 1 minute, baseStoreType documents older than this are considered expired
 export const batchCollectionWindow = process?.env?.NODE_ENV !== 'production' ? 12000 : 12000; // eslint-disable-line -- assigned at bundle time
 export const mainStoreTypes = ['app', 'user'];
+export const VERSION_CONFLICT_BACKOFF = 'version_conflict_backoff';

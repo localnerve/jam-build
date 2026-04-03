@@ -183,8 +183,9 @@ export async function storeAndBroadcastMutation (storeType, document, result, co
  *
  * @param {String} storeType - store:scope path to document
  * @param {Object} data - The remote data to store
+ * @param {Object} [message] - Message item, @see main/stores.js, pageGeneralMessage
  */
-export async function storeData (storeType, data) {
+export async function storeData (storeType, data, message = null) {
   const storeName = makeStoreName(storeType);
   const scope = getStoreTypeScope(storeType);
   const versionStoreName = makeStoreName(versionStoreType);
@@ -219,7 +220,8 @@ export async function storeData (storeType, data) {
     storeName,
     storeType,
     scope,
-    keys
+    keys,
+    message
   });
 }
 
@@ -460,13 +462,14 @@ async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = 
   } else {
     const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
     const docCount = await documents.count([storeType, document]);
+    const protectedByConflict = isConflictSentinel(storeType, document);
     let deleteCount = 0;
 
     for await (const cursor of documents.iterate([storeType, document])) {
       const item = cursor.value;
       const staleBase = Date.now() - item.timestamp >= STALE_BASE_LIFESPAN;
 
-      if (staleBase || clearOnly) {
+      if ((staleBase && !protectedByConflict) || clearOnly) {
         deleteCount++;
         await cursor.delete();
       }

@@ -23,17 +23,17 @@
 import path from 'node:path';
 import { glob } from 'glob';
 import { generateSW } from 'workbox-build';
-import pkg from '#root/package.json' with { type: 'json' };
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
 
 /**
  * Generate the version - build timestamp string.
  *
+ * @param {String} appVersion - The application version string
  * @returns {String} The version and build time as a string
  */
-function getVersionBuildstamp () {
-  return `${pkg.version}-${(new Date()).toISOString()}`;
+function getVersionBuildstamp (appVersion) {
+  return `${appVersion}-${(new Date()).toISOString()}`;
 }
 
 /**
@@ -112,7 +112,7 @@ async function generateSWCustom (settings, replacements) {
 export async function buildSwMain (settings) {
   const siteData = await loadSiteData(settings.dataDir);
 
-  const cachePrefix = `${siteData.appHost}-${pkg.version}`;
+  const cachePrefix = `${siteData.appHost}-${settings.appVersion}`;
   const { swMainGenerated, dist, prod } = settings;
 
   const ssrCacheable = Object.values(siteData.pages)
@@ -166,7 +166,8 @@ export async function buildSwMain (settings) {
   const publicSwCustomPath = await generateSWCustom(settings, {
     SSR_CACHEABLE_ROUTES: JSON.stringify(ssrCacheable).replaceAll('"', '\''),
     CACHE_PREFIX: JSON.stringify(cachePrefix).replaceAll('"', '\''),
-    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp()).replaceAll('"', '\''),
+    VERSION_BUILDSTAMP: JSON.stringify(getVersionBuildstamp(settings.appVersion)).replaceAll('"', '\''),
+    APP_VERSION: JSON.stringify(settings.appVersion).replaceAll('"', '\''),
     API_VERSION: JSON.stringify(settings.apiVersion).replaceAll('"', '\''),
     SCHEMA_VERSION: JSON.stringify(settings.schemaVersion).replaceAll('"', '\'')
   });

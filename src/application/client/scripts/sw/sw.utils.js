@@ -45,6 +45,25 @@ export async function sendMessage (meta, payload) {
 }
 
 /**
+ * Substitute for navigator.sendBeacon for service worker.
+ * Fire and forget, keepalive POST.
+ *
+ * @param {String} event - The name of the event
+ * @param {Object} labels - The label payload
+ */
+export function sendBeacon (event, labels) {
+  fetch('/api/metrics', {
+    method: 'POST',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event,
+      labels
+    })
+  });
+}
+
+/**
  * A class to enforce serialized execution
  */
 export class CriticalSection {

@@ -29,15 +29,22 @@ import {
   conflictStoreType,
   nominalTimerInterval,
   dbname,
-  versionStoreType
+  versionStoreType,
+  batchStoreType,
+  schemaVersion,
+  apiVersion,
+  appVersion,
+  VERSION_CONFLICT_BACKOFF
 } from './sw.data.constants.js';
 import {
   resetRetryCount,
   isConflictSentinel,
   setConflictSentinel,
-  clearConflictSentinel
+  clearConflictSentinel,
+  mayUpdate,
+  storeData
 } from './sw.data.helpers.js';
-import { debug, sendMessage } from './sw.utils.js';
+import { debug, sendMessage, sendBeacon } from './sw.utils.js';
 import { startTimer } from './sw.timer.js';
 import { getDB, makeStoreName } from './sw.data.source.js';
 
@@ -173,8 +180,8 @@ function computeTimerResolution (delay) {
 }
 
 /**
- * Complete processVersionConflicts by restarting the batch loop, update the UI on success.
- * The loop restart contained here is done on a timer during conflict thrashing.
+ * Complete processVersionConflicts by restarting batch processing, update the UI on success.
+ * The batch restart contained here can be in an ongoing timer loop during conflict thrashing.
  * 
  * @param {String} instanceId - The instanceId of the processVersionConflicts this belongs to
  * @param {Object} message - The message notification data from the merged newData objects written to the local object stores
@@ -204,6 +211,99 @@ async function completeProcessVersionConflicts (instanceId, message, processBatc
 }
 
 /**
+ * Fail the processVersionConflicts call sequence.
+ * Sets the database to a consistent state with the remote and the user loses all local changes.
+ * Call after all conflict resolution retries are exhausted.
+ * This is the result of a very high write, high traffic state that exceeded the capability of the Multi-user OCC design.
+ *   TODO: Save user's data and offer manual merge [OT editor territory]??
+ *   Something like that would happen here
+ * 
+ * @param {Array<Object>} allConflictValues - Array of all conflictStore records
+ * @param {Function} resetRetries - resets the versionStore retry counts
+ * @param {Function} clearSentinels - clears the conflict sentinels
+ * @param {Function} refreshData - fetches the new remote data
+ * @param {Object} meta - Telemetry metadata
+ */
+async function failProcessVersionConflicts (allConflictValues, resetRetries, clearSentinels, refreshData, meta) {
+  const db = await getDB();
+
+  // Clear all the failed conflict records
+  const conflictStoreName = makeStoreName(conflictStoreType);
+  for (const val of allConflictValues) {
+    await db.delete(conflictStoreName, [val.storeType, val.document_name, val.collection_name]);
+  }
+  debug(`deleted ${allConflictValues.length} conflict records`);
+
+  // Clear all related conflict sentinels
+  clearSentinels();
+
+  // Explicitly reset the version retry counts
+  await resetRetries();
+
+  // Clear the baseStore records
+  let baseCount = 0;
+  for (const val of allConflictValues) {
+    await mayUpdate({
+      storeType: val.storeType,
+      document: val.document_name,
+      collection: val.collection_name,
+      op: val.op
+    }, true);
+    baseCount++;
+  }
+  debug(`cleared ${baseCount} baseStore records`);
+
+  // Delete all the batch records for the failed conflicting storeType+documents
+  let batchCount = 0;
+  const batchStoreName = makeStoreName(batchStoreType);
+  const batchRecordIndex = await db.transaction(batchStoreName, 'readwrite').store.index('record');
+  for (const val of allConflictValues) {
+    // Prefix scan: [storeType, document, collection_name] covers all propertyName+op combos
+    const lower = [val.storeType, val.document_name, val.collection_name];
+    const upper = [val.storeType, val.document_name, val.collection_name];
+    const range = IDBKeyRange.bound(lower, [...upper, '\uffff', '\uffff']);
+    for await (const cursor of batchRecordIndex.iterate(range)) {
+      batchCount++;
+      await cursor.delete();
+    }
+  }
+  debug(`deleted ${batchCount} batchStore records`);
+
+  const errorMessage = {
+    text: 'After many attempts, a data conflict could not be resolved. The latest server data is shown.',
+    class: 'error'
+  };
+  // Group conflicting collections by unique storeType+document
+  const docMap = new Map();
+  for (const val of allConflictValues) {
+    const key = `${val.storeType}:${val.document_name}`;
+    if (!docMap.has(key)) {
+      docMap.set(key, {
+        storeType: val.storeType,
+        document: val.document_name,
+        collections: []
+      });
+    }
+    docMap.get(key).collections.push(val.collection_name);
+  }
+  // Refresh with remote data (lose all the user's updates and send final failure message)
+  const docEntries = [...docMap.values()];
+  const lastIndex = docEntries.length - 1;
+  for (let i = 0; i < docEntries.length; i++) {
+    const { storeType, document, collections } = docEntries[i];
+    await refreshData({ storeType, document, collections }, {
+      forceRemote: true,
+      asyncResponseHandler: data => storeData(
+        storeType, data, i === lastIndex ? errorMessage : null
+      )
+    });
+  }
+
+  // Send telemetry beacon
+  sendBeacon(VERSION_CONFLICT_BACKOFF, meta);
+}
+
+/**
  * Read the versionConflict objectStore and process the version conflicts:
  * 
  * 1. Read the conflictStore for all the current version remote data saved with type, op, and collection info
@@ -215,14 +315,17 @@ async function completeProcessVersionConflicts (instanceId, message, processBatc
  * 7. Schedule batch updates for the new data
  * 8. Notify the client of the new data documents
  * 9. Delete all the used conflictStore records
+ * 10. Complete by direct reinvocation of processBatchStore or via 'backoff-batch-timer'
  * 
  * @param {Object} params - Processing parameters
  * @param {Function} params.processBatchUpdates - Function to trigger batch update processing
  * @param {Function} params.addToBatch - Function to add to batch
+ * @param {Function} params.refreshData - Function to refresh remote data, if required
  */
 export async function processVersionConflicts ({
   processBatchUpdates,
-  addToBatch
+  addToBatch,
+  refreshData
 }) {
   const instanceId = Math.random().toString(36).substring(7);
   debug(`[${instanceId}] Starting processVersionConflicts...`);
@@ -240,17 +343,20 @@ export async function processVersionConflicts ({
 
   debug(`processVersionConflicts processing ${totalRecords} records from ${conflictStoreName}...`);
 
-  // Read retryCount from version_documents for all involved docs to find the max
   let maxRetryCount = 0;
   const allConflictValues = await db.getAll(conflictStoreName);
   const uniqueStoreTypeDocuments = new Set();
   const storeTypeDocuments = [];
   const versionKeys = [];
   const clearConflictSentinels = () => {
+    let count = 0;
     for (const { storeType, document } of storeTypeDocuments) {
       clearConflictSentinel(storeType, document);
+      count++;
     }
+    debug(`cleared ${count} conflict sentinels`);
   };
+  const resetRetries = () => resetRetryCount(storeTypeDocuments);
 
   // Get unique versionKeys, unique storeTypes, and a representative conflict record for messaging
   for (const val of allConflictValues) {
@@ -279,7 +385,7 @@ export async function processVersionConflicts ({
     setConflictSentinel(storeType, document);
   }
 
-  // Get the highest version conflict retryCount
+  // Read retryCount from version_documents for all involved docs to find the max
   const versionRecords = await Promise.all(
     versionKeys.map(key => db.get(versionStoreName, key))
   );
@@ -291,43 +397,13 @@ export async function processVersionConflicts ({
 
   // Check max retries BEFORE doing any merge work to avoid orphans and unnecessary CPU
   if (maxRetryCount >= conflictMaxRetries) {
-    debug(`processVersionConflicts max retries (${conflictMaxRetries}) exceeded`);
-
-    // Delete all the conflict records (cleanup)
-    for (const val of allConflictValues) {
-      await db.delete(conflictStoreName, [val.storeType, val.document_name, val.collection_name]);
-    }
-    debug(`deleted ${allConflictValues.length} conflict records (max retries exceeded)`);
-
-    // Clear all related conflict sentinels
-    clearConflictSentinels();
-
-    // Reset the version retry count
-    await resetRetryCount(storeTypeDocuments);
-
-    // Notify for each conflict, only show message on last one
-    const lastIndex = allConflictValues.length - 1;
-    let message = false;
-    for (let i = 0; i < allConflictValues.length; i++) {
-      const val = allConflictValues[i];
-      if (i == lastIndex) {
-        message = {
-          // test waits for "could not be resolved"
-          text: 'A data conflict could not be resolved automatically. You are viewing local data.',
-          class: 'error'
-        };
-      }
-      await sendMessage('database-data-update', {
-        dbname,
-        storeName: makeStoreName(val.storeType),
-        storeType: val.storeType,
-        scope: getStoreTypeScope(val.storeType),
-        keys: [[val.document_name, val.collection_name]],
-        message
-      });
-    }
-
-    return; // fail
+    debug(`[${instanceId}] processVersionConflicts failure - Max retries (${conflictMaxRetries}) exceeded`);
+    return failProcessVersionConflicts(allConflictValues, resetRetries, clearConflictSentinels, refreshData, {
+      retryCount: maxRetryCount,
+      appVersion,
+      apiVersion,
+      schemaVersion
+    });
   }
 
   const conflictDocs = await db.transaction(conflictStoreName).store.index('version');
@@ -560,7 +636,7 @@ export async function processVersionConflicts ({
     const resolution = computeTimerResolution(delay);
     await startTimer(
       delay,
-      'backoff-batch-timer',
+      'conflict-timer-backoff',
       completeProcessVersionConflicts.bind(
         null,
         instanceId,
@@ -570,6 +646,14 @@ export async function processVersionConflicts ({
       ),
       resolution
     );
+
+    // Send telemetry beacon
+    sendBeacon(VERSION_CONFLICT_BACKOFF, {
+      retryCount: maxRetryCount,
+      appVersion,
+      apiVersion,
+      schemaVersion
+    });
   } else {
     await completeProcessVersionConflicts(
       instanceId,
