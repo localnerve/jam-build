@@ -1,8 +1,7 @@
 /**
- * api version 1.0.0
- *
- * Attach the basic routes for the services on 1.0.0
- *
+ * The metrics service.
+ * A stub for a prometheus client.
+ * 
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
  * 
@@ -21,14 +20,51 @@
  *    in this material, copies, or source code of derived works.
  */
 import express from 'express';
-import { createService as createDataService } from './data/index.js';
-import { createService as createMetricsService } from './metrics.js';
+import debugLib from '@localnerve/debug';
 
-export function create (logger) {
-  const api = express.Router();
- 
-  api.use('/data', createDataService(logger));
-  api.use('/metrics', createMetricsService(logger));
+const debug = debugLib('api:metrics');
 
-  return api;
+// Stub for a prometheus client counter
+const eventCounter = {
+  inc (input) {
+    debug('Metrics event received: ', { ...input });
+  }
+};
+
+/**
+ * Handler for posting event counters (stub)
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object
+ */
+function setMetrics (req, res) {
+  const { event, labels } = req.body;
+  eventCounter.inc({ event, ...labels });
+  res.sendStatus(204);
+}
+
+/**
+ * Handler for a prometheus scrape (stub)
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object
+ */
+function getMetrics (req, res) {
+  // set content type
+  // send response
+  res.sendStatus(204);
+}
+
+/**
+ * Creates the metrics service.
+ *
+ * @returns {Array<Router>} Array of middleware for this service
+ */
+export function createService () {
+  const appRouter = express.Router();
+
+  appRouter.post('/', setMetrics);
+  appRouter.get('/', getMetrics);
+
+  return [appRouter];
 }
