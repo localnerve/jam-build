@@ -232,6 +232,7 @@ async function failProcessVersionConflicts (allConflictValues, resetRetries, cle
   for (const val of allConflictValues) {
     await db.delete(conflictStoreName, [val.storeType, val.document_name, val.collection_name]);
   }
+
   debug(`deleted ${allConflictValues.length} conflict records`);
 
   // Clear all related conflict sentinels
@@ -251,6 +252,7 @@ async function failProcessVersionConflicts (allConflictValues, resetRetries, cle
     }, true);
     baseCount++;
   }
+
   debug(`cleared ${baseCount} baseStore records`);
 
   // Delete all the batch records for the failed conflicting storeType+documents
@@ -267,7 +269,11 @@ async function failProcessVersionConflicts (allConflictValues, resetRetries, cle
       await cursor.delete();
     }
   }
+
   debug(`deleted ${batchCount} batchStore records`);
+
+  // Fire telemetry beacon
+  sendBeacon(VERSION_CONFLICT_BACKOFF, meta);
 
   const errorMessage = {
     text: 'After many attempts, a data conflict could not be resolved. The latest server data is shown.',
@@ -287,6 +293,7 @@ async function failProcessVersionConflicts (allConflictValues, resetRetries, cle
     docMap.get(key).collections.push(val.collection_name);
   }
   // Refresh with remote data (lose all the user's updates and send final failure message)
+  let refreshCount = 0;
   const docEntries = [...docMap.values()];
   const lastIndex = docEntries.length - 1;
   for (let i = 0; i < docEntries.length; i++) {
@@ -297,10 +304,10 @@ async function failProcessVersionConflicts (allConflictValues, resetRetries, cle
         storeType, data, i === lastIndex ? errorMessage : null
       )
     });
+    refreshCount++;
   }
 
-  // Send telemetry beacon
-  sendBeacon(VERSION_CONFLICT_BACKOFF, meta);
+  debug(`updated ${refreshCount} "docEntries"`, docEntries);
 }
 
 /**
