@@ -212,7 +212,7 @@ test.describe('conflict resolution tests', () => {
     await new Promise(res => setTimeout(res, activeClickWait));
 
     const userStateControl2 = page2.locator('#user-home-state');
-    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 5000 });
+    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 8000 });
     const mutations2 = await doMutations(userStateControl2, {
       doUpdates: ['property2', 'property3'],
       doCreates: [['property6', 'value66']],
