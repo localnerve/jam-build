@@ -40,7 +40,7 @@ Heartbeat-Based Timer System
 
 ```javascript
 // Start a timer with heartbeat monitoring
-startTimer(duration, timerName, callback, resolution = 500);
+startTimer(duration, timerName, callback, resolution = 500, ignoreInactivity = false);
 ```
 
 Parameters:
@@ -51,7 +51,9 @@ Parameters:
 
 * `callback`: Function to execute when timer completes
 
-* `resolution`: Heartbeat check interval
+* `resolution`: Heartbeat check interval (default: 500ms)
+
+* `ignoreInactivity`: When `true`, user idle state never triggers early termination (default: `false`)
 
 ## Architecture Flow
 
@@ -85,11 +87,11 @@ The service worker checks:
 4. Early Termination Triggers
 Timers execute immediately when:
 
-* User Inactivity: All clients inactive for 8+ seconds (a changeable constant)
+* **Missing Heartbeat**: No communication for the timer interval (or greater) — applies to all timers
 
-* Missing Heartbeat: No communication for the timer interval (or greater)
+* **User Inactivity**: All clients inactive for 8+ seconds — applies to **activity-sensitive** timers only (see [Activity-Immune Timers](#activity-immune-timers))
 
-* Visibility Change: Browser tab hidden/closed (`visibilitychange` event)
+* **Visibility Change**: Browser tab hidden/closed (`visibilitychange` event) — applies to **all timers**, including activity-immune ones
   - Excellent [reference](https://www.igvita.com/2015/11/20/dont-lose-user-and-app-state-use-page-visibility/) on using `visibilitychange`
 
 ## Configuration
@@ -112,12 +114,33 @@ Default Settings
 * Inactivity threshold: Balance between responsiveness and false triggers
 
 ## Usage Examples
-Basic Timer
+
+### Activity-Sensitive Timer (default)
 
 ```javascript
-// 500ms batch collection window
-startTimer(500, 'batch-timer', processBatchUpdates);
+// 12s batch collection window — fires early if user goes idle
+startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
 ```
+
+### Activity-Immune Timer
+
+Some timers must not fire early due to user inactivity. Pass `ignoreInactivity = true` as the fifth argument:
+
+```javascript
+// Exponential backoff conflict retry — must respect full delay for data integrity
+// User sitting idle during a background conflict resolution should NOT abort the timer.
+await startTimer(delay, 'conflict-timer-backoff',
+  completeProcessVersionConflicts.bind(...),
+  resolution,
+  true  // ignoreInactivity
+);
+```
+
+With `ignoreInactivity = true`:
+- No user activity listeners (`mousemove`/`keydown`/`touchstart`) are registered on the main thread
+- The periodic heartbeat always sends `inactive: false` regardless of actual user activity
+- `checkHeartbeat` skips the `inactiveCount === clientCount` branch — only heartbeat freshness gates the timer
+- **Visibility change (`hidden`) still services the timer immediately** — that is a process lifecycle signal (SW may be killed), not an inactivity signal, and applies to all timers
 
 ## Extending Timer Window
 
@@ -132,20 +155,31 @@ startTimer(500, 'batch-timer', processBatchUpdates); // extends window
 serviceAllTimers(); // Execute all pending timers immediately
 ```
 
+## Activity-Immune Timers
+
+The `ignoreInactivity` flag introduces a semantic split between the two Jam-Build timers:
+
+| Timer | `ignoreInactivity` | Inactivity early-fires? | Visibility-hidden fires? |
+|---|---|---|---|
+| `batch-timer` | `false` (default) | ✅ Yes — flush before user leaves | ✅ Yes |
+| `conflict-timer-backoff` | `true` | ❌ No — retry timing is a data integrity concern | ✅ Yes |
+
+The `visibilitychange → hidden` path is **never suppressed** for any timer. When the browser hides the page the SW may be killed imminently — servicing all timers (including `conflict-timer-backoff`) at that moment is best-effort execution before death. The `conflictStore` records are durable in IDB, so a premature fire on hide is safe.
+
 ## Browser Event Handling
 
 ### Visibility Change
 ```javascript
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
-    // Service all timers before potential SW shutdown
+    // Service ALL timers (including activity-immune) before potential SW shutdown
     serviceAllTimers();
   }
 });
 ```
 
 ### User Activity Monitoring
-Tracks activity via:
+Tracks activity via (activity-sensitive timers only — skipped for `ignoreInactivity = true`):
 
 * `mousemove`
 
@@ -223,13 +257,18 @@ sequenceDiagram
     Note right of SW: duration = 12s (batchCollectionWindow)<br/>resolution = 500ms (default)
 
     alt New Timer
-        SW->>SW: Create timer entry in timers object
-        SW->>MT: sendMessage('heartbeat-start', {name, interval, maxInactive})
+        SW->>SW: Create timer entry in timers object (store ignoreInactivity)
+        SW->>MT: sendMessage('heartbeat-start', {name, interval, maxInactive, ignoreInactivity})
         Note right of MT: interval = 475ms (95% of resolution)<br/>maxInactive = 8000ms (16x resolution)
         
         MT->>MT: heartbeatStart() - setup monitoring
-        MT->>User: addEventListener(mousemove, keydown, touchstart)
-        Note right of User: Track user activity for inactivity detection
+
+        alt ignoreInactivity = false (default: batch-timer)
+            MT->>User: addEventListener(mousemove, keydown, touchstart)
+            Note right of User: Track user activity for inactivity detection
+        else ignoreInactivity = true (conflict-timer-backoff)
+            Note right of MT: No activity listeners registered<br/>Heartbeat always reports inactive: false
+        end
         
         MT->>MT: setInterval() - start heartbeat loop
         MT->>SW: postMessage('heartbeat-start', {name})
@@ -248,12 +287,16 @@ sequenceDiagram
     Note over MT, SW: Heartbeat messaging loop begins
 
     loop Every 475ms (while timer active)
-        MT->>MT: Check user activity against maxInactive (8s)
-        
-        alt User Active (< 8s since activity)
+        alt ignoreInactivity = false (batch-timer)
+            MT->>MT: Check user activity against maxInactive (8s)
+            alt User Active (< 8s since activity)
+                MT->>SW: postMessage('heartbeat-beat', {name, inactive: false})
+            else User Inactive (≥ 8s since activity)  
+                MT->>SW: postMessage('heartbeat-beat', {name, inactive: true})
+            end
+        else ignoreInactivity = true (conflict-timer-backoff)
             MT->>SW: postMessage('heartbeat-beat', {name, inactive: false})
-        else User Inactive (≥ 8s since activity)  
-            MT->>SW: postMessage('heartbeat-beat', {name, inactive: true})
+            Note right of MT: Always active — user idle state irrelevant<br/>for data integrity timers
         end
         
         SW->>SW: Update heartbeat map with timestamp & activity
@@ -274,15 +317,15 @@ sequenceDiagram
         else timeLeft > 0 (Timer Still Running)
             SW->>SW: checkHeartbeat(name, resolution)
             
-            alt Valid Heartbeat & Active Clients
-                Note right of SW: lastHeartbeat < 500ms ago<br/>AND at least one client active
+            alt Valid Heartbeat AND (ignoreInactivity OR active clients)
+                Note right of SW: lastHeartbeat < 500ms ago<br/>AND (immune OR at least one client active)
                 SW->>SW: Continue timer (do nothing)
                 
-            else Invalid Heartbeat OR All Clients Inactive
-                Note right of SW: lastHeartbeat ≥ 500ms ago<br/>OR all clients report inactive
+            else Invalid Heartbeat OR (not immune AND all clients inactive)
+                Note right of SW: lastHeartbeat ≥ 500ms ago<br/>OR (activity-sensitive AND all clients inactive)
                 SW->>SW: serviceTimer() - early termination
-                SW->>SWD: Execute callback (processBatchUpdates)
-                Note right of SWD: Process batch immediately<br/>to preserve user data
+                SW->>SWD: Execute callback
+                Note right of SWD: Process immediately to preserve data<br/>(batch-timer: inactivity, backoff-timer: heartbeat lost)
                 SW->>SW: stopHeartbeat() & cleanup timer
                 SW->>MT: sendMessage('heartbeat-stop', {name})
             end
@@ -295,8 +338,9 @@ sequenceDiagram
     Note right of Browser: Browser tab hidden, closed,<br/>or minimized - risk of SW shutdown
     
     MT->>MT: visibilityHandler() triggered
-    MT->>MT: heartbeatStop() for all active timers
-    MT->>SW: postMessage('service-timers-now', {timerNames})
+    MT->>MT: heartbeatStop() for ALL timers (including activity-immune)
+    MT->>SW: postMessage('service-timers-now', {timerNames: all})
+    Note right of MT: visibilitychange is a process lifecycle signal,<br/>not inactivity — applies to ALL timers
     
     SW->>SW: serviceTimer() for each requested timer
     loop For each timer in timerNames
@@ -319,10 +363,10 @@ sequenceDiagram
     Note over User, Browser: Timer guarantees and limitations
 
     rect rgb(255, 240, 240)
-        Note over User, Browser: ⚠️ Service Worker Timer Reliability Challenges:<br/>• No guarantees SW won't be terminated<br/>• Heartbeat provides "best effort" continuity<br/>• User inactivity triggers early processing<br/>• Visibility changes force immediate execution<br/>• Multiple clients coordinate through heartbeat map
+        Note over User, Browser: ⚠️ Service Worker Timer Reliability Challenges:<br/>• No guarantees SW won't be terminated<br/>• Heartbeat provides "best effort" continuity<br/>• Activity-sensitive timers fire early on user inactivity<br/>• Activity-immune timers ignore inactivity (ignoreInactivity=true)<br/>• Visibility changes force immediate execution for ALL timers<br/>• Multiple clients coordinate through heartbeat map
     end
 
     rect rgb(240, 255, 240)  
-        Note over User, Browser: ✅ Design Benefits:<br/>• Data loss prevention - early termination vs lost timer<br/>• User experience - inactive users don't delay processing<br/>• Resource efficiency - longer intervals reduce main thread impact<br/>• Coordinated shutdown - visibility changes handled gracefully
+        Note over User, Browser: ✅ Design Benefits:<br/>• Data loss prevention (early termination vs lost timer)<br/>• Semantic split: batch-timer flushes on idle, backoff-timer respects full delay<br/>• Resource efficiency (longer intervals reduce main thread impact)<br/>• Coordinated shutdown (visibility changes handled gracefully for all timers)
     end
 ```
