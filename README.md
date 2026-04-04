@@ -17,6 +17,7 @@
 * 🔧 [Build Process Summary](docs/build.md)
 * ✨ [Command Reference](docs/commands.md)
 * 📈 [Project Stats Snapshots](docs/stats.md)
+* 🌱 [Analysis Artifacts](docs/analysis.md)
 
 > A Go Fiber API with monitoring and multi-database support, as a drop-in replacement for the backend in this project, is available at [jam-build-propsdb](https://github.com/localnerve/jam-build-propsdb).
 
