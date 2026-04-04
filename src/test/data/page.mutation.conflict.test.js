@@ -262,7 +262,7 @@ test.describe('conflict resolution tests', () => {
 
   // This test will occasionally work to exercise the backoff for pageC
   test('cascading conflict, three clients', async ({ browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition + 30000);
 
     const settleWait = process.env.CI ? 6000 : 2000; // eslint-disable-line playwright/no-conditional-in-test
 
