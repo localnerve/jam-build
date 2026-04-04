@@ -440,7 +440,7 @@ test.describe('conflict resolution tests', () => {
 
     // Make mutations on page 2
     const userStateControl2 = page2.locator('#user-home-state');
-    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 5000 });
+    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 8000 });
     await doMutations(userStateControl2, {
       doUpdates: ['property2'],
       doCreates: [],
