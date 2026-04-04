@@ -137,6 +137,9 @@ export async function startPage (url, page) {
   );
 
   await page.goto(url);
+  await page.waitForURL(url, {
+    timeout: 8000
+  });
 
   // For headed debugging
   await page.addScriptTag({
