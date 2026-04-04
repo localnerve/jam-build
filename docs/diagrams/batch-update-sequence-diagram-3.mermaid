@@ -1,0 +1,75 @@
+sequenceDiagram
+    participant Proxy as Data Proxy<br/>(stores.js onChange)
+    participant MT as Main Thread<br/>(stores.js)
+    participant SW as Service Worker<br/>(sw.custom.js)
+    participant SWD as SW Data Module<br/>(sw.data.js)
+    participant Helpers as SW Data Helpers<br/>(sw.data.helpers.js)
+    participant Timer as Batch Timer<br/>(sw.timer.js)
+    participant IDB as IndexedDB
+    participant API as Remote API
+
+    Note over Proxy, API: User mutates a data object property
+
+    Proxy->>MT: onChange handler fires (add/change/delete)
+    MT->>SW: postMessage('may-update', {storeType, document, collection})
+    SW->>Helpers: mayUpdate()
+    Helpers->>IDB: Snapshot collection to base store<br/>(or increment reference count)
+
+    MT->>MT: updateDatabase() writes mutation to local IDB
+    MT->>SW: postMessage('batch-update', {storeType, document, collection, propertyName, op})
+    SW->>SWD: batchUpdate()
+    SWD->>SWD: CriticalSection serializes _batchUpdate()
+    SWD->>Timer: startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates)
+    Note right of Timer: Resets/extends window on each call
+    SWD->>IDB: db.add() to batch store
+
+    loop Additional mutations during window
+        MT->>SW: postMessage('batch-update', ...)
+        SW->>SWD: batchUpdate()
+        SWD->>Timer: startTimer() — extends window
+        SWD->>IDB: db.add() to batch store
+    end
+
+    Note over Timer, API: Timer expires — batch processing begins
+
+    Timer->>SWD: processBatchUpdates()
+    SWD->>SWD: AffiliatedLock.acquire() — obtain lock (isOwner=true)
+    SWD->>IDB: Read all batch store records
+    SWD->>SWD: Consolidation algorithm<br/>- Group by storeType:document:collection<br/>- Newer deletes override older puts<br/>- Merge puts to same collection<br/>- Order oldest→newest for network calls
+
+    loop For each network operation (oldest to newest)
+        alt Put operation
+            SWD->>API: POST /api/data/{store}/{document}
+        else Delete operation
+            SWD->>API: DELETE /api/data/{store}/{document}
+        end
+
+        alt Success (200/204)
+            API-->>SWD: Success response
+            SWD->>Helpers: storeAndBroadcastMutation() — save new version
+            SWD->>Helpers: clearBaseStoreRecords()
+            SWD->>IDB: Delete processed batch records
+        else Version Conflict (409)
+            API-->>SWD: versionError response
+            SWD->>SWD: versionConflict() triggered
+            SWD->>API: GET /api/data/{store}/{document}
+            API-->>SWD: Latest remote document + version
+            SWD->>Helpers: storeVersionConflict() — write to conflict store
+            Note over SWD: Break out of network loop (E_CONFLICT)
+            SWD->>SWD: processVersionConflicts({processBatchUpdates(affiliationId), ...})
+            Note right of SWD: Passes affiliationId so conflict resolution<br/>can re-enter the lock as an affiliate
+        else Network / Other Error
+            API-->>SWD: Error / timeout
+            SWD->>IDB: queue.pushRequest() — Workbox background sync
+        end
+    end
+
+    opt All ops successful — no conflict
+        SWD->>SWD: resetRetryCount() for successful docs
+        SWD->>SWD: AffiliatedLock.release()
+    end
+
+    opt Logout ops in batch
+        SWD->>IDB: Delete logout batch records
+        SWD->>MT: sendMessage('logout-complete')
+    end
