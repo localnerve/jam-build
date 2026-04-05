@@ -21,12 +21,14 @@
  *    in this material, copies, or source code of derived works.
  */
 import express from 'express';
-import { createService } from './data/index.js';
+import { createService as createDataService } from './data/index.js';
+import { createService as createMetricsService } from './metrics.js';
 
 export function create (logger) {
   const api = express.Router();
  
-  api.use('/data', createService(logger));
+  api.use('/data', createDataService(logger));
+  api.use('/metrics', createMetricsService(logger));
 
   return api;
 }

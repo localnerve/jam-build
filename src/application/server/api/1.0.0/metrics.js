@@ -1,5 +1,6 @@
 /**
- * Constants used by everthing.
+ * The metrics service.
+ * A stub for a prometheus client.
  * 
  * Jam-build, a web application practical reference.
  * Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC
@@ -18,9 +19,52 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import express from 'express';
+import debugLib from '@localnerve/debug';
 
-export const opPut = 'put';
-export const opDel = 'delete';
-export const conflictBackoffBase = 100;  // exponential backoff base delay in ms
-export const conflictBackoffMax  = 8000; // max delay cap in ms, [2^(conflictMaxRetries-1)]*conflictBackoffBase + jitterMs
-export const conflictMaxRetries  = 7;    // max retry attempts before giving up, [2^(conflictMaxRetries-1)]*conflictBackoffBase is the base delay
+const debug = debugLib('api:metrics');
+
+// Stub for a prometheus client counter
+const eventCounter = {
+  inc (input) {
+    debug('Metrics event received: ', { ...input });
+  }
+};
+
+/**
+ * Handler for posting event counters (stub)
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object
+ */
+function setMetrics (req, res) {
+  const { event, labels } = req.body;
+  eventCounter.inc({ event, ...labels });
+  res.sendStatus(204);
+}
+
+/**
+ * Handler for a prometheus scrape (stub)
+ * 
+ * @param {Request} req - The expressjs Request object
+ * @param {Response} res - The expressjs Response object
+ */
+function getMetrics (req, res) {
+  // set content type
+  // send response
+  res.sendStatus(204);
+}
+
+/**
+ * Creates the metrics service.
+ *
+ * @returns {Array<Router>} Array of middleware for this service
+ */
+export function createService () {
+  const appRouter = express.Router();
+
+  appRouter.post('/', setMetrics);
+  appRouter.get('/', getMetrics);
+
+  return [appRouter];
+}

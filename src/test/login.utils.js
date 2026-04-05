@@ -147,7 +147,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
   await startPage(baseUrl, page);
 
   const notChrome = page.context().browser().browserType().name() !== 'chromium';
-  const loginClickWait = process.env.CI && notChrome ? 1000 : 100;
+  const loginClickWait = process.env.CI && notChrome ? 1000 : 200;
   const waitUntil = 'domcontentloaded';
 
   debug('AUTHZ_URL', process.env.AUTHZ_URL);
@@ -177,7 +177,7 @@ export async function manualLogin (baseUrl, page, redirect = true) {
       debug(`authzUrlTest call ${callCount++}`, url.origin, '===', process.env.AUTHZ_URL);
       return url.origin === process.env.AUTHZ_URL;
     };
-  
+
     await page.waitForURL(authzUrlTest, {
       timeout: serviceTimeout,
       waitUntil

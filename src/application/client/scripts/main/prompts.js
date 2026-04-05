@@ -63,7 +63,7 @@ function homescreenAction () {
  * Update all runtime pages, so the user doesn't get another stale page.
  */
 function updateAction () {
-  navigator.serviceWorker.ready.then(reg => { // eslint-disable-line compat/compat
+  navigator.serviceWorker.ready.then(reg => {
     reg.active.postMessage({ action: 'runtime-update' });
   });
   // Don't wait, the current page is already here.

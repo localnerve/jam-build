@@ -18,6 +18,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import pkg from '#root/package.json' with { type: 'json' };
 
 const srcClient = 'src/application/client';
 const dataDir = 'data';
@@ -33,6 +34,7 @@ const swMainGenerated = `${dist}/sw.main.js`;
 const swCustomFilenameGlob = 'sw-*.custom.js';
 const apiVersion = '1.0.0';
 const schemaVersion = '1';
+const appVersion = pkg.version;
 
 /**
  * Create the build settings.
@@ -129,6 +131,7 @@ export function createSettings (prod = true) {
       jsManifestFilename,
       replacements: {
         PAGE_MODULES: JSON.stringify(['home']).replaceAll('"', '\''),
+        APP_VERSION: JSON.stringify(appVersion).replaceAll('"', '\''),
         'process.env.AUTHZ_URL': JSON.stringify(process.env.AUTHZ_URL).replaceAll('"', '\''),
         'process.env.AUTHZ_CLIENT_ID': JSON.stringify(process.env.AUTHZ_CLIENT_ID).replaceAll('"', '\'')
       },
@@ -191,6 +194,7 @@ return !("fetch" in window && \
       swCustomFileSrc: `${srcClient}/scripts/sw/sw.custom.js`,
       dist,
       prod,
+      appVersion,
       apiVersion,
       schemaVersion
     },

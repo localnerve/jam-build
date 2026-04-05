@@ -1,0 +1,139 @@
+sequenceDiagram
+    participant SWD as SW Data Module<br/>(sw.data.js)
+    participant Conflict as Conflict Module<br/>(sw.data.conflicts.js)
+    participant Helpers as SW Data Helpers<br/>(sw.data.helpers.js)
+    participant IDB as IndexedDB
+    participant JsonDiff as jsondiffpatch<br/>(3-way merge)
+    participant Timer as Backoff Timer<br/>(sw.timer.js)
+    participant API as Remote API
+    participant MT as Main Thread
+
+    Note over SWD, MT: 409 conflict detected — versionConflict() has already fetched<br/>remote data and written it to conflict store
+
+    SWD->>Conflict: processVersionConflicts({processBatchUpdates(affiliationId), addToBatch, refreshData})
+
+    Conflict->>IDB: Count conflict store records — exit if 0
+    Conflict->>IDB: getAll() conflict store records
+
+    Note over Conflict: Build unique storeType+document list and versionKeys
+
+    loop For each involved document
+        Conflict->>Helpers: isConflictSentinel(storeType, document)
+        alt Sentinel active (resolution already in progress)
+            Conflict-->>SWD: Return immediately — deferred to next processBatchUpdates
+        end
+    end
+
+    loop For each involved document
+        Conflict->>Helpers: setConflictSentinel(storeType, document)
+    end
+
+    Conflict->>IDB: Read retryCount from version store for all involved docs
+    Note over Conflict: maxRetryCount = max across all involved docs
+
+    alt maxRetryCount >= conflictMaxRetries
+        Conflict->>Conflict: failProcessVersionConflicts()
+        Conflict->>IDB: Delete all conflict store records
+        Conflict->>Helpers: clearConflictSentinel() for all docs
+        Conflict->>Helpers: resetRetryCount()
+        Conflict->>IDB: mayUpdate(..., clearOnly=true) — clear base store records
+        Conflict->>IDB: Delete all matching batch store records
+        Conflict->>API: refreshData(forceRemote=true) — fetch latest for each doc
+        API-->>Conflict: Latest remote data
+        Conflict->>IDB: storeData() with error message payload
+        Conflict->>MT: sendMessage('database-data-update', {message: {class:'error'}})
+        Note over Conflict: User's local changes are lost
+    end
+
+    Note over Conflict, JsonDiff: Build remote, local, and base data structures
+
+    Conflict->>IDB: Iterate conflict store by version index (latest first)
+    Note right of IDB: Builds remoteData[storeType][doc][col]<br/>versions[storeType][doc]<br/>batch commands, baseKeys
+
+    loop For each storeType → document in remoteData
+        Conflict->>IDB: getAllFromIndex(storeName, 'document', [scope, doc])
+        Note right of IDB: Builds localData[storeType][doc][col]
+    end
+
+    loop For each baseKey [storeType, doc, col]
+        Conflict->>IDB: getFromIndex(baseStoreName, 'collection', baseKey)
+        Note right of IDB: Builds baseData[storeType][doc][col]
+    end
+
+    Note over Conflict, JsonDiff: 3-way merge for each storeType → doc → collection
+
+    loop For each storeType → doc → col in localData
+        Conflict->>JsonDiff: threeWayMerge(base, remote, local)
+        JsonDiff->>JsonDiff: diff(base, remote) — remote changes
+        JsonDiff->>JsonDiff: diff(base, local) — local changes
+        alt No conflicts between remote and local diffs
+            JsonDiff->>JsonDiff: Apply non-conflicting changes from both
+        else Conflicting property changes
+            JsonDiff->>JsonDiff: LOCAL WINS — local value overrides remote
+        end
+        JsonDiff-->>Conflict: Merged collection data → newData[storeType][doc][col]
+    end
+
+    Note over Conflict, IDB: Write merged data back to local stores
+
+    loop For each storeType → doc → col in newData
+        Conflict->>IDB: db.put(storeName, {scope, doc, col, merged_props})
+        Note right of IDB: Collects message notification keys
+    end
+
+    Note over Conflict: Update version store with new versions and incremented retryCount
+
+    loop For each storeType → doc → version
+        Conflict->>IDB: db.put(versionStoreName, {storeType, doc, version, retryCount: maxRetryCount+1})
+    end
+
+    Note over Conflict, SWD: Re-queue batch operations for the resolved data
+
+    loop For each batch command (put or delete)
+        alt Simple string collections
+            Conflict->>SWD: addToBatch({storeType, doc, op, collection})
+        else Object collections with properties
+            loop For each property
+                Conflict->>SWD: addToBatch({storeType, doc, op, collection, propertyName})
+            end
+        end
+    end
+
+    Conflict->>IDB: Delete all processed conflict store records
+
+    alt maxRetryCount === 0 — first conflict attempt
+        Note over Conflict: Synchronous path — call completeProcessVersionConflicts directly
+        Conflict->>Conflict: completeProcessVersionConflicts(instanceId, message, processBatchUpdates, clearSentinels)
+        Conflict->>Helpers: clearConflictSentinel() for all docs
+        Conflict->>SWD: processBatchUpdates(affiliationId)
+        Note right of SWD: AffiliatedLock re-entry allowed via affiliationId<br/>Retries the network operations with merged data
+
+        alt processBatchUpdates returns 0 (success)
+            loop For each updated storeType
+                Conflict->>MT: sendMessage('database-data-update',<br/>{message: {text:'Data synchronized...', class:'info'}})
+            end
+        end
+
+    else maxRetryCount > 0 — repeat conflict, use backoff timer
+        Note over Conflict: Async path — schedule via exponential backoff timer
+        Conflict->>Conflict: delay = min(backoffBase * 2^retryCount, backoffMax) + jitter
+        Conflict->>Conflict: resolution = computeTimerResolution(delay)
+        Conflict->>Timer: startTimer(delay, 'conflict-timer-backoff',<br/>completeProcessVersionConflicts, resolution, ignoreInactivity=true)
+        Note right of Timer: Timer fires after backoff delay
+        Conflict->>MT: sendBeacon(VERSION_CONFLICT_BACKOFF, {retryCount, versions...})
+
+        Note over Timer: ...backoff delay elapses...
+
+        Timer->>Conflict: completeProcessVersionConflicts(instanceId, message, processBatchUpdates, clearSentinels)
+        Conflict->>Helpers: clearConflictSentinel() for all docs
+        Conflict->>SWD: processBatchUpdates(affiliationId)
+        Note right of SWD: AffiliatedLock re-entry allowed via affiliationId
+
+        alt processBatchUpdates returns 0 (success)
+            loop For each updated storeType
+                Conflict->>MT: sendMessage('database-data-update',<br/>{message: {text:'Data synchronized...', class:'info'}})
+            end
+        else Another 409 conflict
+            Note over SWD, Conflict: New conflict data written to conflict store<br/>processVersionConflicts called again<br/>retryCount incremented — backoff doubles
+        end
+    end

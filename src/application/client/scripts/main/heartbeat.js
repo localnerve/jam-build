@@ -84,13 +84,14 @@ function userActivityCheck (name) {
  * @param {String} name - The timer name
  * @param {Number} interval - The timer interval
  * @param {Number} maxInactive - The max time of inactivity
+ * @param {Boolean} ignoreInactivity - True to ignore user inactivity
  */
-async function heartbeatStart (name, interval, maxInactive) {
+async function heartbeatStart (name, interval, maxInactive, ignoreInactivity) {
   debug('start heartbeat', name, interval, maxInactive);
   
   heartbeatStop(name);
 
-  const reg = await navigator.serviceWorker.ready; // eslint-disable-line compat/compat
+  const reg = await navigator.serviceWorker.ready;
 
   heartbeats[name] = {
     interval: setInterval(name => {
@@ -98,16 +99,21 @@ async function heartbeatStart (name, interval, maxInactive) {
         action: 'heartbeat-beat',
         payload: {
           name,
-          inactive: userActivityCheck(name)
+          inactive: ignoreInactivity ? false : userActivityCheck(name)
         }
       });
     }, interval, name),
-    updateUserActivity: updateUserActivity.bind(null, heartbeats, name),
+    ignoreInactivity,
     maxInactiveTime: maxInactive,
-    lastUserActivity: 0
+    lastUserActivity: 0,
+    updateUserActivity: ignoreInactivity
+      ? null
+      : updateUserActivity.bind(null, heartbeats, name),
   };
 
-  userActivityStart(name);
+  if (!ignoreInactivity) {
+    userActivityStart(name);
+  }
 
   reg.active.postMessage({
     action: 'heartbeat-start',
@@ -124,7 +130,9 @@ function heartbeatStop (name) {
   debug('stop heartbeat', name, !!heartbeats[name]);
 
   if (heartbeats[name]) {
-    userActivityStop(name);
+    if (!heartbeats[name].ignoreInactivity) {
+      userActivityStop(name);
+    }
     clearInterval(heartbeats[name].interval);
     delete heartbeats[name];
   }
@@ -141,7 +149,7 @@ function swMessageHandler (event) {
 
   switch (msgId) {
     case 'heartbeat-start':
-      heartbeatStart(payload.name, payload.interval, payload.maxInactive);
+      heartbeatStart(payload.name, payload.interval, payload.maxInactive, payload.ignoreInactivity);
       break;
 
     case 'heartbeat-stop':

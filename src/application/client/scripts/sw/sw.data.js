@@ -36,7 +36,7 @@ import { _private } from 'workbox-core';
 import { getStoreTypeStore, getStoreTypeScope } from '#client-utils/storeType.js';
 import { isObj } from '#client-utils/javascript.js';
 import { startTimer, serviceAllTimers } from './sw.timer.js';
-import { sendMessage, CriticalSection, debug } from './sw.utils.js';
+import { sendMessage, CriticalSection, AffiliatedLock, debug } from './sw.utils.js';
 import {
   apiVersion,
   batchCollectionWindow,
@@ -69,12 +69,14 @@ import {
   mayUpdate,
   storeData,
   storeAndBroadcastMutation,
-  storeVersionConflict
+  storeVersionConflict,
+  resetRetryCount
 } from './sw.data.helpers.js';
 export { mayUpdate } from './sw.data.helpers.js';
 import { processVersionConflicts } from './sw.data.conflicts.js';
 
 const csBatchUpdate = new CriticalSection();
+const alBatchUpdate = new AffiliatedLock();
 
 /**
  * RE: background sync setup -
@@ -120,7 +122,7 @@ async function replayRequestQueue ({ queue }) {
   debug('Replaying queue requests...', queue);
 
   if (!queue) {
-    throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+    throw new _private.WorkboxError('queue-replay-failed', { name: queueName });
   }
 
   const getRequests = [];
@@ -145,7 +147,7 @@ async function replayRequestQueue ({ queue }) {
       queue.push(entry);
     } else {
       const { storeType, document, collections, op } = meta;
-  
+
       if (Array.isArray(collections) && collections.length > 0) {
         for (const coll of collections) {
           if (isObj(coll)) {
@@ -184,7 +186,7 @@ async function replayRequestQueue ({ queue }) {
 
   // Process any/all left over conflicts into the batch queue, run batch
   await processVersionConflicts({
-    processBatchUpdates, addToBatch: conditionalBatchUpdate
+    processBatchUpdates, addToBatch: conditionalBatchUpdate, refreshData
   });
   await processBatchUpdates();
 
@@ -195,11 +197,11 @@ async function replayRequestQueue ({ queue }) {
     try {
       const meta = getEntry.metadata;
       reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
-      
+
       if (completed[reqKey]) {
         continue;
       }
-      
+
       await dataAPICall(getEntry.request, {
         asyncResponseHandler: getResponseHandler.bind(null, meta),
         metadata: meta,
@@ -208,7 +210,7 @@ async function replayRequestQueue ({ queue }) {
       completed[reqKey] = true;
     } catch {
       debug('Failed to replay get request: ', getEntry.request.url);
-      
+
       for (const get of getRequests) {
         const meta = getEntry.metadata;
         reqKey = `${meta.op}-${meta.storeType}-${meta.document}-${meta.collections}`;
@@ -217,7 +219,7 @@ async function replayRequestQueue ({ queue }) {
         }
       }
 
-      throw new _private.WorkboxError('queue-replay-failed', {name: queueName});
+      throw new _private.WorkboxError('queue-replay-failed', { name: queueName });
     }
   } // for - get requests
 }
@@ -251,13 +253,15 @@ function makeStoreTypeURLFragment (storeType) {
  * @param {AsyncFunction} [options.staleResponse] - stale response handler
  * @param {Object} [options.metadata] - metadata to be stored with the Request on replay
  * @param {Boolean} [options.retry] - true if failures should be queued for replay
+ * @param {Symbol} [options.affiliationId] - lock affiliationId
  * @returns {Number} 0 on success or conflict resolution, E_REPLAY if queued for replay. Throws on error
  */
 async function dataAPICall (request, {
   asyncResponseHandler = null,
   staleResponse = null,
   metadata = null,
-  retry = true
+  retry = true,
+  affiliationId = null
 } = {}) {
   debug('dataAPICall ', request.url, request.method);
 
@@ -269,7 +273,7 @@ async function dataAPICall (request, {
 
   let result = -1;
   let response = null;
-  
+
   try {
     response = await fetch(request.clone(), {
       signal: abortController.signal
@@ -296,7 +300,7 @@ async function dataAPICall (request, {
         const resp = await response.json();
 
         if (resp.versionError) {
-          await versionConflict(metadata);
+          await versionConflict(metadata, { affiliationId });
           handled = true;
           result = E_CONFLICT;
         }
@@ -351,21 +355,28 @@ async function dataAPICall (request, {
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} [payload.document] - document name
  * @param {String|Array<String>} [payload.collections] - collection name(s) to get
+ * @param {Object} [options] - options parameters
+ * @param {Boolean} [options.forceRemote] - true to force remote refresh, false otherwise
+ * @param {Function} [options.asyncResponseHandler] - override the default asyncResponseHandler
  */
-export async function refreshData ({ storeType, document, collections }) {
+export async function refreshData ({ storeType, document, collections }, {
+  forceRemote = false,
+  asyncResponseHandler = null  // overrides default storeData call
+} = {}) {
   debug(`refreshData, ${storeType}:${document}`, collections);
 
-  const hasUpdates = await hasPendingUpdates(queue);
-  if (hasUpdates) {
-    return localData(storeType, document, collections);
+  if (!forceRemote) {
+    const hasUpdates = await hasPendingUpdates(queue);
+    if (hasUpdates) {
+      return localData(storeType, document, collections);
+    }
   }
 
   const resource = makeStoreTypeURLFragment(storeType);
   const baseUrl = `/api/data/${resource}`;
-  const path = document ? `/${document}${
-    typeof collections === 'string' ? `/${collections}`
-      : collections?.length === 1 ? `/${collections[0]}` : ''
-  }`: '';
+  const path = document ? `/${document}${typeof collections === 'string' ? `/${collections}`
+    : collections?.length === 1 ? `/${collections[0]}` : ''
+  }` : '';
   let url = `${baseUrl}${path}`;
 
   if (document && collections?.length > 1) {
@@ -380,16 +391,17 @@ export async function refreshData ({ storeType, document, collections }) {
     }
   });
 
+  const dfltStaleResponse = localData.bind(null, storeType, document, collections);
+  const dfltAsyncResponse = data => storeData(storeType, data);
+
   await dataAPICall(request, {
-    asyncResponseHandler: async data => {
-      await storeData(storeType, data);
-    },
-    staleResponse: localData.bind(null, storeType, document, collections),
+    asyncResponseHandler: asyncResponseHandler ?? dfltAsyncResponse,
+    staleResponse: forceRemote ? null : dfltStaleResponse,
     metadata: {
       storeType,
       document,
       collections,
-      op : opGet
+      op: opGet
     }
   });
 }
@@ -401,8 +413,12 @@ export async function refreshData ({ storeType, document, collections }) {
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to which the update applies
  * @param {Array<String>} [payload.collections] - The collections to upsert, omit for all
+ * @param {Object} [options] - option parameters
+ * @param {Symbol} [options.affiliationId] - Lock affiliation Id
  */
-async function upsertData ({ storeType, document, collections = null }) {
+async function upsertData ({ storeType, document, collections = null }, {
+  affiliationId = null
+} = {}) {
   debug(`upsertData, ${storeType}:${document}`, collections);
 
   if (!storeType || !document) {
@@ -440,7 +456,8 @@ async function upsertData ({ storeType, document, collections = null }) {
       document,
       collections,
       op: opPut
-    }
+    },
+    affiliationId
   });
 
   return result;
@@ -456,10 +473,14 @@ async function upsertData ({ storeType, document, collections = null }) {
  * @param {String} payload.storeType - store:scope path to document
  * @param {String} payload.document - The document to which the delete applies
  * @param {String|Array<String>|Object|Array<Object>} [payload.collections] - Collection name(s), or Object(s) of { collection: 'name', properties: ['propName'...] }
+ * @param {Object} [options] - options
+ * @param {Symbol} [options.affiliationId] - Lock affiliationId
  */
-async function deleteData ({ storeType, document, collections }) {
+async function deleteData ({ storeType, document, collections }, {
+  affiliationId = null
+} = {}) {
   debug(`deleteData, ${storeType}:${document}`, collections);
-  
+
   if (!storeType || !document) {
     throw new Error('Bad input passed to deleteData');
   }
@@ -520,7 +541,8 @@ async function deleteData ({ storeType, document, collections }) {
       document,
       collections,
       op: opDel
-    }
+    },
+    affiliationId
   });
 
   return result;
@@ -592,9 +614,10 @@ export async function logout ({ storeType }) {
  * Presumes the local idb is the source of truth that need to be conveyed to the remote data service.
  * Called from the batch timer @see batchUpdate, or on sync event or equivalent.
  * 
- * @returns {Promise<undefined>} fulfills when the function completes.
+ * @param {Symbol} [affiliationId] - AffiliatedLock id of the outer call owner
+ * @returns {Promise<Integer>} fulfills when the function completes to the last significant network result code.
  */
-async function processBatchUpdates () {
+async function _processBatchUpdates (affiliationId = null) {
   const batchStoreName = makeStoreName(batchStoreType);
   const db = await getDB();
   const totalRecords = await db.count(batchStoreName);
@@ -614,7 +637,7 @@ async function processBatchUpdates () {
     put: upsertData,
     delete: deleteData
   };
-  
+
   debug(`processBatchUpdates processing ${totalRecords} records...`);
 
   // For iterating in descending id+storeType+document+collection order
@@ -693,7 +716,7 @@ async function processBatchUpdates () {
             properties = (new Map()).set(item.collection, item.propertyName ? [item.propertyName] : []);
             properties.hasProps = item.propertyName ? true : false;
           } else { // this is a document delete
-            properties = { set(){}, get(){}, hasProps: false };
+            properties = { set () { }, get () { }, hasProps: false };
           }
         }
         networkCallOrder.unshift(item.op); // add to head so newest will be last
@@ -716,6 +739,7 @@ async function processBatchUpdates () {
 
   let networkResult = 0;
   let storeTypeReplay = new Map();
+  const successfulDocs = [];
 
   const reconcile = [];
   for (const op of networkCallOrder) { // replay oldest to newest
@@ -730,9 +754,15 @@ async function processBatchUpdates () {
     }
 
     try {
-      networkResult = await network[op](request);
+      networkResult = await network[op](request, {
+        affiliationId
+      });
 
       storeTypeReplay.set(request.storeType, networkResult === E_REPLAY);
+
+      if (networkResult === 0) {
+        successfulDocs.push({ storeType: request.storeType, document: request.document });
+      }
 
       debug(`processBatchUpdates '${network[op].name}' completed with '${networkResult}' for '${op}' with '${request.storeType}:${request.document}'`, {
         ...request.collections
@@ -751,7 +781,12 @@ async function processBatchUpdates () {
       }, e);
     }
 
-    // Always delete. If it threw, it's not going to work by retrying, the input is bad
+    if (networkResult === E_CONFLICT) {
+      debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
+      break; // We were invoked in subsequent resolution
+    }
+
+    // From here, always delete. If it threw, it's not going to work by retrying, the input is bad
     const deleteRecords = await db.transaction(batchStoreName, 'readwrite').store.index('delete');
     let count = 0;
     for await (const cursor of deleteRecords.iterate([item.storeType, item.document, op])) {
@@ -759,11 +794,6 @@ async function processBatchUpdates () {
       await cursor.delete();
     }
     debug(`processBatchUpdates '${op}' processed ${count} records for '${item.storeType}:${item.document}'`);
-
-    if (networkResult === E_CONFLICT) {
-      debug('processBatchUpdates prior invocation exiting on subsequent conflict resolution');
-      break; // We were invoked in subsequent resolution
-    }
   } // for - networkCallOrder
 
   // This happens if:
@@ -782,8 +812,10 @@ async function processBatchUpdates () {
     }
   } // for - reconcile
 
-  // If complete invocation, process any additional batch ops
+  // If complete invocation, cleanup and process any additional batch ops
   if (networkResult !== E_CONFLICT) {
+    await resetRetryCount(successfulDocs);
+
     const batchOpsIndex = await db.transaction(batchStoreName, 'readwrite').store.index('ops');
     // op === opLogout
     for await (const cursor of batchOpsIndex.iterate(IDBKeyRange.only(opLogout))) {
@@ -794,6 +826,25 @@ async function processBatchUpdates () {
       // If storeType mutation will replay, cleanup == false; If last storeType, notify == true
       logoutData(storeType, !storeTypeReplay.get(storeType), !next);
     }
+  }
+
+  return networkResult;
+}
+
+/**
+ * Call _processBatchUpdates in reentrant, recursive mutex lock
+ * 
+ * @param {Symbol} [affiliationId] - AffiliatedLock id, do not supply if top-level caller
+ * @returns {Promise<Integer>} Promise resolves to batch process network result
+ */
+async function processBatchUpdates (affiliationId = null) {
+  const lockId = await alBatchUpdate.acquire(affiliationId);
+  const isOwner = lockId !== affiliationId;
+  
+  try {
+    return await _processBatchUpdates(lockId);
+  } finally {
+    if (isOwner) alBatchUpdate.release(lockId);
   }
 }
 
@@ -815,7 +866,7 @@ async function _batchUpdate ({ storeType, document, op, collection, propertyName
   }
 
   if (!skipTimer) {
-    startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
+    await startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates);
   }
 
   /* eslint-disable no-param-reassign */
@@ -889,8 +940,12 @@ async function conditionalBatchUpdate ({ storeType, document, op, collection, pr
  * @param {String} payload.document - The document name
  * @param {String} payload.op - opPut or opDel
  * @param {String|Array<String>|Array<Object>} payload.collections - The network request format of collections
+ * @param {Object} [options] - The options
+ * @param {Symbol} [options.affiliationId] - Lock affiliation Id
  */
-async function versionConflict ({ storeType, document, op, collections }) {
+async function versionConflict ({ storeType, document, op, collections }, {
+  affiliationId = null
+} = {}) {
   const resource = makeStoreTypeURLFragment(storeType);
   const url = `/api/data/${resource}/${document}`;
 
@@ -912,8 +967,9 @@ async function versionConflict ({ storeType, document, op, collections }) {
 
   if (result !== E_REPLAY) {
     await processVersionConflicts({
-      processBatchUpdates,
-      addToBatch: conditionalBatchUpdate
+      processBatchUpdates: () => processBatchUpdates(affiliationId),
+      addToBatch: conditionalBatchUpdate,
+      refreshData
     });
   }
 }

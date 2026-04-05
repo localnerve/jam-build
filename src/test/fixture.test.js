@@ -33,20 +33,20 @@ test.describe('Fixture check', () => {
 
     expect(adminState.cookies.length).toBeGreaterThan(0);
     expect(userState.cookies.length).toBeGreaterThan(0);
-    expect(publicState.cookies.length).toEqual(0);
+    expect(publicState.cookies).toHaveLength(0);
 
     debug('Admin request state', adminState);
     debug('User request state', userState);
   });
 
-  test('Audit Page fixtures', async({ adminPage, userPage, page }) => {
+  test('Audit Page fixtures', async ({ adminPage, userPage, page }) => {
     const adminState = await adminPage.context().storageState();
     const userState = await userPage.context().storageState();
     const publicState = await page.context().storageState();
 
     expect(adminState.cookies.length).toBeGreaterThan(0);
     expect(userState.cookies.length).toBeGreaterThan(0);
-    expect(publicState.cookies.length).toEqual(0);
+    expect(publicState.cookies).toHaveLength(0);
 
     debug('Admin request state', adminState);
     debug('User request state', userState);

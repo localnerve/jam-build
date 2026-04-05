@@ -27,11 +27,11 @@ const desktopViewport = {
 
 const puppeteerOptions = process.env.CI ? {
   args: ['--no-sandbox', '--disable-setuid-sandbox']
-}: {};
+} : {};
 
 const workerRestriction = process.env.CI ? {
   workers: 1
-}: {};
+} : {};
 
 const slowMo = parseInt((process.env.SLOWMO || '0').toString(), 10);
 
@@ -152,6 +152,10 @@ export default defineConfig({
   }, {
     name: 'data-debug',
     testMatch: 'data/page.mutation.test.js',
+    workers: 1
+  }, {
+    name: 'data-conflict-debug',
+    testMatch: 'data/page.mutation.conflict.test.js',
     workers: 1
   }, {
     name: 'Chromium',

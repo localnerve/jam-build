@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 30, 2025
+Date: April 4, 2026
 Title: Batch Update Processing Flow
 ---
 
@@ -10,11 +10,16 @@ Title: Batch Update Processing Flow
 
 The Jam-Build application uses a sophisticated batching system to efficiently synchronize local data mutations with the remote API while handling offline scenarios and version conflicts. When users modify data, changes are queued and batched to minimize network requests and handle concurrent operations intelligently.
 
+In 2.10.0, conflict retry handling became **completely asynchronous**. Prior to this release, the `processBatchUpdates → processVersionConflicts → processBatchUpdates` call chain was synchronous relative to asynchronous network operations (and recursive). Now it tries to complete this way first, but behaves differently on repeat conflicts. Repeated conflicts are resolved by an exponential backoff timer after the first attempt, with in-memory conflict sentinels and an affiliated lock (`AffiliatedLock`) introduced to coordinate ongoing re-entrant invocations with ongoing local user data changes safely.
+
 ### Key Points
 
 * The batching window prevents chatty API calls
 * The consolidation algorithm handles complex put/delete precedence rules
 * The conflict resolution with 3-way merge is enterprise-grade
+* Exponential backoff with jitter prevents conflict retry storms
+* In-memory conflict sentinels guard against concurrent resolution of the same document
+* An `AffiliatedLock` allows affiliated callers to share a lock across the async boundary
 * Background sync provides offline resilience
 
 ## Quick Links
@@ -27,264 +32,281 @@ The Jam-Build application uses a sophisticated batching system to efficiently sy
 
 ## Process Flow
 
-1. User Mutation → Data changes trigger the proxy system in `client/main/stores.js` ([Data Stores Detail](nanostores.md))
+1. **User Mutation** → A data object proxy in `client/main/stores.js` intercepts property changes (add, modify, delete) via an `onChange` handler.
 
-2. Local Storage → Changes are immediately written to IndexedDB for instant UI feedback
+2. **may-update message** → `queueMutation` in `stores.js` sends a `may-update` message to the service worker. The SW calls `mayUpdate` in `sw.data.helpers.js`, which snapshots the pre-mutation collection to the **base store** (or increments its reference count if a snapshot already exists). This baseline is required for 3-way merge during any subsequent conflict resolution.
 
-3. Batch Queuing → A `batch-update` message is sent to the service worker with operation details
+3. **Local Storage** → `updateDatabase` in `stores.js` writes the mutation to the local IndexedDB object store for instant UI feedback, then sends a `batch-update` message to the service worker.
 
-4. Timer Window → Operations are collected in a time window (extending with each new mutation) ([Timer Architecture](heartbeat-timer.md))
+4. **Batch Queuing** → `batchUpdate` in `sw.data.js` (via `sw.custom.js` message handler) adds a record to the **batch store** in IndexedDB. Every call also resets the batch collection window timer via `startTimer`.
 
-5. Consolidation → When the timer expires, operations are deduplicated and ordered:
+5. **Timer Window** → Operations are collected in a time window, extending with each new `batch-update` message. Controlled by `batchCollectionWindow` constant.
 
+6. **Consolidation** → When the timer fires, it calls `processBatchUpdates`. The function reads all batch records and deduplicates/orders them:
     * Groups by `storeType:document:collection`
     * Newer deletes override older puts for the same data
     * Merges multiple puts to the same collection
     * Orders network calls from oldest to newest
 
-6. Network Sync → Consolidated operations are sent to the remote API
+7. **Network Sync** → Consolidated operations are sent to the remote API as `POST` (upsert) or `DELETE` calls.
 
-7. Conflict Resolution → If version conflicts occur:
+8. **Conflict Resolution** → If a `409 versionError` is returned:
+    * `versionConflict()` fetches the latest remote version and writes it to the **conflict store** via `storeVersionConflict()`
+    * `processVersionConflicts()` is called immediately (first conflict, `retryCount === 0`)
+    * `processVersionConflicts` performs a 3-way merge (base + remote + local), writes merged data to local stores, increments `retryCount` in the version store, re-queues batch operations via `conditionalBatchUpdate`, then completes:
+      * **First attempt** (`retryCount === 0`): calls `completeProcessVersionConflicts` directly (synchronous path), which calls `processBatchUpdates` immediately.
+      * **Subsequent attempts** (`retryCount > 0`): schedules `completeProcessVersionConflicts` on a `conflict-timer-backoff` timer with exponential backoff + jitter. `processBatchUpdates` is not called until the timer fires.
+    * The `AffiliatedLock` (`alBatchUpdate`) ensures the in-progress `processBatchUpdates` invocation and the one launched from `completeProcessVersionConflicts` share lock ownership across the async boundary.
+    * The conflict sentinel (`setConflictSentinel` / `isConflictSentinel`) prevents a second concurrent `processVersionConflicts` from acting on the same document while one is already in progress.
 
-    * Fetches latest remote version
-    * Performs 3-way merge (base + remote + local)
-    * Local changes always win conflicts
-    * Re-queues resolved operations and restarts batch processing
+9. **Backoff Formula** → `delay = min(conflictBackoffBase * 2^retryCount, conflictBackoffMax) + random() * backoffDelay`. A telemetry beacon (`VERSION_CONFLICT_BACKOFF`) is sent on each backoff retry.
 
-8. Cleanup → Successful operations are removed from the batch queue
+10. **Max Retries Exceeded** → If `retryCount >= conflictMaxRetries`, `failProcessVersionConflicts` is called: all conflict/batch/base records for the affected documents are purged, sentinels are cleared, retry counts are reset, remote data is force-fetched (user's local changes are lost), and an error message is shown in the UI. A final telemetry beacon is sent.
+
+11. **Cleanup** → Successful operations remove their batch records and clear corresponding base store records. `resetRetryCount` zeros the `retryCount` for documents whose operations completed without conflict.
 
 ## Key Features
 
-* Offline Support: Failed operations are queued for background sync
-* Multi-user Safe: Optimistic concurrency control with conflict resolution
-* Performance Optimized: Batching reduces API calls and handles burst mutations
-* Data Consistency: 3-way merge ensures no user data is lost during conflicts
+* **Offline Support**: Failed operations are queued for background sync (Workbox)
+* **Multi-user Safe**: Optimistic concurrency control with 3-way merge conflict resolution
+* **Performance Optimized**: Batching reduces API calls and handles burst mutations
+* **Data Consistency**: 3-way merge ensures no user data is lost during conflicts; local always wins
+* **Backoff Safety**: Exponential backoff with jitter prevents infinite retry loops in high-contention scenarios
+* **Re-entrant Safety**: `AffiliatedLock` and conflict sentinels coordinate the async retry call chain
 
 ## Error Handling
 
-* Network failures → Background sync retry queue
-* Version conflicts → Automatic 3-way merge and retry
-* API errors → Reconciliation via data refresh
-
----
-
-**Note:** The recursive conflict resolution currently lacks exponential backoff, which should be implemented to prevent infinite retry loops in pathological scenarios.
+* **Network failures** → Background sync retry queue (Workbox)
+* **Version conflicts** → Automatic 3-way merge, exponential backoff retries, max retry ceiling
+* **Max retries exceeded** → Force refresh from remote; user loses conflicting local changes; error shown in UI
+* **API errors** → Reconciliation via `refreshData`
 
 ---
 
 ## Batch Updates Sequence Diagram
 
- [Full Batch Updates Sequence Diagram (mermaid)](diagrams/batch-update-sequence-diagram-2.mermaid)
-
+[Full Batch Updates Sequence Diagram (mermaid)](diagrams/batch-update-sequence-diagram-3.mermaid)
 
 ```mermaid
 sequenceDiagram
+    participant Proxy as Data Proxy<br/>(stores.js onChange)
     participant MT as Main Thread<br/>(stores.js)
-    participant SW as Service Worker<br/>(Message Handler)
+    participant SW as Service Worker<br/>(sw.custom.js)
     participant SWD as SW Data Module<br/>(sw.data.js)
+    participant Helpers as SW Data Helpers<br/>(sw.data.helpers.js)
     participant Timer as Batch Timer<br/>(sw.timer.js)
-    participant IDB as IndexedDB<br/>(Batch Store)
-    participant API as Remote API<br/>(Data Service)
-    participant Conflict as Conflict Resolution<br/>(sw.conflicts.js)
+    participant IDB as IndexedDB
+    participant API as Remote API
 
-    Note over MT, Conflict: User makes data mutation in UI
+    Note over Proxy, API: User mutates a data object property
 
-    MT->>MT: User changes data via proxy
-    MT->>MT: queueMutation() schedules updateDatabase()
-    MT->>IDB: updateDatabase() writes to local IndexedDB
-    
-    alt Database update successful
-        MT->>SW: postMessage('batch-update', payload)
-        Note right of MT: payload: {storeType, document, collection, propertyName, op}
-    end
+    Proxy->>MT: onChange handler fires (add/change/delete)
+    MT->>SW: postMessage('may-update', {storeType, document, collection})
+    SW->>Helpers: mayUpdate()
+    Helpers->>IDB: Snapshot collection to base store<br/>(or increment reference count)
 
-    SW->>SWD: Forward batch-update message
-    SWD->>SWD: batchUpdate() calls _batchUpdate()
+    MT->>MT: updateDatabase() writes mutation to local IDB
+    MT->>SW: postMessage('batch-update', {storeType, document, collection, propertyName, op})
+    SW->>SWD: batchUpdate()
+    SWD->>SWD: CriticalSection serializes _batchUpdate()
     SWD->>Timer: startTimer(batchCollectionWindow, 'batch-timer', processBatchUpdates)
-    Note right of Timer: Extends/resets timer window
-    SWD->>IDB: Add batch record to batch store
-    Note right of IDB: Record: {storeType, document, collection, propertyName, op}
+    Note right of Timer: Resets/extends window on each call
+    SWD->>IDB: db.add() to batch store
 
-    Note over MT, Conflict: Additional mutations extend the timer window
-
-    loop More user mutations during window
+    loop Additional mutations during window
         MT->>SW: postMessage('batch-update', ...)
-        SW->>SWD: Forward message
-        SWD->>Timer: startTimer() - extends window
-        SWD->>IDB: Add more batch records
+        SW->>SWD: batchUpdate()
+        SWD->>Timer: startTimer() — extends window
+        SWD->>IDB: db.add() to batch store
     end
 
-    Note over Timer, API: Timer expires, batch processing begins
+    Note over Timer, API: Timer expires — batch processing begins
 
-    Timer->>SWD: Timer expires, calls processBatchUpdates()
-    
-    SWD->>IDB: Read all batch records
-    SWD->>SWD: Run consolidation algorithm
-    Note right of SWD: Groups by storeType:document<br/>Merges/deduplicates operations<br/>Handles put/delete precedence
+    Timer->>SWD: processBatchUpdates()
+    SWD->>SWD: AffiliatedLock.acquire() — obtain lock (isOwner=true)
+    SWD->>IDB: Read all batch store records
+    SWD->>SWD: Consolidation algorithm<br/>- Group by storeType:document:collection<br/>- Newer deletes override older puts<br/>- Merge puts to same collection<br/>- Order oldest→newest for network calls
 
-    SWD->>SWD: Build network call order (oldest to newest)
-    
-    loop For each network operation
-        alt Put Operation
+    loop For each network operation (oldest to newest)
+        alt Put operation
             SWD->>API: POST /api/data/{store}/{document}
-            Note right of API: upsertData() with consolidated collections
-        else Delete Operation  
+        else Delete operation
             SWD->>API: DELETE /api/data/{store}/{document}
-            Note right of API: deleteData() with properties/collections
         end
-        
-        alt Success Response
-            API-->>SWD: 200/204 Success
-            SWD->>IDB: storeMutationResult() + clearBaseStoreRecords()
+
+        alt Success (200/204)
+            API-->>SWD: Success response
+            SWD->>Helpers: storeAndBroadcastMutation() — save new version
+            SWD->>Helpers: clearBaseStoreRecords()
             SWD->>IDB: Delete processed batch records
-            
-        else Version Conflict
-            API-->>SWD: 409 Version Error
-            Note right of SWD: networkResult = E_CONFLICT
+        else Version Conflict (409)
+            API-->>SWD: versionError response
             SWD->>SWD: versionConflict() triggered
             SWD->>API: GET /api/data/{store}/{document}
-            API-->>SWD: Return latest document version
-            SWD->>Conflict: storeVersionConflict() - initiate 3-way merge
-            Conflict->>Conflict: processVersionConflicts()
-            Note right of Conflict: Performs 3-way merge:<br/>ancestor + local + remote
-            Conflict->>SWD: conditionalBatchUpdate() - re-queue operations
-            SWD->>IDB: Add resolved operations to batch store
-            
-            Note over SWD, Conflict: Restart batch processing with resolved data
-            Conflict->>SWD: Call processBatchUpdates() recursively
-            Note right of SWD: This creates the outer loop you mentioned<br/>Process can repeat if more conflicts occur
-            
-        else Network/Other Error
-            API-->>SWD: Network timeout/error
-            SWD->>SWD: Queue for background sync retry
-            Note right of SWD: Uses Workbox background sync
+            API-->>SWD: Latest remote document + version
+            SWD->>Helpers: storeVersionConflict() — write to conflict store
+            Note over SWD: Break out of network loop (E_CONFLICT)
+            SWD->>SWD: processVersionConflicts({processBatchUpdates(affiliationId), ...})
+            Note right of SWD: Passes affiliationId so conflict resolution<br/>can re-enter the lock as an affiliate
+        else Network / Other Error
+            API-->>SWD: Error / timeout
+            SWD->>IDB: queue.pushRequest() — Workbox background sync
         end
     end
 
-    Note over SWD, API: Handle any logout operations
-    
-    opt Logout operations in batch
-        SWD->>SWD: logoutData() for each logout
-        SWD->>IDB: Clean up user data if no pending replays
-        SWD->>MT: sendMessage('logout-complete')
+    opt All ops successful — no conflict
+        SWD->>SWD: resetRetryCount() for successful docs
+        SWD->>SWD: AffiliatedLock.release()
     end
 
-    Note over MT, Conflict: Batch processing complete or will retry on conflict resolution
-
-    alt All operations successful
-        SWD->>MT: sendMessage('page-data-update') for UI updates
-        Note right of MT: UI reflects successful remote sync
-    else Conflicts resolved and reprocessed
-                    Note over SWD, Conflict: TODO: processBatchUpdates() called recursively<br/>until all conflicts resolved or max retries<br/>⚠️ NEEDS: Exponential backoff with jitter<br/>to prevent infinite retry loops
-    else Operations queued for retry
-        Note over SWD, API: Background sync will replay<br/>when network available
+    opt Logout ops in batch
+        SWD->>IDB: Delete logout batch records
+        SWD->>MT: sendMessage('logout-complete')
     end
 ```
 
 ## Conflict Resolution Sequence Diagram
 
-[Full Conflict Resolution Sequence Diagram (mermaid)](diagrams/conflict-resolution-diagram.mermaid)
+[Full Conflict Resolution Sequence Diagram (mermaid)](diagrams/conflict-resolution-diagram-2.mermaid)
 
 ```mermaid
 sequenceDiagram
-    participant API as Remote API<br/>(Data Service)
     participant SWD as SW Data Module<br/>(sw.data.js)
-    participant Conflict as Conflict Module<br/>(sw.conflicts.js)
-    participant IDB as IndexedDB<br/>(Multiple Stores)
-    participant JsonDiff as JsonDiffPatch<br/>(3-way merge)
-    participant MT as Main Thread<br/>(UI Updates)
+    participant Conflict as Conflict Module<br/>(sw.data.conflicts.js)
+    participant Helpers as SW Data Helpers<br/>(sw.data.helpers.js)
+    participant IDB as IndexedDB
+    participant JsonDiff as jsondiffpatch<br/>(3-way merge)
+    participant Timer as Backoff Timer<br/>(sw.timer.js)
+    participant API as Remote API
+    participant MT as Main Thread
 
-    Note over API, MT: Version conflict detected during batch processing
+    Note over SWD, MT: 409 conflict detected — versionConflict() has already fetched<br/>remote data and written it to conflict store
 
-    API-->>SWD: 409 Conflict Response (versionError)
-    SWD->>SWD: versionConflict() triggered
-    Note right of SWD: Store metadata: {storeType, document, op, collections}
+    SWD->>Conflict: processVersionConflicts({processBatchUpdates(affiliationId), addToBatch, refreshData})
 
-    SWD->>API: GET /api/data/{store}/{document}
-    Note right of API: Retrieve latest remote version
-    API-->>SWD: Return latest remote document + version
+    Conflict->>IDB: Count conflict store records — exit if 0
+    Conflict->>IDB: getAll() conflict store records
 
-    SWD->>IDB: storeVersionConflict() - save remote data
-    Note right of IDB: Store in conflict store with:<br/>- new_version<br/>- remote properties<br/>- original operation context
+    Note over Conflict: Build unique storeType+document list and versionKeys
 
-    SWD->>Conflict: processVersionConflicts() called
-    Note right of Conflict: Begin comprehensive 3-way merge process
-
-    Conflict->>IDB: Read all conflict store records
-    Note right of IDB: Query by version index (latest first)
-
-    loop For each conflicted document
-        Conflict->>Conflict: Build remoteData structure
-        Note right of Conflict: Organize by storeType -> document -> collection
-        
-        Conflict->>IDB: Read corresponding local data
-        Note right of IDB: Get current local state from main stores
-        
-        Conflict->>IDB: Read base data (pre-conflict ancestor)
-        Note right of IDB: Get original state from base store
-    end
-
-    Note over Conflict, JsonDiff: Perform 3-way merge for each collection
-
-    loop For each storeType -> document -> collection
-        Conflict->>JsonDiff: threeWayMerge(base, remote, local)
-        
-        JsonDiff->>JsonDiff: diff(base, remote) - remote changes
-        JsonDiff->>JsonDiff: diff(base, local) - local changes
-        
-        Note right of JsonDiff: Merge Strategy:<br/>1. Apply non-conflicting changes from both<br/>2. For conflicts: LOCAL WINS over remote<br/>3. Handle arrays vs objects appropriately
-        
-        alt No conflicts
-            JsonDiff->>JsonDiff: Apply remote changes to base
-            JsonDiff->>JsonDiff: Apply local changes to base
-        else Conflicting changes
-            JsonDiff->>JsonDiff: Preserve local changes
-            Note right of JsonDiff: Local changes override remote<br/>when same property modified
+    loop For each involved document
+        Conflict->>Helpers: isConflictSentinel(storeType, document)
+        alt Sentinel active (resolution already in progress)
+            Conflict-->>SWD: Return immediately — deferred to next processBatchUpdates
         end
-        
-        JsonDiff-->>Conflict: Return merged collection data
     end
 
-    Note over Conflict, IDB: Write resolved data back to local stores
-
-    loop For each resolved document
-        Conflict->>IDB: Write merged data to main data store
-        Note right of IDB: Update with conflict-resolved properties
-        
-        Conflict->>IDB: Update version store with new version
-        Note right of IDB: Store remote version as current
+    loop For each involved document
+        Conflict->>Helpers: setConflictSentinel(storeType, document)
     end
 
-    Note over Conflict, SWD: Re-queue operations for resolved data
+    Conflict->>IDB: Read retryCount from version store for all involved docs
+    Note over Conflict: maxRetryCount = max across all involved docs
 
-    loop For each resolved operation
-        alt Simple collections (strings)
-            Conflict->>SWD: addToBatch({storeType, document, op, collection})
-        else Complex collections (objects with properties)
-            loop For each property in collection
-                Conflict->>SWD: addToBatch({...payload, collection, propertyName})
+    alt maxRetryCount >= conflictMaxRetries
+        Conflict->>Conflict: failProcessVersionConflicts()
+        Conflict->>IDB: Delete all conflict store records
+        Conflict->>Helpers: clearConflictSentinel() for all docs
+        Conflict->>Helpers: resetRetryCount()
+        Conflict->>IDB: mayUpdate(..., clearOnly=true) — clear base store records
+        Conflict->>IDB: Delete all matching batch store records
+        Conflict->>API: refreshData(forceRemote=true) — fetch latest for each doc
+        API-->>Conflict: Latest remote data
+        Conflict->>IDB: storeData() with error message payload
+        Conflict->>MT: sendMessage('database-data-update', {message: {class:'error'}})
+        Note over Conflict: User's local changes are lost
+    end
+
+    Note over Conflict, JsonDiff: Build remote, local, and base data structures
+
+    Conflict->>IDB: Iterate conflict store by version index (latest first)
+    Note right of IDB: Builds remoteData[storeType][doc][col]<br/>versions[storeType][doc]<br/>batch commands, baseKeys
+
+    loop For each storeType → document in remoteData
+        Conflict->>IDB: getAllFromIndex(storeName, 'document', [scope, doc])
+        Note right of IDB: Builds localData[storeType][doc][col]
+    end
+
+    loop For each baseKey [storeType, doc, col]
+        Conflict->>IDB: getFromIndex(baseStoreName, 'collection', baseKey)
+        Note right of IDB: Builds baseData[storeType][doc][col]
+    end
+
+    Note over Conflict, JsonDiff: 3-way merge for each storeType → doc → collection
+
+    loop For each storeType → doc → col in localData
+        Conflict->>JsonDiff: threeWayMerge(base, remote, local)
+        JsonDiff->>JsonDiff: diff(base, remote) — remote changes
+        JsonDiff->>JsonDiff: diff(base, local) — local changes
+        alt No conflicts between remote and local diffs
+            JsonDiff->>JsonDiff: Apply non-conflicting changes from both
+        else Conflicting property changes
+            JsonDiff->>JsonDiff: LOCAL WINS — local value overrides remote
+        end
+        JsonDiff-->>Conflict: Merged collection data → newData[storeType][doc][col]
+    end
+
+    Note over Conflict, IDB: Write merged data back to local stores
+
+    loop For each storeType → doc → col in newData
+        Conflict->>IDB: db.put(storeName, {scope, doc, col, merged_props})
+        Note right of IDB: Collects message notification keys
+    end
+
+    Note over Conflict: Update version store with new versions and incremented retryCount
+
+    loop For each storeType → doc → version
+        Conflict->>IDB: db.put(versionStoreName, {storeType, doc, version, retryCount: maxRetryCount+1})
+    end
+
+    Note over Conflict, SWD: Re-queue batch operations for the resolved data
+
+    loop For each batch command (put or delete)
+        alt Simple string collections
+            Conflict->>SWD: addToBatch({storeType, doc, op, collection})
+        else Object collections with properties
+            loop For each property
+                Conflict->>SWD: addToBatch({storeType, doc, op, collection, propertyName})
             end
         end
     end
 
-    Conflict->>IDB: Delete processed conflict records
-    Note right of IDB: Clean up temporary conflict data
+    Conflict->>IDB: Delete all processed conflict store records
 
-    Note over Conflict, MT: Restart batch processing with resolved data
+    alt maxRetryCount === 0 — first conflict attempt
+        Note over Conflict: Synchronous path — call completeProcessVersionConflicts directly
+        Conflict->>Conflict: completeProcessVersionConflicts(instanceId, message, processBatchUpdates, clearSentinels)
+        Conflict->>Helpers: clearConflictSentinel() for all docs
+        Conflict->>SWD: processBatchUpdates(affiliationId)
+        Note right of SWD: AffiliatedLock re-entry allowed via affiliationId<br/>Retries the network operations with merged data
 
-    Conflict->>SWD: Call processBatchUpdates() recursively
-    Note right of SWD: ⚠️ This creates the potential infinite loop<br/>if conflicts keep occurring
+        alt processBatchUpdates returns 0 (success)
+            loop For each updated storeType
+                Conflict->>MT: sendMessage('database-data-update',<br/>{message: {text:'Data synchronized...', class:'info'}})
+            end
+        end
 
-    Note over SWD, MT: Notify UI of successful resolution
+    else maxRetryCount > 0 — repeat conflict, use backoff timer
+        Note over Conflict: Async path — schedule via exponential backoff timer
+        Conflict->>Conflict: delay = min(backoffBase * 2^retryCount, backoffMax) + jitter
+        Conflict->>Conflict: resolution = computeTimerResolution(delay)
+        Conflict->>Timer: startTimer(delay, 'conflict-timer-backoff',<br/>completeProcessVersionConflicts, resolution, ignoreInactivity=true)
+        Note right of Timer: Timer fires after backoff delay
+        Conflict->>MT: sendBeacon(VERSION_CONFLICT_BACKOFF, {retryCount, versions...})
 
-    loop For each updated storeType
-        SWD->>MT: sendMessage('database-data-update', payload)
-        Note right of MT: Includes success message:<br/>"Data was synchronized with latest version"
-    end
+        Note over Timer: ...backoff delay elapses...
 
-    Note over API, MT: Conflict resolution complete - batch processing continues
+        Timer->>Conflict: completeProcessVersionConflicts(instanceId, message, processBatchUpdates, clearSentinels)
+        Conflict->>Helpers: clearConflictSentinel() for all docs
+        Conflict->>SWD: processBatchUpdates(affiliationId)
+        Note right of SWD: AffiliatedLock re-entry allowed via affiliationId
 
-    opt If more conflicts occur
-        Note over SWD, Conflict: Process repeats recursively<br/>TODO: Add exponential backoff + max retries<br/>to prevent infinite loops
+        alt processBatchUpdates returns 0 (success)
+            loop For each updated storeType
+                Conflict->>MT: sendMessage('database-data-update',<br/>{message: {text:'Data synchronized...', class:'info'}})
+            end
+        else Another 409 conflict
+            Note over SWD, Conflict: New conflict data written to conflict store<br/>processVersionConflicts called again<br/>retryCount incremented — backoff doubles
+        end
     end
 ```

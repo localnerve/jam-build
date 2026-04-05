@@ -29,7 +29,6 @@ import pluginOutputManifest from 'rollup-plugin-output-manifest';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
 import { visualizer } from 'rollup-plugin-visualizer';
 import istanbul from 'rollup-plugin-istanbul';
-import pkg from '#root/package.json' with { type: 'json' };
 import { loadSiteData } from './data.js';
 
 // gross
@@ -54,7 +53,6 @@ export async function createScripts (settings) {
     rollupInput, rollupOutput, prod, jsManifestFilename, name,
     replacements = {}, dataDir, webScripts, nodeIncludes, istanbulOptions
   } = settings;
-  const appVersion = pkg.version;
   
   if (dataDir && webScripts) {
     const data = await loadSiteData(dataDir);
@@ -79,7 +77,6 @@ export async function createScripts (settings) {
       'process.env.NODE_ENV': prod ? 
         JSON.stringify('production').replaceAll('"', '\'') : JSON.stringify('development').replaceAll('"', '\''),
       preventAssignment: true,
-      APP_VERSION: JSON.stringify(appVersion).replaceAll('"', '\''),
       ...replacements
     })
   ];

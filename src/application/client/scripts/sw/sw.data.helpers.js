@@ -39,6 +39,41 @@ if (typeof BroadcastChannel !== 'undefined') {
   broadcastChannel = new BroadcastChannel(mainBroadcastChannel);
 }
 
+// In-memory sentinel: Set of 'storeType:document' keys under active conflict resolution
+const conflictSentinel = new Set();
+
+/**
+ * Add a sentinel for the given storeType+document to guard.
+ * 
+ * @param {String} storeType - Full storeType store:scope
+ * @param {String} document - The document name
+ */
+export function setConflictSentinel (storeType, document) {
+  conflictSentinel.add(`${storeType}:${document}`);
+}
+
+/**
+ * Remove the sentinel for the given storeType+document.
+ * 
+ * @param {String} storeType - Full storeType store:scope
+ * @param {String} document - The document name
+ */
+export function clearConflictSentinel (storeType, document) {
+  conflictSentinel.delete(`${storeType}:${document}`);
+}
+
+/**
+ * Check for the sentinel for the given storeType+document.
+ * 
+ * @param {String} storeType - Full storeType store:scope
+ * @param {String} document - The document name
+ * @returns {Boolean} True if sentinel exists, false otherwise
+ */
+export function isConflictSentinel (storeType, document) {
+  return conflictSentinel.has(`${storeType}:${document}`);
+}
+
+
 /**
  * Read data from local objectstores and send to the app.
  * localData is the fallback (stale) data in a Network First strategy.
@@ -96,10 +131,12 @@ async function storeMutationResult (storeType, document, result) {
   const versionStoreName = makeStoreName(versionStoreType);
   const db = await getDB();
 
+  const existing = await db.get(versionStoreName, [storeType, document]);
   await db.put(versionStoreName, {
     storeType,
     document,
-    version: result.newVersion
+    version: result.newVersion,
+    retryCount: existing?.retryCount ?? 0
   });
 }
 
@@ -146,8 +183,9 @@ export async function storeAndBroadcastMutation (storeType, document, result, co
  *
  * @param {String} storeType - store:scope path to document
  * @param {Object} data - The remote data to store
+ * @param {Object} [message] - Message item, @see main/stores.js, pageGeneralMessage
  */
-export async function storeData (storeType, data) {
+export async function storeData (storeType, data, message = null) {
   const storeName = makeStoreName(storeType);
   const scope = getStoreTypeScope(storeType);
   const versionStoreName = makeStoreName(versionStoreType);
@@ -160,7 +198,8 @@ export async function storeData (storeType, data) {
     await db.put(versionStoreName, {
       storeType,
       document: doc_name,
-      version: doc.__version
+      version: doc.__version,
+      retryCount: 0
     });
     delete doc.__version;
 
@@ -181,7 +220,8 @@ export async function storeData (storeType, data) {
     storeName,
     storeType,
     scope,
-    keys
+    keys,
+    message
   });
 }
 
@@ -222,6 +262,25 @@ export async function storeVersionConflict (storeType, op, collections, data) {
 }
 
 /**
+ * Reset versionStore retryCount for all given docs.
+ *
+ * @param {Array<Object>} docs - An array of { storeType, document }
+ */
+export async function resetRetryCount (docs) {
+  const db = await getDB();
+  const versionStoreName = makeStoreName(versionStoreType);
+
+  for (const { storeType, document } of docs) {
+    const versionRecord = await db.get(versionStoreName, [storeType, document]);
+
+    if (versionRecord?.retryCount > 0) {
+      await db.put(versionStoreName, { ...versionRecord, retryCount: 0 });
+      debug(`processBatchUpdates reset retryCount for ${storeType}:${document}`);
+    }
+  }
+}
+
+/**
  * Load data from local objectStores by document name or document and possible collection name(s).
  * Format the local data for *upsert* to the remote data service.
  *
@@ -242,7 +301,8 @@ export async function loadData (storeType, document, collections = null) {
     await db.put(versionStoreName, {
       storeType,
       document,
-      version: record.version
+      version: record.version,
+      retryCount: 0
     });
   }
   result.version = record.version;
@@ -329,9 +389,9 @@ export async function clearBaseStoreRecords (storeType, document, collection = '
   const baseRecords = await db.transaction(baseStoreName, 'readwrite').store.index('collection');
   for await (const cursor of baseRecords.iterate([storeType, document, collection])) {
     const item = cursor.value;
-    
+
     item.reference -= 1;
-    
+
     if (item.reference <= 0) {
       deleteCount++;
       await cursor.delete();
@@ -360,7 +420,7 @@ async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = 
   if (!storeType || !document) {
     throw new Error('Bad input passed to mayUpdate');
   }
-  
+
   /* eslint-disable no-param-reassign */
   collection = collection ?? '';
   /* eslint-enable no-param-reassign */
@@ -373,7 +433,8 @@ async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = 
   if (collection) {
     const baseCopy = await db.getFromIndex(baseStoreName, 'collection', [storeType, document, collection]);
     const staleBase = baseCopy && (Date.now() - baseCopy.timestamp) >= STALE_BASE_LIFESPAN;
-    const willDelete = staleBase || clearOnly;
+    const protectedByConflict = baseCopy && isConflictSentinel(storeType, document);
+    const willDelete = (staleBase && !protectedByConflict) || clearOnly;
 
     if (!baseCopy || willDelete) {
       if (willDelete && baseCopy) {
@@ -401,13 +462,14 @@ async function _mayUpdate ({ storeType, document, op, collection }, clearOnly = 
   } else {
     const documents = await db.transaction(baseStoreName, 'readwrite').store.index('document');
     const docCount = await documents.count([storeType, document]);
+    const protectedByConflict = isConflictSentinel(storeType, document);
     let deleteCount = 0;
 
     for await (const cursor of documents.iterate([storeType, document])) {
       const item = cursor.value;
       const staleBase = Date.now() - item.timestamp >= STALE_BASE_LIFESPAN;
 
-      if (staleBase || clearOnly) {
+      if ((staleBase && !protectedByConflict) || clearOnly) {
         deleteCount++;
         await cursor.delete();
       }

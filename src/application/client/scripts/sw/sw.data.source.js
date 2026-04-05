@@ -65,14 +65,14 @@ export async function getDB () {
 export async function installDatabase () {
   /* eslint-disable no-unused-vars */
   db = await openDB(dbname, schemaVersion, {
-    upgrade(db, oldVersion, newVersion, transaction, event) {
+    upgrade (db, oldVersion, newVersion, transaction, event) {
 
       //
       // MAIN STORES (app, user)
       // upgrade main objectStores...
       for (const storeType of mainStoreTypes) {
         const storeName = makeStoreName(storeType);
-        
+
         if (!db.objectStoreNames.contains(storeName)) {
           const store = db.createObjectStore(storeName, {
             keyPath: ['scope', 'document_name', 'collection_name']
@@ -87,7 +87,7 @@ export async function installDatabase () {
             unique: false
           });
         }
-    
+
         // Do future migrations of storeType objectStores here...
 
         // Cleanup all old objectStores after migration
@@ -134,7 +134,7 @@ export async function installDatabase () {
         });
       }
 
-      // Do future migrations of version objectStore here...
+      // Do future migrations of conflict objectStore here...
 
       // Cleanup all old objectStores after migration
       // deleteObjectStore can only be called in a version event transaction (like here).
@@ -207,10 +207,10 @@ export async function installDatabase () {
         }
       }
     },
-    blocked(currentVersion, blockedVersion, event) {
+    blocked (currentVersion, blockedVersion, event) {
       blocked = true;
     },
-    async blocking(currentVersion, blockedVersion, event) {
+    async blocking (currentVersion, blockedVersion, event) {
       db.close();
       await sendMessage('database-update-required');
     }
@@ -228,6 +228,6 @@ export async function activateDatabase (refreshData) {
     blocked = false;
     await installDatabase();
   }
-  
+
   await refreshData({ storeType: makeStoreType('app', 'public') });
 }

@@ -20,6 +20,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import { nominalTimerInterval } from './sw.data.constants.js';
 import { debug, sendMessage } from './sw.utils.js';
 
 const timers = Object.create(null);
@@ -74,12 +75,15 @@ self.addEventListener('message', event => {
  * 
  * @param {String} timerName - The timer name
  * @param {Number} interval - The heartbeat interval
+ * @param {Number} maxInactive - The maxInactive time
+ * @param {Boolean} [ignoreInactivity] - True to ignore inactivity, false otherwise
  */
-async function startHeartbeat (timerName, interval, maxInactive) {
+async function startHeartbeat (timerName, interval, maxInactive, ignoreInactivity = false) {
   await sendMessage('heartbeat-start', {
     name: timerName,
     interval,
-    maxInactive
+    maxInactive,
+    ignoreInactivity
   });
 }
 
@@ -109,10 +113,11 @@ async function stopHeartbeat (timerName) {
 function checkHeartbeat (timerName, resolution) {
   debug(`checkHeartbeat ${timerName}`, heartbeat);
 
+  const ignoreInactivity = timers[timerName]?.ignoreInactivity;
   const clientCount = heartbeat[timerName].size;
   let lastTime = Number.MAX_SAFE_INTEGER;
   let inactiveCount = 0;
-  
+
   // Get the shortest heartbeat time and track the client activity
   for (const beat of heartbeat[timerName].values()) {
     if (beat.time < lastTime) lastTime = beat.time;
@@ -123,7 +128,7 @@ function checkHeartbeat (timerName, resolution) {
   debug(`clients are inactive: ${inactiveCount === clientCount}`);
 
   // If there are active clients AND we have a valid heartbeat return true
-  return inactiveCount !== clientCount && Date.now() - lastTime <= resolution;
+  return (ignoreInactivity || inactiveCount !== clientCount) && Date.now() - lastTime <= resolution;
 }
 
 /**
@@ -139,7 +144,7 @@ function serviceTimer (timerName) {
 
     const callback = timers[timerName].callback;
     callback();
-    
+
     stopHeartbeat(timerName);
     delete timers[timerName];
   } else {
@@ -169,21 +174,26 @@ export function serviceAllTimers () {
  * @param {String} timerName - The name identifying the timer
  * @param {Function} callback - The callback,
  * @param {Number} [resolution] - The timer resolution, defaults to 500 ms
+ * @param {Boolean} [ignoreInactivity] - True to ignore user activity, false otherwise
  */
-export function startTimer (duration, timerName, callback, resolution = 500) {
+export async function startTimer (duration, timerName, callback,
+  resolution = nominalTimerInterval, ignoreInactivity = false) {
   if (timers[timerName]) {
     clearInterval(timers[timerName].intervalId);
-  } else {
-    startHeartbeat(
-      timerName,
-      parseInt(Math.floor(resolution * 0.95), 10),
-      parseInt(Math.ceil(resolution * 16), 10)
-    );
+    await stopHeartbeat(timerName);
   }
+
+  startHeartbeat(
+    timerName,
+    parseInt(Math.floor(resolution * 0.95), 10),
+    parseInt(Math.ceil(resolution * 16), 10),
+    ignoreInactivity
+  );
 
   timers[timerName] = {
     timeLeft: duration,
-    callback
+    callback,
+    ignoreInactivity
   };
 
   timers[timerName].intervalId = setInterval(() => {
