@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.10.0",
+  "version": "2.10.1",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -97,11 +97,11 @@
   "dependencies": {
     "@localnerve/authorizer-js": "^1.0.6",
     "@localnerve/debug": "^1.0.13",
+    "@localnerve/express-version-request": "^2.1.0",
+    "@localnerve/express-version-route": "^2.0.0",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
-    "express-version-request": "^1.7.0",
-    "express-version-route": "^1.2.4",
     "mariadb": "^3.5.2",
     "pino": "^10.3.1"
   },
