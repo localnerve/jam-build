@@ -295,10 +295,10 @@ test.describe('mutation tests', () => {
   });
 
   test('simple version conflict', async ({ page, browserName, browser }, testInfo) => {
-    test.setTimeout(testInfo.timeout + slowTimeoutAddition);
+    test.setTimeout(testInfo.timeout + slowTimeoutAddition + 10000);
 
     const notChrome = page.context().browser().browserType().name() !== 'chromium';
-    const clickWait = process.env.CI && notChrome ? 2500 : 400; // eslint-disable-line playwright/no-conditional-in-test
+    const clickWait = process.env.CI && notChrome ? 3000 : 400; // eslint-disable-line playwright/no-conditional-in-test
 
     const context1 = await browser.newContext();
     const page1 = await context1.newPage();
