@@ -22,8 +22,8 @@
 import express from 'express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
-import versionRouter from 'express-version-route';
-import versionRequest from 'express-version-request';
+import versionRouter from '@localnerve/express-version-route';
+import versionRequest from '@localnerve/express-version-request';
 import debugLib from '@localnerve/debug';
 import { create as createVersion100 } from './1.0.0/index.js';
 

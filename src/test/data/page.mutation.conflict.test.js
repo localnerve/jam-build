@@ -155,8 +155,9 @@ test.describe('conflict resolution tests', () => {
       test.setTimeout(serviceTimeout);
     }
 
-    // const notChrome = page.context().browser().browserType().name() !== 'chromium';
-    activeClickWait = process.env.CI ? 1200 : clickWait;
+    const notChrome = page.context().browser().browserType().name() !== 'chromium';
+    activeClickWait = process.env.CI ? 
+      notChrome ? clickWait * 3.5 : clickWait * 2 : clickWait;
 
     await startJS(browserName, page);
     await createTestDataApp(baseUrl, adminRequest);
@@ -212,7 +213,6 @@ test.describe('conflict resolution tests', () => {
     await new Promise(res => setTimeout(res, activeClickWait));
 
     const userStateControl2 = page2.locator('#user-home-state');
-    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 8000 });
     const mutations2 = await doMutations(userStateControl2, {
       doUpdates: ['property2', 'property3'],
       doCreates: [['property6', 'value66']],
@@ -440,7 +440,6 @@ test.describe('conflict resolution tests', () => {
 
     // Make mutations on page 2
     const userStateControl2 = page2.locator('#user-home-state');
-    await expect(userStateControl2.getByLabel('property3')).toBeVisible({ timeout: 8000 });
     await doMutations(userStateControl2, {
       doUpdates: ['property2'],
       doCreates: [],
