@@ -2,7 +2,7 @@
 
 > A web application reference of a custom static site, but as a versionable, offline, service-worker MPA, with batching, multi-user OCC, RBAC authz, and data on top.
 >
-> Minimal, hand-crafted vanillajs by a human.
+> Minimal, vanillajs designed & developed by a human.
 
 ## Quick Links
 
@@ -36,6 +36,7 @@ This project serves as a starting point for a PWA (Progressive Web Application).
   * A multi-page application built using a custom static site generator that leverages Sass and Handlebars.
   * Image processors generate metadata used to render preload tags and other performance-oriented styles and markup.
     - Custom WASM image processor pipeline for performant optimization and `webp` format creation. Boosts build speed and reduces external toolchain dependencies. Eases application image maintenance, reduces image size.
+      > Moved to [gulp-images](https://github.com/localnerve/gulp-images)
   * See the [static site generator document](docs/static-site-generator.md) for more detail.
   * Static site only [branch](https://github.com/localnerve/jam-build/tree/front-only) (sans data layer) available.
 
@@ -68,10 +69,16 @@ This project serves as a starting point for a PWA (Progressive Web Application).
 
 ### Runtime Dependencies
 
-* [Expressjs](https://expressjs.com)
-* [Workboxjs](https://developer.chrome.com/docs/workbox/)
-* [Authorizer](https://github.com/localnerve/authorizer)
-* [Mariadb](https://mariadb.com)
+* Client
+  * [Workboxjs](https://developer.chrome.com/docs/workbox/)
+  * [jsondiffpatch](https://github.com/benjamine/jsondiffpatch)
+  * [idb](https://github.com/jakearchibald/idb)
+  * [fast-is-equal](https://github.com/localnerve/fast-is-equal)
+* Server
+  > Available as a containerized `go` service with database choice and observability in [jam-build-propsdb](https://github.com/localnerve/jam-build-propsdb)
+  * [Expressjs](https://expressjs.com)
+  * [Authorizer](https://github.com/localnerve/authorizer)
+  * [Mariadb](https://mariadb.com)
 
 ### Development Dependencies
 
