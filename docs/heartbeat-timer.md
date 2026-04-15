@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 30, 2025
+Date: April 4, 2026
 Title: Service Worker Timer Architecture
 ---
 
