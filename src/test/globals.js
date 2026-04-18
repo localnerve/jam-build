@@ -20,7 +20,6 @@
  */
 import fs from 'node:fs/promises';
 import * as tar from 'tar';
-import { glob } from 'glob';
 import debugLib from '@localnerve/debug';
 import { getAuthzClientID } from './authz.js';
 import {
@@ -67,8 +66,8 @@ async function shutdownAppContainer (appContainer) {
   const now = (new Date()).toISOString().replace(/-|:|(?:\.\d\d\dZ)/g, '');
   const today = now.replace(/T.+/, '');
 
-  const oldDirs = await glob(`${coverageDir}/!(${today}*)`); // just keep today's coverage reports
-  for (const dir of oldDirs) {
+  const oldDirs = await fs.glob(`${coverageDir}/!(${today}*)`); // just keep today's coverage reports
+  for await (const dir of oldDirs) {
     debug(`Removing directory ${dir}...`);
     await fs.rm(dir, { recursive: true });
   }
