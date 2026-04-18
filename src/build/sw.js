@@ -21,7 +21,7 @@
  *    in this material, copies, or source code of derived works.
  */
 import path from 'node:path';
-import { glob } from 'glob';
+import { globSync as glob } from 'node:fs';
 import { generateSW } from 'workbox-build';
 import { loadSiteData } from './data.js';
 import { createScripts } from './scripts.js';
@@ -96,7 +96,7 @@ async function generateSWCustom (settings, replacements) {
   });
 
   // 4. resolve to public, reved /sw-a9reved9fa.custom.js filepath for importScripts
-  const matches = await glob(`${dist}/${swCustomFilenameGlob}`);
+  const matches = glob(`${dist}/${swCustomFilenameGlob}`);
   if (matches.length !== 1) {
     throw new Error('Failed to find sw.custom.js final file in dist');
   }

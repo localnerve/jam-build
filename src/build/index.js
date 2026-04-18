@@ -19,9 +19,8 @@
  *    in this material, copies, or source code of derived works.
  */
 
+import fs from 'node:fs/promises';
 import gulp from 'gulp';
-import { rimraf } from 'rimraf';
-import { mkdirp } from 'mkdirp';
 
 import { createSettings } from './settings.js';
 import { createStyles } from './styles.js';
@@ -44,9 +43,11 @@ import { assetRevision, pageRevision } from './revision.js';
 async function createBuild (settings, args) {
   const imageProcessingSequence = await getImageSequence(settings.images);
   return gulp.series(
-    rimraf.bind(null, settings.dist, {}),
-    mkdirp.bind(null, settings.dist, {}),
-    mkdirp.bind(null, settings.distImages, {}),
+    async function prepDirs () {
+      await fs.rm(settings.dist, { recursive: true, force: true });
+      await fs.mkdir(settings.dist, { recursive: true });
+      await fs.mkdir(settings.distImages, { recursive: true });
+    },
     dirCopy.bind(null, settings.copyImages),
     imageProcessingSequence,
     createStyles.bind(null, settings.styles),
@@ -60,7 +61,6 @@ async function createBuild (settings, args) {
     async function audit () {
       if (args.dump) {
         const { loadSiteData } = await import('./data.js');
-        const fs = await import('node:fs/promises');
         const data = await loadSiteData('data');
         await fs.mkdir('dump', { recursive: true });
         await fs.writeFile('dump/site-data.json', JSON.stringify(data, null, 2));
