@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 30, 2025
+Date: April 25, 2026
 Title: Jam-Build Testing Procedure
 ---
 
@@ -89,6 +89,9 @@ DB_APP_PASSWORD=deadbEef-47148f2f
 ```
 
 **For Local Testing:**
+
+> "local" testing refers to testing against local services running natively on a developer computer, **NOT** in a container.
+
 ```bash
 LOCALAPP_URL=http://localhost:5000
 AUTHZ_CLIENT_ID=<CLIENT_ID you started the local docker service with>
@@ -164,6 +167,8 @@ npm run test:build
 ```
 
 ### Local Development Testing
+
+> Commands that begin `test:local`... run against native local services, not against a container. Test commands **without** `local` run against a pre-built, dockerized container.
 
 ```bash
 # Build with service worker instrumentation
@@ -260,7 +265,7 @@ test('mutations offline', async ({ browser, browserName }) => {
 Tests simulate multiple users making concurrent data changes to validate optimistic concurrency control and three-way merge resolution.
 
 ### Version Conflict Resolution
-The test suite validates that version conflicts are properly detected and resolved through the application's merge strategies.
+The test suite validates that version conflicts are properly detected and resolved through the application's merge strategies. Advanced, complete multi-user conflict resolution tests, including exponential backoff are located in [src/test/data/page.mutation.conflict.test.js](/src/test/data/page.mutation.conflict.test.js). These are complex tests that take up to a minute to execute, verify, and resolve in the worst case.
 
 ### Offline Capability Testing
 Tests verify that:

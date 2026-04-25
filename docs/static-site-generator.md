@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 30, 2025
+Date: April 25, 2026
 Title: Jam-Build Custom Static Site Generator
 ---
 
@@ -49,7 +49,7 @@ src/build/
 
 ### Data-Driven Architecture
 
-The generator is driven by a central `site-data.json` file that defines:
+The generator is driven by a central [`site-data.json`](/data/site-data.json) file that defines:
 - Page structure and metadata
 - Navigation configuration
 - Image processing rules
@@ -60,15 +60,13 @@ The generator is driven by a central `site-data.json` file that defines:
 
 ### 1. Build Orchestration (`index.js`)
 
-The main build sequence follows a carefully orchestrated pipeline:
+The [main build sequence](/src/build/index.js) follows a carefully orchestrated pipeline:
 
 ```javascript
 export async function createBuild (settings, args) {
   return gulp.series(
     // 1. Environment Setup
-    rimraf.bind(null, settings.dist, {}),           // Clean dist directory
-    mkdirp.bind(null, settings.dist, {}),           // Create dist directory
-    mkdirp.bind(null, settings.distImages, {}),     // Create images directory
+    prepare,                                        // Clean, create dirs, housekeeping
     
     // 2. Asset Processing
     dirCopy.bind(null, settings.copyImages),        // Copy static images
@@ -79,7 +77,7 @@ export async function createBuild (settings, args) {
     
     // 3. Versioning and Templates
     assetRevision.bind(null, settings.revision),    // Add cache-busting hashes
-    renderHtml.bind(null, settings.templates, args), // Render Handlebars templates
+    renderHtml.bind(null, settings.templates, args),// Render Handlebars templates
     pageRevision.bind(null, settings.revision),     // Update asset references
     
     // 4. Finalization
@@ -94,7 +92,7 @@ export async function createBuild (settings, args) {
 
 ### 2. Configuration Management (`settings.js`)
 
-Provides environment-specific build configurations:
+Provides an environment-specific [build configuration](/src/build/settings.js):
 
 ```javascript
 export function createSettings (prod = true) {
@@ -170,11 +168,11 @@ Provides powerful template utilities:
 
 ```javascript
 // String manipulation helpers
-capFirst(sentence)        // Capitalize first letter of each word
-subWords(sentence, start, end)  // Extract word ranges
-subChars(word, start, end)      // Extract character ranges
-concat(...args)           // Concatenate strings
-strip(subject, ...exclusions)   // Remove specific words
+capFirst(sentence)             // Capitalize first letter of each word
+subWords(sentence, start, end) // Extract word ranges
+subChars(word, start, end)     // Extract character ranges
+concat(...args)                // Concatenate strings
+strip(subject, ...exclusions)  // Remove specific words
 
 // Logic helpers  
 equals(value1, value2)    // Strict equality testing
@@ -188,7 +186,7 @@ svgPage(page)             // Dynamic SVG partial selection
 
 // State management
 setState(reference, value) // Store temporary template state
-getState(reference)       // Retrieve template state
+getState(reference)        // Retrieve template state
 ```
 
 ### Inline Asset Processing
@@ -260,6 +258,8 @@ The template system supports inline CSS and JavaScript:
 
 ### Responsive Image Processing and Metadata Generation (`images.js`)
 
+> The image processing code was encapsulated into its own package [`gulp-images`](https://github.com/localnerve/gulp-images). Image processing code will continue to grow and change in that repo. This section talks deeply about its usage and integration into the static site generator (SSG) showcased in this repo.
+
 #### Intelligent Image Processing Pipeline
 
 The image processing system goes far beyond simple resizing - it creates a sophisticated metadata system that drives both CSS generation and HTML optimization. During the image processing phase, the build system captures detailed information about each generated image variant, including dimensions, file sizes, MIME types, and quality settings. This metadata is dynamically injected into the cached `site-data.json` object in memory, making it available to both the Sass compilation and template rendering phases.
@@ -273,6 +273,7 @@ As images are processed and resized, the system builds comprehensive metadata ob
 The captured image metadata powers multiple aspects of the final output. In the Sass compilation phase, custom asset functions can access this metadata to generate responsive CSS with precise breakpoints that match the actual generated image sizes, ensuring perfect alignment between image variants and their corresponding media queries. During template rendering, this same metadata enables the automatic generation of optimized `<link rel="preload">` tags with accurate `media` attributes, ensuring that browsers preload exactly the right image variant for each viewport size, dramatically improving perceived performance.
 
 #### Automated Image Optimization
+
 - **Multiple Format Generation**: Creates responsive image sets with metadata tracking
 - **Quality Optimization**: Different quality settings per size with performance metrics
 - **Progressive JPEG**: Optimized loading with format specification in metadata

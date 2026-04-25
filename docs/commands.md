@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: October 31, 2025
+Date: April 25, 2026
 Title: Commands
 ---
 
@@ -40,3 +40,11 @@ This is a sample of some of the commands in package.json that are typically usef
 | `npm run test:local:debug` | Run the full test suite against the native application locally with huge timeouts, detailed output, and headed browsers |
 | `npm run test:local:_data` | Create dummy test data for the native application locally |
 | `npm run test:local:_clean` | Clean dummy test data for the native application locally |
+
+## More Detail
+
+Most of the commands in this project are `testing` commands to inspect and verify application functionality.
+
+*  📡 [Browser Testing](browser-testing-doc.md)
+*  📊 [Performance Auditing](performance-audits.md)
+*  🧪 [Test Procedure](testing-documentation.md)
