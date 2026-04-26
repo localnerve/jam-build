@@ -43,7 +43,7 @@ import { assetRevision, pageRevision } from './revision.js';
 async function createBuild (settings, args) {
   const imageProcessingSequence = await getImageSequence(settings.images);
   return gulp.series(
-    async function prepDirs () {
+    async function prepare () {
       await fs.rm(settings.dist, { recursive: true, force: true });
       await fs.mkdir(settings.dist, { recursive: true });
       await fs.mkdir(settings.distImages, { recursive: true });

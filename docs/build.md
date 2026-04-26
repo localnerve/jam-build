@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: August 30, 2025
+Date: April 25, 2026
 Title: Build Process
 ---
 
@@ -34,4 +34,5 @@ The are two main control files for directing the build and its contents:
 
 ## More Detail
 
- ⚡ [Static Site Generator](static-site-generator.md)
+*  ⚡ [Static Site Generator](static-site-generator.md)
+*  ✨ [Command Reference](commands.md)
