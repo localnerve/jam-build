@@ -258,7 +258,7 @@ The template system supports inline CSS and JavaScript:
 
 ### Responsive Image Processing and Metadata Generation (`images.js`)
 
-> The image processing code was encapsulated into its own package [`gulp-images`](https://github.com/localnerve/gulp-images). Image processing code will continue to grow and change in that repo. This section talks deeply about its usage and integration into the static site generator (SSG) showcased in this repo.
+> The image processing code was moved into its own package [`gulp-images`](https://github.com/localnerve/gulp-images). This section talks deeply about its usage and integration into the static site generator (SSG) showcased in this repo.
 
 #### Intelligent Image Processing Pipeline
 

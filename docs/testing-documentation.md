@@ -264,8 +264,12 @@ test('mutations offline', async ({ browser, browserName }) => {
 ### Multi-User Concurrency Testing
 Tests simulate multiple users making concurrent data changes to validate optimistic concurrency control and three-way merge resolution.
 
+* [Test Suite](/src/test/data/page.mutation.test.js)
+
 ### Version Conflict Resolution
-The test suite validates that version conflicts are properly detected and resolved through the application's merge strategies. Advanced, complete multi-user conflict resolution tests, including exponential backoff are located in [src/test/data/page.mutation.conflict.test.js](/src/test/data/page.mutation.conflict.test.js). These are complex tests that take up to a minute to execute, verify, and resolve in the worst case.
+The test suite validates that version conflicts are properly detected and resolved through the application's merge strategies. Advanced, complete coverage, multi-user conflict resolution tests (including exponential backoff). These are long, complex tests that exercise all areas of conflict resolution.
+
+* [Test Suite](/src/test/data/page.mutation.conflict.test.js)
 
 ### Offline Capability Testing
 Tests verify that:
