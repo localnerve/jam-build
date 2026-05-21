@@ -23,7 +23,7 @@ import fs from 'node:fs/promises';
 import gulp from 'gulp';
 
 import { createSettings } from './settings.js';
-import { createStyles } from './styles.js';
+import { getStyleSequence } from './styles.js';
 import { createScripts } from './scripts.js';
 import { dirCopy } from './copy.js';
 import { generateAssets } from './assets.js';
@@ -42,6 +42,8 @@ import { assetRevision, pageRevision } from './revision.js';
  */
 async function createBuild (settings, args) {
   const imageProcessingSequence = await getImageSequence(settings.images);
+  const styleProcessingSequence = await getStyleSequence(settings.styles);
+
   return gulp.series(
     async function prepare () {
       await fs.rm(settings.dist, { recursive: true, force: true });
@@ -50,7 +52,7 @@ async function createBuild (settings, args) {
     },
     dirCopy.bind(null, settings.copyImages),
     imageProcessingSequence,
-    createStyles.bind(null, settings.styles),
+    styleProcessingSequence,
     createScripts.bind(null, settings.scripts),
     generateAssets.bind(null, settings.assets),
     assetRevision.bind(null, settings.revision),
