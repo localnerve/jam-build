@@ -78,7 +78,7 @@ function streamSass () {
 }
 
 /**
- * Compile the sass.
+ * Get the style processing sequence.
  * Applies autoprefixer.
  *
  * @param {Object} settings - build settings.
@@ -92,7 +92,7 @@ function streamSass () {
  * @param {String} settings.dataDir - The siteData directory.
  * @param {String} [settings.webStyles] - web root of styles, if supplied creates the styles data namespace.
  */
-export async function createStyles (settings) {
+export async function getStyleSequence (settings) {
   const {
     dist, srcClient, prod, distImages,
     webImages, distFonts, webFonts, dataDir, webStyles
@@ -104,32 +104,36 @@ export async function createStyles (settings) {
     data.styles = { webStyles: webStyles.replace(/\/$/, '') };
   }
 
-  return gulp.src([`${srcClient}/**/*.scss`, `!${srcClient}/**/inline/**`])
-    .pipe(sassStream({
-      style: prod ? 'compressed' : 'expanded', // compressed === css minifier output.
-      loadPaths: [
-        `${srcClient}/styles`,
-        'node_modules/modern-normalize'
-      ],
-      functions: assetFunctions({
-        images_path: distImages,
-        http_images_path: webImages,
-        fonts_path: distFonts,
-        http_fonts_path: webFonts,
-        data: {
-          'nav-pages': Object.values(data.pages)
-            .filter(page => page.type === 'nav' && page.template)
-            .map(page => page.name),
-          images: data.images
-        }
-      })
-    }).on('error', sassStream.logError))
-    .pipe(
-      gulpPostcss([
-        autoprefixer()
-      ])
-    )
-    .pipe(gulp.dest(dist));
+  return gulp.series(
+    function createStyles () {
+      return gulp.src([`${srcClient}/**/*.scss`, `!${srcClient}/**/inline/**`])
+        .pipe(sassStream({
+          style: prod ? 'compressed' : 'expanded', // compressed === css minifier output.
+          loadPaths: [
+            `${srcClient}/styles`,
+            'node_modules/modern-normalize'
+          ],
+          functions: assetFunctions({
+            images_path: distImages,
+            http_images_path: webImages,
+            fonts_path: distFonts,
+            http_fonts_path: webFonts,
+            data: {
+              'nav-pages': Object.values(data.pages)
+                .filter(page => page.type === 'nav' && page.template)
+                .map(page => page.name),
+              images: data.images
+            }
+          })
+        }).on('error', sassStream.logError))
+        .pipe(
+          gulpPostcss([
+            autoprefixer()
+          ])
+        )
+        .pipe(gulp.dest(dist));
+    }
+  );
 }
 
 /**
@@ -151,6 +155,6 @@ export function compileStyles (sassText, options) {
 }
 
 export default {
-  createStyles,
+  getStyleSequence,
   compileStyles
 };
