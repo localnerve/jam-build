@@ -15,7 +15,7 @@ Title: Getting Started
 2. **Run Docker Compose**:
    - Execute `docker/compose-container.sh` to build and start the services.
      - Optionally, create your own `docker/.env` file.
-     - Local ports 3306, 5000, 6379, and 9010 must be free prior to service start.
+     - Local ports 5000 and 9010 must be free prior to service start.
 
 ### Configuration Steps
 1. **Remove Leftover Files**:
@@ -37,6 +37,7 @@ Title: Getting Started
 - **NodeJS**: Version 22.15.0 or higher.
 - **MariaDB**: Version 11.7.2 or higher.
 - **Localnerve/Authorizer** Version 1.5.3 or higher. [Standalone download](https://hub.docker.com/r/localnerve/authorizer).
+- **Ports***: 5000 (api), 9010 (authorizer), and 3306 (mariadb)
 
 ### Services Setup
 
