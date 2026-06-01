@@ -44,18 +44,6 @@ services:
     #      - AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID}
     #      - DEBUG=test:*
 
-  # The cache
-  cache:
-    image: redis:8.6.2
-    restart: unless-stopped
-    ports:
-      - 6379:6379
-    command: redis-server --save 20 1 --loglevel warning
-    volumes:
-      - cache:/data
-    networks:
-      - backend
-  
   # The authorizer
   authorizer:
     image: localnerve/authorizer:1.5.3
@@ -86,6 +74,16 @@ services:
     networks:
       - backend
 
+  # The cache
+  cache:
+    image: redis:8.8.0
+    restart: unless-stopped
+    command: redis-server --save 20 1 --loglevel warning
+    volumes:
+      - cache:/data
+    networks:
+      - backend
+
   # The database
   mariadb:
     image: mariadb:12.2.2
@@ -98,8 +96,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_APP_USER: ${DB_APP_USER}
       DB_APP_PASSWORD: ${DB_APP_PASSWORD}
-    ports:
-      - 3306:3306
     volumes:
       - dbdata:/var/lib/mysql
       - ../data/database:/docker-entrypoint-initdb.d
