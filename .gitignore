@@ -161,3 +161,6 @@ docker/volumes/backup/*.gz
 
 # no insights docs
 docs/insights
+
+# no Mac garbage
+.DS_Store
