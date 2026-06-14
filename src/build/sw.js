@@ -24,17 +24,8 @@ import path from 'node:path';
 import { globSync as glob } from 'node:fs';
 import { generateSW } from 'workbox-build';
 import { loadSiteData } from './data.js';
+import { getVersionBuildstamp } from './utils.js';
 import { createScripts } from './scripts.js';
-
-/**
- * Generate the version - build timestamp string.
- *
- * @param {String} appVersion - The application version string
- * @returns {String} The version and build time as a string
- */
-function getVersionBuildstamp (appVersion) {
-  return `${appVersion}-${(new Date()).toISOString()}`;
-}
 
 /**
  * Generate the sw.custom.js runtime distribution.
