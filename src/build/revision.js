@@ -73,7 +73,7 @@ export function assetRevision (settings) {
  * @param {String} settings.dist - dir root of dist production files.
  * @param {Boolean} settings.prod - True if production, false otherwise.
  */
-export function cssRevision(settings) {
+export function cssRevision (settings) {
   const { prod, dist } = settings;
 
   if (prod) {
