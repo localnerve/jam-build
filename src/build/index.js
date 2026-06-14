@@ -31,7 +31,7 @@ import { renderHtml } from './templates.js';
 import { minifyHtml } from './html.js';
 import { buildSwMain } from './sw.js';
 import { getImageSequence } from './images.js';
-import { assetRevision, pageRevision } from './revision.js';
+import { assetRevision, cssRevision, pageRevision } from './revision.js';
 
 /**
  * Main website build.
@@ -56,6 +56,7 @@ async function createBuild (settings, args) {
     createScripts.bind(null, settings.scripts),
     generateAssets.bind(null, settings.assets),
     assetRevision.bind(null, settings.revision),
+    cssRevision.bind(null, settings.revision),
     renderHtml.bind(null, settings.templates, args),
     pageRevision.bind(null, settings.revision),
     buildSwMain.bind(null, settings.sw),

@@ -66,7 +66,8 @@ export function createSettings (prod = true) {
       webImages,
       distFonts,
       webFonts,
-      webStyles
+      webStyles,
+      appVersion
     },
     images: {
       prod,

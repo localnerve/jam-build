@@ -89,10 +89,12 @@
   flex-flow: column nowrap;
   justify-content: center;
   align-items: center;
+  /* stylelint-disable declaration-block-no-redundant-longhand-properties */
   top: 0;
   left: 0;
   right: 0;
-  bottom: 0; // stylelint-disable-line declaration-block-no-redundant-longhand-properties
+  bottom: 0;
+  /* stylelint-enable declaration-block-no-redundant-longhand-properties */
   z-index: v.$z-index-spinner;
   background: rgb(34 34 34 / 50%);
 

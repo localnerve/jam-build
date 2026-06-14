@@ -19,6 +19,7 @@
  *    in this material, copies, or source code of derived works.
  */
 import fs from 'node:fs';
+import { Transform } from 'node:stream';
 import gulp from 'gulp';
 import rev from 'gulp-rev';
 import revRewrite from 'gulp-rev-rewrite';
@@ -30,7 +31,7 @@ import filter from 'gulp-filter';
  * 
  * @param {Object} settings - build settings.
  * @param {String} settings.dist - dir root of dist production files.
- * @param {Boolean} prod - True if production, false otherwise.
+ * @param {Boolean} settings.prod - True if production, false otherwise.
  */
 export function assetRevision (settings) {
   const { prod, dist } = settings;
@@ -39,6 +40,7 @@ export function assetRevision (settings) {
     const assetFilter = filter([
       '**/*',
       '!**/*.html',
+      '!**/*.css', // not yet, must be done next step
       '!**/robots.txt',
       '!**/sitemap.xml',
       '!**/*manifest.json',
@@ -63,12 +65,52 @@ export function assetRevision (settings) {
 }
 
 /**
+ * Replace all assets referenced in css with their revisioned references.
+ * Then revision the css files with the new references.
+ * Merge the new revisions into the main rev-manifest file.
+ *
+ * @param {Object} settings - build settings.
+ * @param {String} settings.dist - dir root of dist production files.
+ * @param {Boolean} settings.prod - True if production, false otherwise.
+ */
+export function cssRevision (settings) {
+  const { prod, dist } = settings;
+
+  if (prod) {
+    const revManifestPath = `${dist}/rev-manifest.json`;
+    const revManifest = fs.readFileSync(revManifestPath);
+
+    return gulp.src(`${dist}/**/*.css`, { encoding: false })
+      .pipe(revRewrite({ manifest: Buffer.from(revManifest) }))
+      .pipe(rev())
+      .pipe(revDel())
+      .pipe(gulp.dest(dist))
+      .pipe(rev.manifest({ base: dist }))
+      .pipe(new Transform({
+        objectMode: true,
+        transform (file, enc, cb) {
+          const existing = JSON.parse(revManifest);
+          const incoming = JSON.parse(file.contents.toString());
+          const merged = { ...existing, ...incoming };
+          file.contents = Buffer.from(JSON.stringify(merged, null, 2));
+          file.path = revManifestPath;
+          cb(null, file);
+        }
+      }))
+      .pipe(gulp.dest(dist));
+  }
+
+  return Promise.resolve();
+}
+
+/**
  * Update the html pages with the asset revisions.
- * Must run after assetRevision.
+ * Must run after assetRevision, cssRevision.
  * 
  * @param {Object} settings - build settings.
  * @param {String} settings.dist - dir root of dist production files.
- * @param {Boolean} prod - True if production, false otherwise.
+ * @param {Boolean} settings.prod - True if production, false otherwise.
+ * @param {String} settings.jsManifestFilename - The js revision manifest output from rollup pass.
  */
 export function pageRevision (settings) {
   const { prod, dist, jsManifestFilename } = settings;
@@ -93,6 +135,7 @@ export function pageRevision (settings) {
 }
 
 export default {
-  pageRevision,
-  assetRevision
+  assetRevision,
+  cssRevision,
+  pageRevision
 };

@@ -27,30 +27,45 @@ import * as dartSass from 'sass';
 import autoprefixer from 'autoprefixer';
 import assetFunctions from '@localnerve/sass-asset-functions';
 import { loadSiteData } from './data.js';
+import { getVersionBuildstamp } from './utils.js';
 
 /**
  * gulp-sass replacement plugin.
  * Bare minimum to just call sass.compile and produce the css file.
+ * 
+ * @param {String} appVersion - The application version string.
  * @returns {Function} A function to take the sass options and return a Transform stream.
  */
-function streamSass () {
+function streamSass (appVersion) {
   const ss = options => new Transform({
     transform: (file, encoding, callback) => {
       if (file.isNull()) {
         callback(null, file);
         return;
       }
+
       if (path.basename(file.path).startsWith('_')) {
         callback();
         return;
       }
+
       try {
         const result = dartSass.compile(file.path, options);
-        file.contents = Buffer.from(result.css);
+        const versionBuildStamp = `/*! ${getVersionBuildstamp(appVersion)} */`;
+        
+        const cssLen = Buffer.byteLength(result.css, 'utf8');
+        const vbsLen = Buffer.byteLength(versionBuildStamp, 'utf8');
+        const cssBuffer = Buffer.alloc(cssLen + vbsLen);
+
+        cssBuffer.write(result.css, 0, 'utf8');
+        cssBuffer.write(versionBuildStamp, cssLen, 'utf8'); // make sure css is always unique
+
+        file.contents = cssBuffer;
         file.path = file.path.replace('.scss', '.css');
         if (file.stat) {
           file.stat.atime = file.stat.mtime = file.stat.ctime = new Date();
         }
+
         callback(null, file);
       }
       catch (error) {
@@ -90,14 +105,15 @@ function streamSass () {
  * @param {String} settings.distFonts - dir root of fonts in prod dist.
  * @param {String} settings.webFonts - web root of fonts.
  * @param {String} settings.dataDir - The siteData directory.
+ * @param {String} settings.appVersion - The application version to append to the file for added fingerprint assurance.
  * @param {String} [settings.webStyles] - web root of styles, if supplied creates the styles data namespace.
  */
 export async function getStyleSequence (settings) {
   const {
-    dist, srcClient, prod, distImages,
+    appVersion, dist, srcClient, prod, distImages,
     webImages, distFonts, webFonts, dataDir, webStyles
   } = settings;
-  const sassStream = streamSass();
+  const sassStream = streamSass(appVersion);
   const data = await loadSiteData(dataDir);
 
   if (webStyles) {
