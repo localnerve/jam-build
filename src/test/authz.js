@@ -23,7 +23,6 @@ import afs from 'node:fs/promises';
 import path from 'node:path';
 import url from 'node:url';
 import { randomBytes } from 'node:crypto';
-import puppeteer from 'puppeteer';
 import debugLib from '@localnerve/debug';
 import { Authorizer } from '@localnerve/authorizer-js';
 
