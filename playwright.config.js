@@ -25,7 +25,8 @@ const desktopViewport = {
   height: 900
 };
 
-const puppeteerOptions = process.env.CI ? {
+const isRestrictedEnv = process.env.CI === 'true' || process.env.DEVCONTAINER === 'true';
+const puppeteerOptions = isRestrictedEnv ? {
   args: ['--no-sandbox', '--disable-setuid-sandbox']
 } : {};
 
