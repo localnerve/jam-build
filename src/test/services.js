@@ -176,6 +176,7 @@ export async function createDatabaseAndAuthorizer() {
       .withEnvironment({
         ENV: 'production',
         ADMIN_SECRET: process.env.AUTHZ_ADMIN_SECRET,
+        CLIENT_ID: process.env.AUTHZ_CLIENT_ID,
         DATABASE_TYPE: 'mariadb',
         DATABASE_URL: `root:${process.env.DB_ROOT_PASSWORD}@tcp(${dbHost}:3306)/authorizer`,
         DATABASE_NAME: 'authorizer',

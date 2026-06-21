@@ -21,7 +21,6 @@
 import fs from 'node:fs/promises';
 import * as tar from 'tar';
 import debugLib from '@localnerve/debug';
-import { getAuthzClientID } from './authz.js';
 import {
   createAppContainer,
   createDatabaseAndAuthorizer
@@ -145,8 +144,6 @@ export default async function setup () {
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
 
   process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9011)}`;
-
-  process.env.AUTHZ_CLIENT_ID = await getAuthzClientID();
 
   appContainer = await createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName);
 
