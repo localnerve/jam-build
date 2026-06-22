@@ -112,10 +112,14 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
 
   debug(`Starting ${appImageName}...`);
 
+  // keep DEVCONTAINER inline with local Caddyfile
+  // DEVCONTAINER needs fixed routing
+  const appPorts = process.env.DEVCONTAINER ? { container: 5000, host: 5000 } : 5000;
+
   const appContainer = await appContainerImage
     .withName('jam-build')
     .withNetwork(containerNetwork)
-    .withExposedPorts(5000)
+    .withExposedPorts(appPorts)
     .withEntrypoint(['npm', 'run', 'dev:cover'])
     .withPullPolicy(PullPolicy.defaultPolicy())
     .withEnvironment({
@@ -171,6 +175,10 @@ export async function createDatabaseAndAuthorizer() {
     await client.query(`CREATE USER IF NOT EXISTS '${process.env.DB_APP_USER
       }'@'%' IDENTIFIED BY '${process.env.DB_APP_PASSWORD}';`);
 
+    // keep DEVCONTAINER inline with local Caddyfile
+    // DEVCONTAINER needs fixed routing
+    const authzPorts = process.env.DEVCONTAINER ? { container: 9011, host: 9010 } : 9011;
+
     debug('Starting authorizer container...');
     authorizerContainer = await new GenericContainer('localnerve/authorizer:1.5.3')
       .withEnvironment({
@@ -187,7 +195,7 @@ export async function createDatabaseAndAuthorizer() {
         PORT: 9011
       })
       .withName('authorizer')
-      .withExposedPorts(9011)
+      .withExposedPorts(authzPorts) 
       .withNetwork(containerNetwork)
       .withWaitStrategy(Wait.forLogMessage(/Authorizer running at PORT: \d+/))
       .start();
