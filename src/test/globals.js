@@ -21,7 +21,6 @@
 import fs from 'node:fs/promises';
 import * as tar from 'tar';
 import debugLib from '@localnerve/debug';
-import { getAuthzClientID } from './authz.js';
 import {
   createAppContainer,
   createDatabaseAndAuthorizer
@@ -144,13 +143,19 @@ export default async function setup () {
 
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
 
-  process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9011)}`;
-
-  process.env.AUTHZ_CLIENT_ID = await getAuthzClientID();
-
   appContainer = await createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName);
 
-  process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
+  // In devcontainer, Caddy provides real HTTPS via DuckDNS —
+  // use the public hostnames so all browser engines get a trusted cert
+  // and secure-context APIs (Service Worker, cookies) work correctly.
+  // On host/GHA, use the direct container host:port (no Caddy).
+  if (process.env.DEVCONTAINER) {
+    process.env.AUTHZ_URL = 'https://rp-localnerve.duckdns.org';    // Keep aligned with local Caddyfile
+    process.env.BASE_URL = 'https://ln.rp-localnerve.duckdns.org';  // Keep aligned with local Caddyfile
+  } else {
+    process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9011)}`;
+    process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
+  }
 
   debug('Setup globals success', process.env.AUTHZ_URL, process.env.BASE_URL);
 

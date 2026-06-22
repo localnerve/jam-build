@@ -35,7 +35,7 @@ test.describe('performance audits', () => {
     seo: 99
   };
 
-  let puppeteerLaunch = process.env.CI ? {
+  let puppeteerLaunch = process.env.CI || process.env.DEVCONTAINER ? {
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   } : {};
 

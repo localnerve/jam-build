@@ -14,16 +14,16 @@ jobs:
     runs-on: ubuntu-24.04
     name: 'Build, verify, and cache'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Setup Node with npm cache
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
       - name: Cache Playwright Browser Binaries
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -39,7 +39,7 @@ jobs:
         run: npm run build
       - name: Archive Build Stats
         if: success() && env.REPORT_ARTIFACTS == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jam-build-stats
           overwrite: true
@@ -50,7 +50,7 @@ jobs:
       - name: Export Docker Image
         run: docker save jam-build-test:latest -o jam-build-test.tar
       - name: Upload Docker Image Artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: docker-image
           overwrite: true
@@ -71,16 +71,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     name: 'Test ${{ matrix.label }} browser on ${{ matrix.os }}'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Setup Node with npm cache
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
       - name: Install Npm Dependencies
         run: npm ci
       - name: Cache Playwright Browser Binaries
-        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -104,7 +104,7 @@ jobs:
         run: npm run test:${{ matrix.label }}
       - name: Archive Test Reports
         if: success() && matrix.label == 'chromium' && env.REPORT_ARTIFACTS == 'true'
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-reports
           overwrite: true
