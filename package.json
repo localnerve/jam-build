@@ -1,11 +1,12 @@
 {
   "name": "jam-build",
-  "version": "2.10.12",
+  "version": "2.10.13",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
   "private": true,
   "scripts": {
+    "browserslist": "npx browserslist@latest --update-db",
     "build": "npm run gulp-run -- build",
     "build:debug": "npm run gulp-debug -- build",
     "build:dev": "npm run gulp-run -- dev-build",
@@ -113,7 +114,7 @@
     "@localnerve/fast-is-equal": "^2.0.4",
     "@localnerve/gulp-images": "^0.5.2",
     "@localnerve/gulp-rev-delete-original": "^2.0.1",
-    "@localnerve/sass-asset-functions": "^7.13.4",
+    "@localnerve/sass-asset-functions": "^7.13.5",
     "@playwright/test": "^1.61.1",
     "@rollup/plugin-alias": "^6.0.0",
     "@rollup/plugin-dynamic-import-vars": "^2.1.5",
@@ -121,8 +122,8 @@
     "@rollup/plugin-replace": "^6.0.3",
     "@rollup/plugin-terser": "^1.0.0",
     "@testcontainers/mariadb": "^12.0.4",
-    "autoprefixer": "^10.5.2",
-    "c8": "^11.0.0",
+    "autoprefixer": "^10.5.4",
+    "c8": "^12.0.0",
     "cross-env": "^10.1.0",
     "eslint": "^10.7.0",
     "eslint-plugin-compat": "^7.0.2",
@@ -133,7 +134,7 @@
     "gulp-html-minifier-terser": "^8.0.0",
     "gulp-postcss": "^10.0.0",
     "gulp-rev": "^12.0.0",
-    "gulp-rev-rewrite": "^6.0.0",
+    "gulp-rev-rewrite": "^7.0.0",
     "handlebars": "^4.7.9",
     "idb": "^8.0.3",
     "istanbul-lib-coverage": "^3.2.2",
@@ -172,10 +173,10 @@
     "node": ">=24.8 <25"
   },
   "allowScripts": {
-    "puppeteer@25.3.0": true,
-    "protobufjs@7.6.4": true,
-    "ssh2@1.17.0": true,
+    "@parcel/watcher@2.5.6": true,
     "cpu-features@0.0.10": true,
-    "@parcel/watcher@2.5.6": true
+    "protobufjs@7.6.4": true,
+    "puppeteer@25.3.0": true,
+    "ssh2@1.17.0": true
   }
 }
