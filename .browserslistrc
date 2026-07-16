@@ -1,8 +1,15 @@
+> 0.33%
+Firefox ESR
+not dead
+iOS >= 13.4
+not ios_saf < 13.4
+
 [production]
 > 0.33%
 Firefox ESR
 not dead
 iOS >= 13.4
+not ios_saf < 13.4
 
 [legacy]
 IE 11
