@@ -1,0 +1,10 @@
+# RP configs use alias names that must match package.json test:env
+# ducktls snippet defined in root Caddyfile
+rp-localnerve.duckdns.org {
+	import ducktls
+	reverse_proxy jam-build-authorizer:9011
+}
+ln.rp-localnerve.duckdns.org {
+	import ducktls
+	reverse_proxy jam-build-app:5000
+}

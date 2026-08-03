@@ -79,6 +79,10 @@ async function cleanupBuilderImages() {
 
 export async function createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName) {
   const forceAppBuild = !!(process.env.FORCE_BUILD);
+  const appHost = 'jam-build';
+  const inDevcontainer = process.env.DEVCONTAINER === 'true';
+  const networkMode = inDevcontainer ? process.env.DEVCONTAINER_NETWORK : undefined;
+  const appAlias = process.env.APP_NETWORK_ALIAS || appHost;
 
   debug(`Checking ${appImageName}... FORCE_BUILD=${forceAppBuild}`);
 
@@ -96,7 +100,6 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
         GID: `${userInfo.gid}`,
         TARGETARCH: `${os.arch()}`,
         DEV_BUILD: '1',
-        // AUTHZ_URL: `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
         AUTHZ_URL: process.env.AUTHZ_URL,
         AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID
       })
@@ -112,29 +115,33 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
 
   debug(`Starting ${appImageName}...`);
 
-  // keep DEVCONTAINER inline with local Caddyfile
-  // DEVCONTAINER needs fixed routing
-  const appPorts = process.env.DEVCONTAINER ? { container: 5000, host: 5000 } : 5000;
-
-  const appContainer = await appContainerImage
-    .withName('jam-build')
-    .withNetwork(containerNetwork)
-    .withExposedPorts(appPorts)
+  let appBuilder = appContainerImage
+    .withName(appAlias)
+    .withExposedPorts(5000)
     .withEntrypoint(['npm', 'run', 'dev:cover'])
     .withPullPolicy(PullPolicy.defaultPolicy())
     .withEnvironment({
       DB_DATABASE: process.env.DB_DATABASE,
-      DB_HOST: mariadbContainer.getIpAddress(containerNetwork.getName()),
+      DB_HOST: inDevcontainer
+        ? (process.env.DB_NETWORK_ALIAS || 'mariadb')
+        : mariadbContainer.getIpAddress(containerNetwork.getName()),
       DB_USER: process.env.DB_USER,
       DB_PASSWORD: process.env.DB_PASSWORD,
       DB_APP_USER: process.env.DB_APP_USER,
       DB_APP_PASSWORD: process.env.DB_APP_PASSWORD,
-      AUTHZ_URL: `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
+      AUTHZ_URL: inDevcontainer
+        ? `http://${process.env.AUTHZ_NETWORK_ALIAS || 'authorizer'}:9011`
+        : `http://${authorizerContainer.getIpAddress(containerNetwork.getName())}:9011`,
       AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID,
       DEBUG: process.env.DEBUG
     })
-    .withWaitStrategy(Wait.forLogMessage(/listening on port \d+/))
-    .start();
+    .withWaitStrategy(Wait.forLogMessage(/listening on port \d+/));
+
+  appBuilder = inDevcontainer
+    ? appBuilder.withNetworkMode(networkMode).withNetworkAliases(appAlias)
+    : appBuilder.withNetwork(containerNetwork);
+
+  const appContainer = await appBuilder.start();
 
   debug(`Container ${appImageName} started.`);
 
@@ -144,18 +151,43 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
 export async function createDatabaseAndAuthorizer() {
   let client, authorizerContainer;
   const dbHost = 'mariadb';
+  const inDevcontainer = process.env.DEVCONTAINER === 'true';
 
-  const containerNetwork = await new Network().start();
+  // Two modes:
+  //  - devcontainer: attach to the persistent shared network so the
+  //    devcontainer's own long-running Caddy instance can reverse-proxy
+  //    to these containers by alias. Network name and alias names are
+  //    pure convention, supplied via env — this function has zero
+  //    project-specific or devcontainer-specific knowledge.
+  //  - CI/ephemeral (e.g. GitHub Actions): no shared Caddy exists, so
+  //    just spin up a throwaway Testcontainers network as before.
+  const containerNetwork = inDevcontainer
+    ? null
+    : await new Network().start();
+
+  const networkMode = inDevcontainer ? process.env.DEVCONTAINER_NETWORK : undefined;
+  const authzAlias = process.env.AUTHZ_NETWORK_ALIAS || 'authorizer';
+  const dbAlias = process.env.DB_NETWORK_ALIAS || dbHost;
+
+  if (inDevcontainer && !networkMode) {
+    throw new Error(
+      'DEVCONTAINER=true but DEVCONTAINER_NETWORK is not set — the devcontainer must export the shared network name.'
+    );
+  }
 
   debug('Starting mariadb container...');
-  const mariadbContainer = await new MariaDbContainer('mariadb:12.3.2')
+  let mariadbBuilder = new MariaDbContainer('mariadb:12.3.2')
     .withDatabase(process.env.DB_DATABASE)
     .withUsername(process.env.DB_USER)
     .withRootPassword(process.env.DB_ROOT_PASSWORD)
     .withUserPassword(process.env.DB_PASSWORD)
-    .withName(dbHost)
-    .withNetwork(containerNetwork)
-    .start();
+    .withName(dbAlias);
+
+  mariadbBuilder = inDevcontainer
+    ? mariadbBuilder.withNetworkMode(networkMode).withNetworkAliases(dbAlias)
+    : mariadbBuilder.withNetwork(containerNetwork);
+
+  const mariadbContainer = await mariadbBuilder.start();
 
   try {
     debug('Starting database connection...');
@@ -175,30 +207,29 @@ export async function createDatabaseAndAuthorizer() {
     await client.query(`CREATE USER IF NOT EXISTS '${process.env.DB_APP_USER
       }'@'%' IDENTIFIED BY '${process.env.DB_APP_PASSWORD}';`);
 
-    // keep DEVCONTAINER inline with local Caddyfile
-    // DEVCONTAINER needs fixed routing
-    const authzPorts = process.env.DEVCONTAINER ? { container: 9011, host: 9010 } : 9011;
-
     debug('Starting authorizer container...');
-    authorizerContainer = await new GenericContainer('localnerve/authorizer:1.5.3')
+    let authzBuilder = new GenericContainer('localnerve/authorizer:1.5.3')
       .withEnvironment({
         ENV: 'production',
         ADMIN_SECRET: process.env.AUTHZ_ADMIN_SECRET,
         CLIENT_ID: process.env.AUTHZ_CLIENT_ID,
         DATABASE_TYPE: 'mariadb',
-        DATABASE_URL: `root:${process.env.DB_ROOT_PASSWORD}@tcp(${dbHost}:3306)/authorizer`,
+        DATABASE_URL: `root:${process.env.DB_ROOT_PASSWORD}@tcp(${dbAlias}:3306)/authorizer`,
         DATABASE_NAME: 'authorizer',
         ROLES: 'admin,user',
         DEFAULT_ROLES: 'user',
         APP_COOKIE_SECURE: !(process.env.WEBKIT == 1),
-        //PROTECTED_ROLES: 'admin', // testing needs to use signup
         PORT: 9011
       })
-      .withName('authorizer')
-      .withExposedPorts(authzPorts) 
-      .withNetwork(containerNetwork)
-      .withWaitStrategy(Wait.forLogMessage(/Authorizer running at PORT: \d+/))
-      .start();
+      .withName(authzAlias)
+      .withExposedPorts(9011) 
+      .withWaitStrategy(Wait.forLogMessage(/Authorizer running at PORT: \d+/));
+
+    authzBuilder = inDevcontainer
+      ? authzBuilder.withNetworkMode(networkMode).withNetworkAliases(authzAlias)
+      : authzBuilder.withNetwork(containerNetwork);
+
+    authorizerContainer = await authzBuilder.start();
 
     // sanity checks - jam_build and authorizer databases exist, authorizer tables exist
     // await client.query('show databases');
