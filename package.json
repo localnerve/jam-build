@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.10.15",
+  "version": "2.10.16",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -32,7 +32,8 @@
     "test:chromium": "npm run test",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=Chromium --workers=1 --timeout=600000 --headed",
     "test:devcontainer:diag": "npm run test:env -- node --experimental-vm-modules ./src/test/diagnose-network.js",
-    "test:env": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 AUTHZ_ADMIN_SECRET=deadbEf-2af536fa AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
+    "test:devcontainer:setup": "node ./devcontainer/setup.js",
+    "test:env": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 AUTHZ_NETWORK_ALIAS=jam-build-authorizer APP_NETWORK_ALIAS=jam-build-app AUTHZ_ADMIN_SECRET=deadbEf-2af536fa AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
     "test:env:local": "npm run test:env -- AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} AUTHZ_URL=${AUTHZ_URL:-http://localhost:9010} LOCALAPP_URL=${LOCALAPP_URL:-http://localhost:5000}",
     "test:env:local:proxy": "npm run test:env -- AUTHZ_URL=${AUTHZ_URL:-https://rp-localnerve.duckdns.org} AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} LOCALAPP_URL=${LOCALAPP_URL:-https://ln.rp-localnerve.duckdns.org}",
     "test:firefox": "npm run test:env -- playwright test --project=Firefox --timeout=20000",
@@ -109,13 +110,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@localnerve/csp-hashes": "^7.1.0",
+    "@localnerve/csp-hashes": "^8.0.0",
     "@localnerve/editable-object": "^0.3.24",
     "@localnerve/fast-is-equal": "^2.0.4",
-    "@localnerve/gulp-images": "^0.5.2",
+    "@localnerve/gulp-images": "^0.6.0",
     "@localnerve/gulp-rev-delete-original": "^2.0.1",
     "@localnerve/sass-asset-functions": "^7.14.0",
-    "@playwright/test": "^1.62.0",
+    "@playwright/test": "^1.62.1",
     "@rollup/plugin-alias": "^6.0.0",
     "@rollup/plugin-dynamic-import-vars": "^2.1.5",
     "@rollup/plugin-node-resolve": "^16.0.3",
@@ -128,7 +129,7 @@
     "eslint": "^10.8.0",
     "eslint-plugin-compat": "^7.0.2",
     "eslint-plugin-playwright": "^2.11.0",
-    "globals": "^17.8.0",
+    "globals": "^17.9.0",
     "gulp": "^5.0.1",
     "gulp-filter": "^10.0.0",
     "gulp-html-minifier-terser": "^8.0.0",
@@ -146,7 +147,7 @@
     "pino-pretty": "^13.1.3",
     "plugin-error": "^2.0.1",
     "puppeteer": "^25.4.0",
-    "rollup": "^4.62.3",
+    "rollup": "^4.62.4",
     "rollup-plugin-istanbul": "^5.0.0",
     "rollup-plugin-output-manifest": "^2.0.0",
     "rollup-plugin-polyfill-node": "^0.13.0",
@@ -169,7 +170,7 @@
     "glob": "^13.0.6",
     "serialize-javascript": "^7.0.7",
     "minimatch": {
-      "brace-expansion": "5.0.8"
+      "brace-expansion": "5.0.9"
     }
   },
   "engines": {
