@@ -109,7 +109,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@localnerve/csp-hashes": "^7.1.0",
+    "@localnerve/csp-hashes": "^8.0.0",
     "@localnerve/editable-object": "^0.3.24",
     "@localnerve/fast-is-equal": "^2.0.4",
     "@localnerve/gulp-images": "^0.5.2",
