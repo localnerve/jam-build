@@ -76,7 +76,7 @@ services:
 
   # The cache
   cache:
-    image: redis:8.8.0
+    image: redis:8.10.0
     restart: unless-stopped
     command: redis-server --save 20 1 --loglevel warning
     volumes:
