@@ -179,7 +179,6 @@ export function setHeaders (logger, res, path) {
   };
   const routeSet = {
     'X-Frame-Options': 'SAMEORIGIN',
-    'X-XSS-Protection': '1; mode=block',
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': 'frame-ancestors \'self\';'
   };
