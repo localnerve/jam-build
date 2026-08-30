@@ -87,6 +87,8 @@ if (!maintenance) {
 
 server.use(express.static(rootDir, {
   index: 'home.html',
+  // serve dot-segment paths like /.well-known/security.txt
+  dotfiles: 'allow',
   setHeaders: noHeaders ? () => { } : setHeaders.bind(null, logger, tls)
 }));
 server.use(notFoundHandler.bind(null, logger, rootDir, tls));
