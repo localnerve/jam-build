@@ -13,6 +13,8 @@ services:
         AUTHZ_CLIENT_ID: ${AUTHZ_CLIENT_ID}
     image: ${JB_IMAGE}
     container_name: ${JB_CONTAINER_NAME}
+    # extra app args, set per env file (e.g. APP_ARGS=--TLS in .env.proxy)
+    command: ${APP_ARGS:-}
     environment:
       DB_HOST: mariadb
       DB_DATABASE: jam_build
