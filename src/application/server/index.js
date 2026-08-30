@@ -8,6 +8,7 @@
  *   --MAINTENANCE='HTTP-Date'|seconds, default: false, starts the app in maintenance mode, value for RETRY_AFTER header
  *   --NO-COMPRESS, boolean flag, true if exists, starts the app without wire compression
  *   --NO-HEADERS, boolean flag, true if exists, starts the app without asset file headers
+ *   --TLS, boolean flag, true if exists, declares the app is served behind a TLS proxy (enables HSTS)
  *   --DEBUG, boolean flag, true if exists, starts the app with verbose logging
  *   --TEST, boolean flag, true if exists, start the app with test-only api
  *  
@@ -52,7 +53,8 @@ const {
   noHeaders,
   port,
   rootDir,
-  test
+  test,
+  tls
 } = processArgs();
 
 const logger = initLogger(pino, debug);
@@ -85,14 +87,14 @@ if (!maintenance) {
 
 server.use(express.static(rootDir, {
   index: 'home.html',
-  setHeaders: noHeaders ? () => { } : setHeaders.bind(null, logger)
+  setHeaders: noHeaders ? () => { } : setHeaders.bind(null, logger, tls)
 }));
-server.use(notFoundHandler.bind(null, logger, rootDir));
-server.use(errorHandler.bind(null, logger, rootDir));
+server.use(notFoundHandler.bind(null, logger, rootDir, tls));
+server.use(errorHandler.bind(null, logger, rootDir, tls));
 
 server.listen(port, err => {
   if (err) {
     return logger.error(err);
   }
-  return logger.info(`app serving ${rootDir}, listening on port ${port}`);
+  return logger.info(`app serving ${rootDir}, listening on port ${port}, tls=${tls}`);
 });

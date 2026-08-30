@@ -52,6 +52,10 @@ export function processArgs () {
 
   const noCompression = process.argv.some(item => item.match('NO-COMPRESS'));
   const noHeaders = process.argv.some(item => item.match('NO-HEADERS'));
+  // true when the app is served behind a TLS proxy: explicitly declared with
+  // --TLS (devcontainer Caddy, production reverse proxy), or implied by the
+  // DEVCONTAINER environment (Caddy terminates TLS for all devcontainer hosts)
+  const tls = process.argv.some(item => item.match('TLS')) || process.env.DEVCONTAINER === 'true';
   const debug = process.argv.some(item => item.match('DEBUG'));
   const test = process.argv.some(item => item.match('TEST'));
 
@@ -63,7 +67,8 @@ export function processArgs () {
     noHeaders,
     port,
     rootDir,
-    test
+    test,
+    tls
   };
 }
 
@@ -165,23 +170,39 @@ export async function setHostEnv (logger, envFilePath) {
  * Set response headers.
  *
  * @param {Object} logger - The logging object.
+ * @param {Boolean} tls - True when the app is served behind a TLS proxy (enables HSTS).
  * @param {Response} res - Express Response object.
  * @param {String} path - The requested path.
  */
-export function setHeaders (logger, res, path) {
+export function setHeaders (logger, tls, res, path) {
+  const common = {
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+  };
+
+  // HSTS only makes sense when the response is actually delivered over TLS.
+  // Sending it on plain-HTTP responses (local dev, testcontainers) would cause
+  // browsers to refuse future connections after a single request.
+  if (tls) {
+    common['Strict-Transport-Security'] = 'max-age=63072000; includeSubDomains';
+  }
   const noCache = {
     'Cache-Control': 'public, max-age=0, must-revalidate',
     'X-Content-Type-Options': 'nosniff'
   };
   const farCache = {
-    'Cache-Control': 'public, max-age=31536000',
+    'Cache-Control': 'public, max-age=31536000, immutable',
     'X-Content-Type-Options': 'nosniff'
   };
   const routeSet = {
     'X-Frame-Options': 'SAMEORIGIN',
     'X-Content-Type-Options': 'nosniff',
-    'Content-Security-Policy': 'frame-ancestors \'self\';'
+    'Content-Security-Policy': 'frame-ancestors \'self\';',
+    'Link': '</sitemap.xml>; rel="sitemap", </.well-known/security.txt>; rel="security", </llms.txt>; rel="llms-text"'
   };
+
+  // common security headers on every response
+  res.set(common);
 
   // has a fingerprint
   const fingerprinted = /[a-z0-9]{10}\.\w+/;
@@ -207,9 +228,9 @@ export function setHeaders (logger, res, path) {
  * @param {Request} req - The express request object.
  * @param {Response} res - The express response object.
  */
-export function notFoundHandler (logger, root, req, res) {
+export function notFoundHandler (logger, root, tls, req, res) {
   logger.info('404', req.url);
-  setHeaders(logger, res, req.path);
+  setHeaders(logger, tls, res, req.path);
   res.status(404).sendFile('404.html', { root });
 }
 
@@ -218,18 +239,19 @@ export function notFoundHandler (logger, root, req, res) {
  * 
  * @param {Object} logger - logging object.
  * @param {String} root - The root directory.
+ * @param {Boolean} tls - True when the app is served behind a TLS proxy (enables HSTS).
  * @param {Object} err - The error object.
  * @param {Request} req - The express request object.
  * @param {Response} res - The express response object.
  * @param {Function} next - The express next function.
  * @returns 
  */
-export function errorHandler (logger, root, err, req, res, next) {
+export function errorHandler (logger, root, tls, err, req, res, next) {
   logger.error('500', req.url, err);
   if (res.headersSent) {
     return next(err);
   }
-  setHeaders(logger, res, req.path);
+  setHeaders(logger, tls, res, req.path);
   res.status(500).sendFile('500.html', { root });
 }
 
