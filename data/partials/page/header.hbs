@@ -30,6 +30,7 @@
     connect-src 'self' {{#each connectsrc}}{{this}}{{#unless @last}} {{/unless}}{{/each}};
     form-action 'self';
     font-src https://fonts.gstatic.com;
+    frame-ancestors 'self';
     frame-src 'self' {{#each framesrc}}{{this}}{{#unless @last}} {{/unless}}{{/each}};
     img-src 'self' https://*;
     script-src https://polyfill-fastly.io 'unsafe-inline' 'self';
