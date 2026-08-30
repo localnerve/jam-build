@@ -50,10 +50,70 @@ async function robots (siteData, settings) {
   await fs.writeFile(`${dist}/robots.txt`, `
     User-agent: *
     Disallow:
-    sitemap: ${sitemapWebUrl}
+    Sitemap: ${sitemapWebUrl}
     User-agent: ia_archiver
+    Disallow: /
+    # AI crawlers - explicit policy, do not index
+    User-agent: GPTBot
+    Disallow: /
+    User-agent: Google-Extended
+    Disallow: /
+    User-agent: ClaudeBot
+    Disallow: /
+    User-agent: PerplexityBot
+    Disallow: /
+    User-agent: Bytespider
     Disallow: /`,
   'utf8');
+}
+
+/**
+ * Generate and write the llms.txt.
+ * A curated markdown index of the most important pages for LLMs.
+ * Pages with a real route (and that are not error pages) are listed,
+ * with a description where one is defined.
+ *
+ * @param {Object} siteData - global site-data.json.
+ * @param {Object} settings - build settings.
+ * @returns {Promise} resolves to undefined on completion.
+ */
+async function llmsTxt (siteData, settings) {
+  const { dist } = settings;
+
+  const pages = Object.values(siteData.pages).filter(page =>
+    page.route.startsWith('/') && page.type !== 'none'
+  );
+
+  const lines = [
+    `# ${siteData.business.name}`,
+    '',
+    `> ${siteData.elevator}`,
+    ''
+  ];
+  for (const page of pages) {
+    const url = new URL(page.route, `https://${siteData.appHost}`).href;
+    lines.push(page.description
+      ? `- [${page.title}](${url}): ${page.description}`
+      : `- [${page.title}](${url})`);
+  }
+
+  await fs.writeFile(`${dist}/llms.txt`, `${lines.join('\n')}\n`, 'utf8');
+}
+
+async function securityTxt (siteData, settings) {
+  const { dist } = settings;
+  const targetDir = path.join(dist, '.well-known');
+  const expires = new Date(Date.now() + (365 * 24 * 60 * 60 * 1000));
+  const expiresIso = expires.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const content = `Contact: mailto:${siteData.business.email}
+Expires: ${expiresIso}
+Preferred-Languages: en
+Canonical: https://${siteData.appHost}/.well-known/security.txt
+Policy: https://${siteData.appHost}/privacy
+`;
+
+  await fs.mkdir(targetDir, { recursive: true });
+  await fs.writeFile(path.join(targetDir, 'security.txt'), content, 'utf8');
 }
 
 /**
@@ -134,6 +194,8 @@ export async function generateAssets (settings) {
   const siteData = await loadSiteData(dataDir);
 
   await robots(siteData, settings);
+  await securityTxt(siteData, settings);
   await sitemap(siteData, settings);
+  await llmsTxt(siteData, settings);
   await assetTemplates(siteData, settings);
 }
