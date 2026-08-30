@@ -40,7 +40,7 @@ src/build/
 ├── styles.js        # Sass compilation and CSS processing
 ├── scripts.js       # JavaScript bundling with Rollup
 ├── images.js        # Responsive image processing
-├── assets.js        # Asset generation (sitemaps, manifests)
+├── assets.js        # Asset generation (robots.txt, security.txt, sitemaps, llms.txt, manifests)
 ├── html.js          # HTML minification
 ├── revision.js      # Asset versioning and cache-busting
 ├── sw.js            # Service worker generation
@@ -73,7 +73,7 @@ export async function createBuild (settings, args) {
     imageProcessingSequence,                        // Generate responsive images
     createStyles.bind(null, settings.styles),       // Compile Sass → CSS
     createScripts.bind(null, settings.scripts),     // Bundle JavaScript
-    generateAssets.bind(null, settings.assets),     // Generate sitemaps/manifests
+    generateAssets.bind(null, settings.assets),     // Generate robots/security/sitemaps/llms.txt/manifests
     
     // 3. Versioning and Templates
     assetRevision.bind(null, settings.revision),    // Add cache-busting hashes
