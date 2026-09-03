@@ -1,6 +1,6 @@
 ---
 Author: Alex Grant <alex@localnerve.com> (https://www.localnerve.com)
-Date: April 3, 2026
+Date: September 3, 2026
 Title: Analysis Documents
 ---
 
@@ -9,6 +9,12 @@ Title: Analysis Documents
 ## Exponential Backoff For Multi-user Optimistic Concurrency Control Conflict Resolution
 
 * 🦋 2.10.0  - [Exponential Backoff, Concurrency Considerations, and Solutions](backoff-conflict-sentinel-analysis.md)
+
+## Front-end Specification and Security Updates
+
+* 🔐 2.12.0 - Front-end Specification and Security
+  + [Security Architecture](fe-security.md)
+  + [Trusted Types Bootstrap Design](trusted-types-bootstrap-design.md)
 
 ## Data Service Redesign Progress
 
