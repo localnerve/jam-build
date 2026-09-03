@@ -15,6 +15,7 @@
 * 🧪 [Testing Procedure and Detail](docs/testing-documentation.md)
 * 🎭 [Performance Audits](docs/performance-audits.md)
 * 🔧 [Build Process Summary](docs/build.md)
+* 🔒 [Front-end Security Architecture](docs/fe-security.md)
 * ✨ [Command Reference](docs/commands.md)
 * 📈 [Project Stats Snapshots](docs/stats.md)
 * 🌱 [Analysis Artifacts](docs/analysis.md)

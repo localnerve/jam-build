@@ -23,6 +23,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import './trusted-types.js'; // Trusted Types policy + passthrough shim (must stay first)
 import './app.js';     // App Comm mediator
 import './sw.js';      // Forward msgs from sw
 import { setupHeaderStub } from './header.js'; // Header stub setup

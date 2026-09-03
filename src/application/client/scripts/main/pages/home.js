@@ -168,7 +168,7 @@ async function setupUser () {
   // New user case / No intro text
   setTimeout(() => {
     if (!userIntroControl.innerText) {
-      userIntroControl.innerHTML = noDataMarkup;
+      userIntroControl.innerHTML = window.trustedStaticHtml(noDataMarkup);
     }
   }, 3000);
 
@@ -215,7 +215,7 @@ export default async function setup (support) {
   setTimeout(() => {
     const appPublicIntroControl = document.getElementById(`app-public-${page}-content-intro`);
     if (!appPublicIntroControl.innerText) {
-      appPublicIntroControl.innerHTML = noDataMarkup;
+      appPublicIntroControl.innerHTML = window.trustedStaticHtml(noDataMarkup);
     }
   }, 3000);
 

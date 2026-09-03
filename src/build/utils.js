@@ -18,6 +18,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
+import path from 'node:path';
 
 /**
  * Generate the version - build timestamp string.
@@ -27,4 +28,34 @@
  */
 export function getVersionBuildstamp (appVersion) {
   return `${appVersion}-${(new Date()).toISOString()}`;
+}
+
+/**
+ * Colorized console logger.
+ *
+ * @param {string} owner - The plugin/function/owner name, the named source
+ * @param {string} message - The log message
+ * @param {'log'|'error'|'warn'} [method='log'] - console method to use
+ * @param {import('vinyl')|string} [file=null] - Vinyl file object or file/path string
+ */
+export function log (owner, message, method = 'log', file = null) {
+  const colors = {
+    magenta: '\x1b[35m',
+    yellow: '\x1b[33m',
+    red: '\x1b[31m',
+    green: '\x1b[32m',
+    reset: '\x1b[0m'
+  };
+  let filepath;
+  if (file) {
+    filepath = path.relative(process.cwd(), file?.path ?? file);
+  }
+  const now = new Date();
+  const TN = i => i < 10 ? `0${i}` : i;
+  const timestring = `${TN(now.getHours())}:${TN(now.getMinutes())}:${TN(now.getSeconds())}`;
+
+  // eslint-disable-next-line no-console
+  console[method](
+    `[${colors.magenta}${timestring}${colors.reset}] ${owner}: ${method === 'log' ? colors.green : colors.red}${filepath ? `File ${filepath} - ` : ''}${colors.yellow}${message}${colors.reset}`
+  );
 }

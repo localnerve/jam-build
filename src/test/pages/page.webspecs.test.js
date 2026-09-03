@@ -139,8 +139,24 @@ test.describe('website specification baseline', () => {
       expect(permissions).toContain('camera=()');
       expect(permissions).toContain('geolocation=()');
 
+      // cross-origin isolation baseline on page routes only: COOP severs the
+      // window.opener link (tabnabbing), CORP keeps resources out of other
+      // origins' processes. Assets must not carry these headers.
+      expect(headers['cross-origin-opener-policy']).toBe('same-origin');
+      expect(headers['cross-origin-resource-policy']).toBe('same-site');
+
       // dead header - spec status: avoid
       expect(headers['x-xss-protection']).toBeUndefined();
+    });
+
+    test('assets do not carry page-only security headers', async ({ request }) => {
+      const html = await request.get(`${baseUrl}/about`);
+      const cssHref = (await html.text()).match(/<link[^>]+href="([^"]+\.css)"/)?.[1];
+      expect(cssHref, 'no stylesheet found in page').toBeTruthy();
+      const asset = await request.get(`${baseUrl}${cssHref.startsWith('/') ? '' : '/'}${cssHref}`);
+      expect(asset.status()).toBe(200);
+      expect(asset.headers()['cross-origin-opener-policy']).toBeUndefined();
+      expect(asset.headers()['x-frame-options']).toBeUndefined();
     });
 
     test('page html carries a CSP policy', async ({ page }) => {
