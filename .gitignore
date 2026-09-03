@@ -135,6 +135,9 @@ tmp
 # no private
 private
 
+# no local packages
+packages
+
 # no test-results
 test-results
 
