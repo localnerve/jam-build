@@ -198,6 +198,13 @@ export function setHeaders (logger, tls, res, path) {
     'X-Frame-Options': 'SAMEORIGIN',
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': 'frame-ancestors \'self\';',
+    // Cross-origin isolation baseline on html responses: COOP severs the
+    // window.opener link (tabnabbing / cross-site probing); CORP keeps our
+    // resources out of other origins' processes. No popup flows use
+    // window.opener, so same-origin is safe (spec: relax to
+    // same-origin-allow-popups only if OAuth/payment pop-ups are added).
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Resource-Policy': 'same-site',
     'Link': '</sitemap.xml>; rel="sitemap", </.well-known/security.txt>; rel="security", </llms.txt>; rel="llms-text"'
   };
 
