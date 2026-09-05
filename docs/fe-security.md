@@ -8,7 +8,7 @@ Title: Front-end Security Architecture
 
 > How jam-build defends against XSS and cross-origin attacks with a strict CSP, Trusted Types, and isolated browsing contexts.
 
-This document describes the client-side security model of jam-build: the Content-Security-Policy (CSP), the [Trusted Types](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types) architecture that keeps the app working under `require-trusted-types-for 'script'`, and how the policy allowlist is computed automatically at build time.
+This document describes the client-side security model of jam-build: the Content-Security-Policy (CSP), the [Trusted Types](https://developer.mozilla.org/en-US/docs/Web/API/Trusted_Types_API) architecture that keeps the app working under `require-trusted-types-for 'script'`, and how the policy allowlist is computed automatically at build time.
 
 ## Threat Model
 
