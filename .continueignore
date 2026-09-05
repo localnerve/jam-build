@@ -1,9 +1,0 @@
-coverage/
-dist/
-docker/volumes/**
-dump/
-node_modules/
-private/
-stats/
-test-results/
-tmp/
