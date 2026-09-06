@@ -79,12 +79,15 @@ async function cleanupBuilderImages() {
 
 export async function createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName) {
   const forceAppBuild = !!(process.env.FORCE_BUILD);
+  const prodTestBuild = process.env.TEST_BUILD === 'prod';
   const appHost = 'jam-build';
   const inDevcontainer = process.env.DEVCONTAINER === 'true';
   const networkMode = inDevcontainer ? process.env.DEVCONTAINER_NETWORK : undefined;
   const appAlias = process.env.APP_NETWORK_ALIAS || appHost;
 
-  debug(`Checking ${appImageName}... FORCE_BUILD=${forceAppBuild}`);
+  // Distinct image tags per build mode: reusing a tag across modes would
+  // silently serve the stale, wrong-mode image (checkImageExists short-circuit).
+  debug(`Checking ${appImageName}... FORCE_BUILD=${forceAppBuild} TEST_BUILD=${prodTestBuild ? 'prod' : 'dev'}`);
 
   let appContainerImage;
   if (await checkImageExists(appImageName) && !forceAppBuild) {
@@ -94,16 +97,19 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
     const userInfo = os.userInfo();
     debug(`Building image ${appImageName}`, userInfo, os.arch(), process.env.AUTHZ_URL, process.env.AUTHZ_CLIENT_ID);
 
+    // AUTHZ_URL is baked into the client bundle (rollup replace) and the CSP
+    // connect-src/framesrc at build time — it must be the endpoint browsers
+    // will actually reach (e.g. the TLS authorizer URL in prod test mode).
     appContainerImage = await GenericContainer.fromDockerfile(path.resolve(thisDir, toRoot), 'Dockerfile')
       .withBuildArgs({
         UID: `${userInfo.uid}`,
         GID: `${userInfo.gid}`,
         TARGETARCH: `${os.arch()}`,
-        DEV_BUILD: '1',
+        DEV_BUILD: prodTestBuild ? '0' : '1',
         AUTHZ_URL: process.env.AUTHZ_URL,
         AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID
       })
-      .withTarget('runtime-dev')
+      .withTarget(prodTestBuild ? 'runtime-prod-cover' : 'runtime-dev')
       .withCache(true)
       .build(appImageName, {
         deleteOnExit: false
@@ -115,10 +121,17 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
 
   debug(`Starting ${appImageName}...`);
 
+  // prod test mode runs a production build under c8 (start:cover) behind a TLS
+  // proxy; dev mode keeps the instrumented dev build. No --ENV-PATH in either
+  // case: containers rely on process env (setHostEnv falls back when absent).
+  const entrypoint = prodTestBuild
+    ? ['npm', 'run', 'start:cover', '--', '--PORT=5000', '--TLS']
+    : ['npm', 'run', 'dev:cover'];
+
   let appBuilder = appContainerImage
     .withName(appAlias)
     .withExposedPorts(5000)
-    .withEntrypoint(['npm', 'run', 'dev:cover'])
+    .withEntrypoint(entrypoint)
     .withPullPolicy(PullPolicy.defaultPolicy())
     .withEnvironment({
       DB_DATABASE: process.env.DB_DATABASE,

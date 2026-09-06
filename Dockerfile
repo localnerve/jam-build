@@ -55,6 +55,46 @@ EXPOSE 5000
 
 ENTRYPOINT ["npm", "start", "--", "--PORT=5000", "--ENV-PATH=/run/secrets/jam-env.json"]
 
+# Production runtime with coverage stage - production build (fingerprinted,
+# minified, hashed CSP) plus devDependencies so the server can run under c8
+# and tests collect server-side coverage from a production-like app
+FROM node:24.18.0-alpine AS runtime-prod-cover
+WORKDIR /home/node/app
+
+ARG UID=1000
+ARG GID=1000
+
+USER root
+
+RUN apk --no-cache add shadow && \
+  usermod -u $UID -g node -o node && \
+  groupmod -g $GID -o node && \
+  mkdir -p /home/node/app && \
+  chown -R node:node /home/node/app
+
+USER node
+
+# Copy all dependencies from builder (includes c8 and other devDependencies)
+COPY --from=builder --chown=node:node /home/node/app/package*.json ./
+COPY --from=builder --chown=node:node /home/node/app/node_modules ./node_modules
+
+# Copy c8 configuration for coverage reporting
+COPY --from=builder --chown=node:node /home/node/app/.c8rc.json ./
+
+# Copy the specific folders required for your start script
+COPY --from=builder --chown=node:node /home/node/app/dist ./dist
+COPY --from=builder --chown=node:node /home/node/app/src/application/server ./src/application/server
+
+# Create coverage directory for c8 output
+RUN mkdir -p coverage && chown node:node coverage
+
+# Set runtime environment
+ENV NODE_ENV=production
+
+EXPOSE 5000
+
+ENTRYPOINT ["npm", "start", "--", "--PORT=5000", "--ENV-PATH=/run/secrets/jam-env.json"]
+
 # Development runtime stage - includes all dependencies (c8, etc.) for testing
 FROM node:24.18.0-alpine AS runtime-dev
 WORKDIR /home/node/app

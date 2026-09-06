@@ -35,6 +35,17 @@ let containerNetwork = null;
 let mariadbContainer = null;
 
 async function shutdownAppContainer (appContainer) {
+  // build-only runs (FORCE_BUILD, e.g. `npm run test:build[:prod]`) start the
+  // app just to prove the image boots — no tests ran, so there is no coverage
+  // to flush or extract, and BASE_URL may be an endpoint that cannot route to
+  // this container from this host (a bare host has no Caddy for it). Stop the
+  // container directly.
+  if (process.env.FORCE_BUILD) {
+    debug('FORCE_BUILD set — build-only run: stopping appContainer without coverage extraction...');
+    await appContainer.stop();
+    return;
+  }
+
   const baseUrl = process.env.BASE_URL;
 
   debug('Sending shutdown request to app in appContainer...');
@@ -126,6 +137,47 @@ async function teardown () {
   debug('Teardown globals success');
 }
 
+// Resolve the endpoints browsers will reach (AUTHZ_URL, BASE_URL).
+// In prod test mode both must already be set (by the test:env:prod script or
+// the environment) BEFORE the app image is built — AUTHZ_URL is baked into
+// the client bundle and CSP at build time, the same contract as real
+// deployments (Dockerfile ARG AUTHZ_URL). There is no endpoint-less prod
+// image. The devcontainer defaults live in test:env:prod, kept aligned with
+// the project Caddyfile; other hosts override with their own TLS proxy URLs.
+function resolveUrls (prodTestBuild) {
+  if (prodTestBuild) {
+    const authzUrl = process.env.AUTHZ_URL;
+    const baseUrl = process.env.BASE_URL;
+
+    if (!authzUrl || !baseUrl) {
+      throw new Error(
+        'TEST_BUILD=prod requires AUTHZ_URL and BASE_URL — https URLs of the TLS proxy in front of the containers (set by test:env:prod, override for non-devcontainer hosts).'
+      );
+    }
+
+    if (!authzUrl.startsWith('https:') || !baseUrl.startsWith('https:')) {
+      throw new Error(
+        'TEST_BUILD=prod requires TLS endpoints — AUTHZ_URL and BASE_URL must be https:// URLs'
+      );
+    }
+
+    return { authzUrl, baseUrl };
+  }
+
+  // In devcontainer, Caddy provides real HTTPS via DuckDNS —
+  // use the public hostnames so all browser engines get a trusted cert
+  // and secure-context APIs (Service Worker, cookies) work correctly.
+  // On host/GHA, use the direct container host:port (no Caddy).
+  if (process.env.DEVCONTAINER) {
+    return {
+      authzUrl: 'https://rp-localnerve.duckdns.org',   // Keep aligned with local Caddyfile
+      baseUrl: 'https://ln.rp-localnerve.duckdns.org'  // Keep aligned with local Caddyfile
+    };
+  }
+
+  return null;
+}
+
 export default async function setup () {
   const localAppUrl = process.env.LOCALAPP_URL;
   
@@ -138,21 +190,24 @@ export default async function setup () {
     return () => {};
   }
 
+  const prodTestBuild = process.env.TEST_BUILD === 'prod';
+  const urls = resolveUrls(prodTestBuild);
+
+  if (urls) {
+    process.env.AUTHZ_URL = urls.authzUrl;
+    process.env.BASE_URL = urls.baseUrl;
+  }
+
   const startTime = (new Date()).toISOString();
   debug('Setup globals, start: ', startTime);
 
   ({ authorizerContainer, containerNetwork, mariadbContainer } = await createDatabaseAndAuthorizer());
 
-  appContainer = await createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, appImageName);
+  appContainer = await createAppContainer(authorizerContainer, containerNetwork, mariadbContainer, prodTestBuild ? 'jam-build-test-prod' : appImageName);
 
-  // In devcontainer, Caddy provides real HTTPS via DuckDNS —
-  // use the public hostnames so all browser engines get a trusted cert
-  // and secure-context APIs (Service Worker, cookies) work correctly.
-  // On host/GHA, use the direct container host:port (no Caddy).
-  if (process.env.DEVCONTAINER) {
-    process.env.AUTHZ_URL = 'https://rp-localnerve.duckdns.org';    // Keep aligned with local Caddyfile
-    process.env.BASE_URL = 'https://ln.rp-localnerve.duckdns.org';  // Keep aligned with local Caddyfile
-  } else {
+  // If the urls were not already derived, assign them now from the docker network setup.
+  // In a dev mode outside a devcontainer: direct container host:port (no Caddy or other support)
+  if (!urls) {
     process.env.AUTHZ_URL = `http://${authorizerContainer.getHost()}:${authorizerContainer.getMappedPort(9011)}`;
     process.env.BASE_URL = `http://${appContainer.getHost()}:${appContainer.getMappedPort(5000)}`;
   }

@@ -27,8 +27,10 @@
     "lint:js": "eslint .",
     "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
+    "start:cover": "c8 node src/application/server --TEST",
     "test": "npm run test:env -- playwright test --project=Chromium",
     "test:build": "npm run test:env -- DEBUG=testcontainers*,server*,api* FORCE_BUILD=1 node ./src/test/build.js",
+    "test:build:prod": "npm run test:env:prod -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 node ./src/test/build.js",
     "test:chromium": "npm run test",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=Chromium --workers=1 --timeout=600000 --headed",
     "test:devcontainer:diag": "npm run test:env -- node --experimental-vm-modules ./src/test/diagnose-network.js",
@@ -36,6 +38,7 @@
     "test:env": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 AUTHZ_NETWORK_ALIAS=jam-build-authorizer APP_NETWORK_ALIAS=jam-build-app AUTHZ_ADMIN_SECRET=deadbEf-2af536fa AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
     "test:env:local": "npm run test:env -- AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} AUTHZ_URL=${AUTHZ_URL:-http://localhost:9010} LOCALAPP_URL=${LOCALAPP_URL:-http://localhost:5000}",
     "test:env:local:proxy": "npm run test:env -- AUTHZ_URL=${AUTHZ_URL:-https://rp-localnerve.duckdns.org} AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} LOCALAPP_URL=${LOCALAPP_URL:-https://ln.rp-localnerve.duckdns.org}",
+    "test:env:prod": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 TEST_BUILD=prod AUTHZ_URL=${AUTHZ_URL:-https://rp-localnerve.duckdns.org} BASE_URL=${BASE_URL:-https://ln.rp-localnerve.duckdns.org} AUTHZ_NETWORK_ALIAS=jam-build-authorizer APP_NETWORK_ALIAS=jam-build-app AUTHZ_ADMIN_SECRET=deadbEf-2af536fa AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
     "test:firefox": "npm run test:env -- playwright test --project=Firefox --timeout=20000",
     "test:local": "npm run build:dev:sw && npm run test:env:local -- playwright test --project=Chromium",
     "test:local:api": "npm run test:env:local -- playwright test --project=api --max-failures=1",
@@ -68,6 +71,9 @@
     "test:local:_data:app": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=localdata-app",
     "test:local:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000",
     "test:performance": "npm run test:env -- playwright test --project=performance --max-failures=1",
+    "test:prod": "npm run test:env:prod -- playwright test --project=Chromium",
+    "test:prod:firefox": "npm run test:env:prod -- playwright test --project=Firefox --timeout=20000",
+    "test:prod:webkit": "npm run test:env:prod -- DEBUG=test:login.utils WEBKIT=1 playwright test --project=Webkit --timeout=20000",
     "test:webkit": "npm run test:env -- DEBUG=test:login.utils WEBKIT=1 playwright test --project=Webkit --timeout=20000"
   },
   "imports": {
