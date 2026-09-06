@@ -2,6 +2,11 @@ FROM node:24.18.0-alpine AS builder
 ARG AUTHZ_URL=http://localhost:9010
 ARG AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64
 ARG DEV_BUILD=0
+# TEST_BUILD=prod (prod test image only): instrument the service worker for
+# coverage (SW_INSTRUMENT) so c8 can collect SW-side coverage from a
+# production build. Real deployments never set it -> clean, uninstrumented SW.
+ARG TEST_BUILD=
+ENV TEST_BUILD=$TEST_BUILD
 
 USER root
 RUN apk --no-cache add shadow
@@ -15,8 +20,8 @@ RUN npm ci
 COPY . .
 RUN if [ "$DEV_BUILD" = "0" ]; then \
   echo "Production build"; \
-  echo "Building with AUTHZ_URL=$AUTHZ_URL, AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID"; \
-  AUTHZ_URL=$AUTHZ_URL AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID npm run build; \
+  echo "Building with AUTHZ_URL=$AUTHZ_URL, AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID TEST_BUILD=$TEST_BUILD"; \
+  SW_INSTRUMENT=${TEST_BUILD:+1} AUTHZ_URL=$AUTHZ_URL AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID npm run build; \
 else \
   echo "Coverage/development build"; \
   echo "Building with AUTHZ_URL=$AUTHZ_URL, AUTHZ_CLIENT_ID=$AUTHZ_CLIENT_ID"; \

@@ -106,6 +106,11 @@ export async function createAppContainer(authorizerContainer, containerNetwork, 
         GID: `${userInfo.gid}`,
         TARGETARCH: `${os.arch()}`,
         DEV_BUILD: prodTestBuild ? '0' : '1',
+        // The builder needs TEST_BUILD itself (not just the runtime): a prod
+        // test build instruments the service worker (SW_INSTRUMENT) so c8 can
+        // collect SW-side coverage from a production build. Real deploys never
+        // set it -> clean SW.
+        TEST_BUILD: prodTestBuild ? 'prod' : '',
         AUTHZ_URL: process.env.AUTHZ_URL,
         AUTHZ_CLIENT_ID: process.env.AUTHZ_CLIENT_ID
       })
