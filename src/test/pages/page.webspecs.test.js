@@ -149,11 +149,18 @@ test.describe('website specification baseline', () => {
       expect(headers['x-xss-protection']).toBeUndefined();
     });
 
-    test('assets do not carry page-only security headers', async ({ request }) => {
-      const html = await request.get(`${baseUrl}/about`);
-      const cssHref = (await html.text()).match(/<link[^>]+href="([^"]+\.css)"/)?.[1];
-      expect(cssHref, 'no stylesheet found in page').toBeTruthy();
-      const asset = await request.get(`${baseUrl}${cssHref.startsWith('/') ? '' : '/'}${cssHref}`);
+    test('assets do not carry page-only security headers', async ({ page, request }) => {
+      await page.goto(`${baseUrl}/about`);
+
+      // Read the stylesheet URL from the rendered DOM, not raw HTML: prod
+      // builds minify with removeAttributeQuotes, so a quoted-href regex on
+      // the source is unreliable. el.href resolves to an absolute URL that
+      // works in every mode (dev unfingerprinted, devcontainer, prod).
+      const cssHrefs = await page.locator('link[rel="stylesheet"]')
+        .evaluateAll(els => els.map(el => el.href));
+      expect(cssHrefs.length, 'no stylesheet found in page').toBeGreaterThan(0);
+
+      const asset = await request.get(cssHrefs[0]);
       expect(asset.status()).toBe(200);
       expect(asset.headers()['cross-origin-opener-policy']).toBeUndefined();
       expect(asset.headers()['x-frame-options']).toBeUndefined();
@@ -244,8 +251,13 @@ test.describe('website specification baseline', () => {
       await expect(contentinfo.last()).toBeAttached();
     });
 
-    test('web manifest is valid and installable', async ({ request }) => {
-      const response = await request.get(`${baseUrl}/site.webmanifest`);
+    test('web manifest is valid and installable', async ({ page, request }) => {
+      await page.goto(`${baseUrl}/about`);
+      const link = page.locator('link[rel="manifest"]');
+      await expect(link).toHaveCount(1);
+
+      const webmanifest = await link.getAttribute('href');
+      const response = await request.get(`${baseUrl}/${webmanifest}`);
       expect(response.status()).toBe(200);
       const manifest = await response.json();
 
@@ -265,7 +277,7 @@ test.describe('website specification baseline', () => {
       await page.goto(`${baseUrl}/about`);
       const link = page.locator('link[rel="manifest"]');
       await expect(link).toHaveCount(1);
-      await expect(link.first()).toHaveAttribute('href', /site\.webmanifest/);
+      await expect(link.first()).toHaveAttribute('href', /site(?:-[0-9a-f]{10})?\.webmanifest/);
     });
   });
 

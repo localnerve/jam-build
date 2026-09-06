@@ -102,28 +102,32 @@ export async function stopJS (browserName, page, map) {
 }
 
 async function getSwCoverage (page) {
-  await page.addScriptTag({
-    content: 'async function __send_message_to_sw (msg) { \
-      const registration = await navigator.serviceWorker.ready; \
-      \
-      return new Promise((resolve, reject) => { \
-        const msg_chan = new MessageChannel(); \
-        \
-        msg_chan.port1.onmessage = event => { \
-          if (event.data.error) { \
-            reject(event.data.error); \
-          } else { \
-            resolve(event.data); \
-          } \
-        }; \
-        \
-        registration.active.postMessage(msg, [msg_chan.port2]); \
-      }); \
-    };'
-  });
-
+  // Deliberately one page.evaluate (browser-protocol execution), NOT a DOM
+  // <script> injection: prod pages enforce require-trusted-types-for
+  // 'script', and script.text assignment requires a TrustedScript from the
+  // reserved 'default' policy - which the app registers without createScript.
+  // Harness code must never inject DOM scripts into app pages (see
+  // docs/testing-architecture.md).
   const coverage = await page.evaluate(async () => {
-    const { action, result } = await __send_message_to_sw({ action: '__coverage__' });
+    async function sendToSw (msg) {
+      const registration = await navigator.serviceWorker.ready;
+
+      return new Promise((resolve, reject) => {
+        const msg_chan = new MessageChannel();
+
+        msg_chan.port1.onmessage = event => {
+          if (event.data.error) {
+            reject(event.data.error);
+          } else {
+            resolve(event.data);
+          }
+        };
+
+        registration.active.postMessage(msg, [msg_chan.port2]);
+      });
+    }
+
+    const { action, result } = await sendToSw({ action: '__coverage__' });
     if (action === '__coverage__') return result;
     throw new Error('Got unexpected message, needed __coverage__');
   });

@@ -7,7 +7,7 @@
 Status: **scaffolded + tested** (2026-09-02) — package lives at
 `~/projects/trusted-types-bootstrap`, 21/21 tests green, lint clean; publish +
 jam-build migration pending. The immediate escape fixes this design builds on
-are already landed (see [Security Architecture](security.md)).
+are already landed (see [Security Architecture](fe-security.md)).
 
 ## Problem
 

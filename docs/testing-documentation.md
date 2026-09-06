@@ -28,6 +28,7 @@ Jam-Build implements a sophisticated multi-layered testing approach that combine
 * 🛟 [Troubleshooting](#troubleshooting)
 * 💚 [Coverage Reports](#coverage-reports)
 * 🌐 [Multi-browser Testing and CI](browser-testing-doc.md)
+* 🧩 [Testing Architecture — Subtle Dependencies](testing-architecture.md)
 
 ## Test Organization
 
@@ -183,6 +184,35 @@ npm run test:local
 # Debug all local tests
 npm run test:local:debug
 ```
+
+### Production Test Builds (TEST_BUILD=prod)
+
+Commands that begin `test:prod`... build and run a **production** app image (fingerprinted assets, minified bundles, hash-based CSP, HSTS via `--TLS`) instead of the instrumented dev build. They still collect server-side c8 coverage — the production build runs under `c8` (`npm run start:cover`) in the `runtime-prod-cover` Dockerfile stage.
+
+Production test mode requires TLS endpoints (HSTS and secure-context APIs are part of what is being verified), so it must point at a TLS reverse proxy in front of the containers:
+
+- **In the devcontainer** nothing extra is needed — the existing Caddy sites (`ln.rp-localnerve.duckdns.org`, `rp-localnerve.duckdns.org`) are used by default. Run `npm run test:devcontainer:setup` once first.
+- **On any other host/container setup**, override `BASE_URL` and `AUTHZ_URL` with the https URLs your TLS proxy exposes for the app and authorizer before running (`test:env:prod` defaults them to the devcontainer Caddy names).
+
+```bash
+# Production build behind TLS — Chromium (analog of npm run test)
+npm run test:prod
+
+# Production build behind TLS — Firefox / WebKit
+npm run test:prod:firefox
+npm run test:prod:webkit
+```
+
+Notes:
+
+- The dev and prod images use distinct tags (`jam-build-test` / `jam-build-test-prod`) so switching modes never silently reuses the stale, wrong-mode image. Use `FORCE_BUILD=1` to rebuild either.
+- `AUTHZ_URL` is baked into the client bundle and CSP at image build time, so it must match the authorizer endpoint browsers actually reach (the HTTPS URL in prod mode).
+- Only one app container runs at a time — dev and prod test runs share the same network alias and port; they are never meant to run simultaneously.
+
+> The *why* behind these constraints — build-time vs runtime endpoint resolution,
+> `__authorizerOverrides`, CSP enforcement differences between dev and prod builds,
+> and the coverage pipeline — is documented in
+> [Testing Architecture — Subtle Dependencies](testing-architecture.md).
 
 ### Playwright Project Configuration
 

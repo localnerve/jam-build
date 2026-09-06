@@ -141,10 +141,13 @@ export async function startPage (url, page) {
     timeout: 8000
   });
 
-  // For headed debugging
-  await page.addScriptTag({
-    content: 'localStorage.setItem("debug", "*");'
-  });
+  // For headed debugging. Deliberately page.evaluate (browser-protocol
+  // execution), NOT a DOM <script> injection: prod pages enforce
+  // require-trusted-types-for 'script', and script.text assignment requires a
+  // TrustedScript from the reserved 'default' policy - which the app
+  // registers without createScript. Harness code must never inject DOM
+  // scripts into app pages (see docs/testing-architecture.md).
+  await page.evaluate(() => localStorage.setItem('debug', '*'));
 
   const storeType = makeStoreType('app', 'public');
 
