@@ -42,8 +42,10 @@ export function assetRevision (settings) {
       '!**/*.html',
       '!**/*.css', // not yet, must be done next step
       '!**/robots.txt',
+      '!**/llms.txt',
       '!**/sitemap.xml',
       '!**/*manifest.json',
+      '!**/.well-known/**',
       '!**/*-+([a-f0-9]).*' // don't match any pre-revved
     ], { restore: true });
 
