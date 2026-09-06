@@ -120,6 +120,41 @@ the same string.
   rather than silently passing — and why prod mode exists to make those tests
   pass *for real*.
 
+## Trusted Types in prod test mode (rule: no DOM script injection)
+
+Prod pages enforce `require-trusted-types-for 'script'` with a **computed,
+hash-locked** policy allowlist. The app's bootstrap owns the reserved
+`default` policy and deliberately registers it **without** a `createScript`
+hook (so `eval`/`new Function` stay blocked). Per spec, plain-string
+auto-conversion at Trusted Types sinks consults *only* the `default` policy —
+no named test policy can intercept them. Consequence:
+
+> **The harness must never inject DOM `<script>` elements into app pages**
+> (`page.addScriptTag({content, path})`). Under the prod CSP that is illegal
+> no matter what hashes or allowlist entries are baked in, because the sink
+> requires a `TrustedScript` from `default`, which does not exist on purpose.
+
+The harness therefore runs all page-side test code through
+**`page.evaluate` / `page.addInitScript`** — browser-protocol execution that
+is outside both `script-src` and Trusted Types enforcement:
+
+- `page.utils.js startPage()`: the debug flag (`localStorage.setItem(...)`)
+  is a one-line `evaluate`, not an injected script.
+- `coverage.js getSwCoverage()`: the SW message helper lives *inside* the
+  `evaluate` body (a local function), not as an injected script.
+- `initScriptDataUpdate` (`window.__authorizerOverrides`, the SW data-update
+  hook) was already an `addInitScript` and needed nothing.
+
+An earlier attempt baked a `jam-app-tests` policy name + injected-script sha256
+hashes into the prod test image's CSP meta. It was reverted: named policies
+cannot satisfy the `default`-only sink, so it never worked — and keeping those
+extra directives would only *weaken* the exact property prod mode exists to
+test. The prod test image's CSP meta is byte-identical to a real deployment's.
+
+The one remaining DOM injection is legal by construction: `authz.js` injects
+`@localnerve/authorizer-js` on a **blank fixture page** (no CSP meta at all)
+during sign-in; only the captured cookies flow into real contexts.
+
 ## Coverage pipeline (identical for dev and prod test modes)
 
 Both containerized tiers run the server under `c8` and extract coverage on
@@ -137,6 +172,16 @@ image does `npm ci --omit=dev` (no c8), so "production-like" testing would
 otherwise silently lose server-side coverage. The stage reuses the shared
 builder layer, so it costs only one extra small image layer — not a second
 build of the app.
+
+**Service-worker instrumentation is mode-gated at build time.** `src/build/sw.js`
+only instruments the `sw.custom` bundle (istanbul, `self.__coverage__`) when
+`SW_INSTRUMENT` is set. The Dockerfile sets it in *both* test modes: always for
+the dev build, and for the prod build **iff** `TEST_BUILD=prod` reaches the
+builder (build arg from `services.js`). A real-deploy prod image never carries
+instrumentation. Only chromium ever requests SW coverage (`stopJS` returns
+early on other browsers), so a missing `self.__coverage__` surfaces as
+`Object.keys(undefined)` in `coverage.js` — if you see that, the image was
+built without `TEST_BUILD=prod` (stale tag; use `FORCE_BUILD=1`).
 
 **Naked-host (`test:local:*`) runs collect no server-side coverage** — there
 is no c8 wrapper and no container to tar from. Treat local runs as behavior
