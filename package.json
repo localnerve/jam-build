@@ -72,6 +72,7 @@
     "test:local:_clean": "npm run test:env:local -- DEBUG=api*,test* playwright test --project=deletelocaldata --timeout=60000",
     "test:performance": "npm run test:env -- playwright test --project=performance --max-failures=1",
     "test:prod": "npm run test:env:prod -- playwright test --project=Chromium",
+    "test:prod:chromium": "npm run test:env:prod -- playwright test --project=Chromium",
     "test:prod:firefox": "npm run test:env:prod -- playwright test --project=Firefox --timeout=20000",
     "test:prod:webkit": "npm run test:env:prod -- DEBUG=test:login.utils WEBKIT=1 playwright test --project=Webkit --timeout=20000",
     "test:webkit": "npm run test:env -- DEBUG=test:login.utils WEBKIT=1 playwright test --project=Webkit --timeout=20000"
