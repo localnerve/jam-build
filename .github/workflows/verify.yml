@@ -35,8 +35,12 @@ jobs:
         run: npx playwright install
       - name: Run Linter
         run: npm run lint
-      - name: Check Production Build
-        run: npm run build
+      - name: Check Production Build (strict JSON-LD)
+        # --strict turns advisories into hard failures
+        run: npm run build -- --strict
+      - name: Validate Structured Data in Built HTML
+        # schema.org vocabulary + Rich Results check of the emitted islands
+        run: npm run jsonld:validate
       - name: Archive Build Stats
         if: success() && env.REPORT_ARTIFACTS == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -64,10 +64,13 @@ async function createBuild (settings, args) {
     async function audit () {
       if (args.dump) {
         const { loadSiteData } = await import('./data.js');
+        const { loadJsonLd } = await import('./jsonld.js');
         const data = await loadSiteData('data');
+        const jsonld = await loadJsonLd('data', { strict: Boolean(args.strict) });
         await fs.mkdir('dump', { recursive: true });
         await fs.writeFile('dump/site-data.json', JSON.stringify(data, null, 2));
         await fs.writeFile('dump/build-settings.json', JSON.stringify(settings, null, 2));
+        await fs.writeFile('dump/jsonld.json', JSON.stringify(jsonld, null, 2));
       }
     }
   );

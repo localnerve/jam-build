@@ -25,6 +25,7 @@ import { default as hbHelpers } from './hb-helpers.js';
 import { compileStyles } from './styles.js';
 import { compileScripts } from './scripts.js';
 import { loadSiteData } from './data.js';
+import { loadJsonLd } from './jsonld.js';
 
 /**
  * Load the inline css files.
@@ -221,6 +222,8 @@ async function createTemplates (
   const inlineCss = await loadInlineCss(styleOptions);
   const inlineScriptPartials = await loadInlineScripts(scriptOptions);
   const content = await loadContent(srcContent);
+  // args.strict (CI-only) turns validateGraph advisories into hard failures.
+  const jsonld = await loadJsonLd(srcData, { strict: Boolean(args.strict) });
 
   const hb = Handlebars;
   setupHandlebars(
@@ -247,6 +250,7 @@ async function createTemplates (
         // invariants
         inlineCss: inlineCss.names,
         content: content.names,
+        jsonld: jsonld[page.name] || '',
         siteData
       });
     }
@@ -287,6 +291,7 @@ export async function renderHtml (settings, args) {
       siteData: page.siteData,
       inlineCss: page.inlineCss,
       content: page.content,
+      jsonld: page.jsonld,
       connectsrc,
       framesrc
     });
