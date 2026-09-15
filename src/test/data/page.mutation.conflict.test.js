@@ -303,8 +303,10 @@ test.describe('conflict resolution tests', () => {
 
   // This test will ALWAYS work to exercise the backoff for pageC
   test('cascading conflict, three clients, force backoff', async ({ browserName, browser }, testInfo) => {
+    // eslint-disable-next-line playwright/no-skipped-test
     testInfo.skip(browser.browserType().name() !== 'chromium',
       'Route interception for service worker requests requires chromium');
+
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
     const delayPadding = process.env.CI ? 6000 : 3200; // eslint-disable-line  playwright/no-conditional-in-test
@@ -386,8 +388,10 @@ test.describe('conflict resolution tests', () => {
   });
 
   test('backoff max retries exceeded shows error message', async ({ browserName, browser }, testInfo) => {
+    // eslint-disable-next-line playwright/no-skipped-test
     testInfo.skip(browser.browserType().name() !== 'chromium',
       'Route interception for service worker requests requires chromium');
+
     expect(process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS).toBeTruthy();
 
     const maxRetriesWait = conflictMaxRetries * conflictBackoffMax;

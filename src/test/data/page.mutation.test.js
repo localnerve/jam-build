@@ -233,6 +233,7 @@ test.describe('mutation tests', () => {
 
   test('offline', async ({ browser, browserName }, testInfo) => {
     // we can only test this with chromium
+    // eslint-disable-next-line playwright/no-skipped-test
     testInfo.skip(browserName !== 'chromium', 'Offline emulation is only supported in playwright.dev chromium browser');
 
     // must be run properly, too
