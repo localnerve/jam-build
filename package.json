@@ -26,6 +26,7 @@
     "lint:css": "stylelint src/**/*.scss",
     "lint:js": "eslint .",
     "lint:types": "tsc -p tsconfig.lint.json --pretty false",
+    "jsonld:validate": "node src/build/jsonld-validate.js",
     "maint": "node src/application/server --MAINTENANCE=\"`date -v+2H -u +'%a, %d %b %Y %H:%M:%S GMT'`\" --ENV-PATH=private/host-env.json",
     "start": "NODE_ENV=production node src/application/server --ENV-PATH=private/host-env.json",
     "start:cover": "c8 node src/application/server --TEST",
@@ -117,6 +118,7 @@
     "pino": "^10.3.1"
   },
   "devDependencies": {
+    "@adobe/structured-data-validator": "^1.7.0",
     "@eslint/js": "^10.0.1",
     "@localnerve/csp-hashes": "^8.0.3",
     "@localnerve/editable-object": "^0.5.2",

@@ -222,7 +222,8 @@ async function createTemplates (
   const inlineCss = await loadInlineCss(styleOptions);
   const inlineScriptPartials = await loadInlineScripts(scriptOptions);
   const content = await loadContent(srcContent);
-  const jsonld = await loadJsonLd(srcData);
+  // args.strict (CI-only) turns validateGraph advisories into hard failures.
+  const jsonld = await loadJsonLd(srcData, { strict: Boolean(args.strict) });
 
   const hb = Handlebars;
   setupHandlebars(
