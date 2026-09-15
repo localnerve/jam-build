@@ -40,6 +40,13 @@ import { log } from './utils.js';
 const SKIP_TYPES = new Set(['admin', 'none']);
 
 /**
+ * schema.org container types whose identifying data lives on child items
+ * (e.g. BreadcrumbList's itemListElement), so the top-level name/url check
+ * in validateGraph doesn't apply to them.
+ */
+const CONTAINER_TYPES = ['BreadcrumbList'];
+
+/**
  * nav-type pages get their schema.org \ resolved by page.name, since
  * "nav" alone doesn't tell you if it's the homepage, an About page, etc.
  * Anything not listed here (a nav page you add later) safely falls back
@@ -295,7 +302,10 @@ function validateGraph (graph, pageName, strict = false) {
     if (!node['@type']) {
       issues.push(`node missing @type: ${JSON.stringify(node).slice(0, 80)}`);
     }
-    if (!node.name && !node.url) {
+    // Container nodes carry their identifying data on child items (e.g. a
+    // BreadcrumbList holds name/url inside its itemListElement entries), so
+    // the top-level name/url check doesn't apply to them.
+    if (!CONTAINER_TYPES.includes(node['@type']) && !node.name && !node.url) {
       issues.push(`${node['@type'] || 'node'} has neither name nor url`);
     }
   }
