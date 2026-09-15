@@ -26,6 +26,7 @@
  *    in this material, copies, or source code of derived works.
  */
 import { loadSiteData } from './data.js';
+import { log } from './utils.js';
 
 /**
  * Page types that never get a JSON-LD island.
@@ -147,9 +148,10 @@ function resolvePageType (page) {
   if (page.type === 'nav') {
     return NAV_TYPE_BY_NAME[page.name] || 'WebPage';
   }
+  // INFO: Add any future page.type tests here.
+
   // 'legal' (and any future non-nav content type) has no dedicated
   // schema.org type -- plain WebPage is the spec-correct choice.
-  // Add any future page.type tests here.
   return 'WebPage';
 }
 
@@ -198,47 +200,107 @@ function buildPageNode (page, siteData) {
 }
 
 /**
- * Build the full @graph island for one page (shared nodes + page node),
- * serialized as a ready-to-inline <script> tag.
+ * Sanity-check one page's built graph before it's serialized. This is the
+ * "shift-left" layer -- it runs on every local build via loadJsonLd() and
+ * prints a warning, so a regression shows up the moment you edit
+ * site-data.json or extend the builder registry, not weeks later in CI.
+ * Pass { strict: true } (from a CI-only code path) to turn the same checks
+ * into a hard build failure instead.
+ *
+ * Checks are deliberately structural/self-referential -- "does this graph
+ * make internal sense" -- not spec compliance. Spec/consumption correctness
+ * (does Google/an LLM crawler accept this) is a separate, heavier check
+ * that belongs in CI against the built HTML; see README notes.
+ *
+ * @param {Object} graph - the { '@context', '@graph' } object for one page.
+ * @param {String} pageName - for warning/error messages.
+ * @param {Boolean} strict - throw instead of warn.
+ */
+function validateGraph (graph, pageName, strict = false) {
+  const issues = [];
+  const ids = new Set(graph['@graph'].map(n => n['@id']).filter(Boolean));
+ 
+  // Walk the whole graph looking for { "@id": "..." } reference stubs that
+  // don't resolve to an actual node with that @id in this same graph.
+  // Given the fan-out design (sharedNodes spread into every page), this
+  // should never fire -- if it does, someone broke the "always inline the
+  // shared nodes" contract, e.g. by referencing an org by @id without also
+  // including it in the page's @graph array.
+  const walk = (obj) => {
+    if (Array.isArray(obj)) return obj.forEach(walk);
+    if (obj && typeof obj === 'object') {
+      const keys = Object.keys(obj);
+      if (keys.length === 1 && keys[0] === '@id' && !ids.has(obj['@id'])) {
+        issues.push(`dangling @id reference: ${obj['@id']}`);
+      } else {
+        Object.values(obj).forEach(walk);
+      }
+    }
+  };
+  walk(graph['@graph']);
+ 
+  for (const node of graph['@graph']) {
+    if (!node['@type']) {
+      issues.push(`node missing @type: ${JSON.stringify(node).slice(0, 80)}`);
+    }
+    if (!node.name && !node.url) {
+      issues.push(`${node['@type'] || 'node'} has neither name nor url`);
+    }
+  }
+ 
+  if (issues.length) {
+    const message = `${pageName}: ${issues.join('; ')}`;
+    if (strict) {
+      throw new Error(message);
+    }
+    log('jsonld', message, 'warn');
+  }
+}
+
+/**
+ * Build the full @graph island for one page (shared nodes + page node).
  *
  * @param {Object} page - the page entry from siteData.pages.
  * @param {Object} siteData - global site-data.json.
  * @param {Array} sharedNodes - [Organization, WebSite] nodes, shared by reference.
- * @returns {String|null} The <script type="application/ld+json"> markup, or null to skip.
+ * @returns {Object|null} The { '@context', '@graph' } object, or null to skip.
  */
-function buildPageIsland (page, siteData, sharedNodes) {
+function buildPageGraph (page, siteData, sharedNodes) {
   if (SKIP_TYPES.has(page.type)) {
     return null;
   }
-
   const { node, extras } = buildPageNode(page, siteData);
-  const graph = {
+  return {
     '@context': 'https://schema.org',
     '@graph': [...sharedNodes, node, ...extras]
   };
-
-  // Note: <script type="application/ld+json"> is inert data, not executable
-  // script -- CSP's script-src does not govern it, so this doesn't need (and
-  // won't break under) the CSP hashing done later in html.js.
-  return `<script type="application/ld+json">${JSON.stringify(graph)}</script>`;
 }
 
 /**
  * Build the { pageName: islandMarkup } map for every renderable page.
  *
  * @param {String} dataDir - the directory containing site-data.json.
+ * @param {Object} [options]
+ * @param {Boolean} [options.strict] - fail the build instead of warning
+ *   (wire this to a CI-only flag, e.g. args.ci in index.js).
  * @returns {Object} Hash of page.name -> <script> markup (only for pages that get one).
  */
-export async function loadJsonLd (dataDir) {
+export async function loadJsonLd (dataDir, { strict = false } = {}) {
   const siteData = await loadSiteData(dataDir);
   const sharedNodes = [buildOrganization(siteData), buildWebsite(siteData)];
 
   const jsonld = {};
   for (const page of Object.values(siteData.pages)) {
-    const island = buildPageIsland(page, siteData, sharedNodes);
-    if (island) {
-      jsonld[page.name] = island;
-    }
+    const graph = buildPageGraph(page, siteData, sharedNodes);
+    if (!graph) continue;
+
+    validateGraph(graph, page.name, strict);
+
+    // Note: <script type="application/ld+json"> is inert data, not
+    // executable script -- CSP's script-src does not govern it, so this
+    // doesn't need (and won't break under) the CSP hashing in html.js.
+    jsonld[page.name] = `<script type="application/ld+json">${JSON.stringify(graph)}</script>`;
   }
+
   return jsonld;
 }
