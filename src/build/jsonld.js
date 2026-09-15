@@ -1,8 +1,9 @@
+// @ts-check
 /**
  * Generate per-page JSON-LD "islands" from site-data.json.
  *
  * Pattern: one shared Organization + WebSite graph (defined once, from
- * siteData.business / siteData.social), referenced by @id from every page's
+ * siteData.business / siteData.social), referenced by \ from every page's
  * own WebPage-derived node. Page-type-specific shaping is done through a
  * small builder registry keyed on `page.type`, so adding a new static site
  * type (blog, product, event...) later means registering a new builder here
@@ -39,7 +40,7 @@ import { log } from './utils.js';
 const SKIP_TYPES = new Set(['admin', 'none']);
 
 /**
- * nav-type pages get their schema.org @type resolved by page.name, since
+ * nav-type pages get their schema.org \ resolved by page.name, since
  * "nav" alone doesn't tell you if it's the homepage, an About page, etc.
  * Anything not listed here (a nav page you add later) safely falls back
  * to plain WebPage.
@@ -65,10 +66,31 @@ const ABOUT_ORG_NAMES = new Set(['home', 'about', 'contact']);
 const MAIN_ENTITY_ORG_NAMES = new Set(['about', 'contact']);
 
 /**
+ * The shape of site-data.json consumed by this module (loose on purpose --
+ * it is produced by data.js and validated there).
+ *
+ * @typedef {Object} PageEntry
+ * @property {String} type - page.type ('nav' | 'legal' | 'admin' | 'none' ...).
+ * @property {String} name - the page's key/name.
+ * @property {String} route - the page's URL route, starting with '/'.
+ * @property {String} [label] - short nav label, if any.
+ * @property {String} title - the page title.
+ * @property {String} [description] - per-page description override.
+ *
+ * @typedef {Object} SiteData
+ * @property {Record<String, PageEntry>} pages - keyed by page name.
+ * @property {String} appHost - bare hostname, e.g. 'example.com'.
+ * @property {String} defaultTitle - site-wide title.
+ * @property {String} defaultDescription - site-wide description.
+ * @property {Record<String, any>} business - name/url/logo/phone/email/address.*.
+ * @property {Record<String, any>} [social] - facebook/linkedin/twitter, any subset.
+ */
+
+/**
  * Build the site-wide Organization node. Defined once, referenced everywhere.
  *
- * @param {Object} siteData - global site-data.json.
- * @returns {Object} An Organization node with a stable @id.
+ * @param {SiteData} siteData - global site-data.json.
+ * @returns {import('schema-dts').Organization} An Organization node with a stable identifier derived from appHost.
  */
 function buildOrganization (siteData) {
   const { business, social, appHost } = siteData;
@@ -106,8 +128,8 @@ function buildOrganization (siteData) {
 /**
  * Build the site-wide WebSite node. Defined once, referenced everywhere.
  *
- * @param {Object} siteData - global site-data.json.
- * @returns {Object} A WebSite node with a stable @id.
+ * @param {SiteData} siteData - global site-data.json.
+ * @returns {import('schema-dts').WebSite} A WebSite node with a stable identifier derived from appHost.
  */
 function buildWebsite (siteData) {
   const { appHost, defaultTitle } = siteData;
@@ -123,9 +145,9 @@ function buildWebsite (siteData) {
 /**
  * Build a BreadcrumbList for a single (non-home) page.
  *
- * @param {Object} page - the page entry from siteData.pages.
+ * @param {PageEntry} page - the page entry from siteData.pages.
  * @param {String} appHost - siteData.appHost.
- * @returns {Object} A BreadcrumbList node.
+ * @returns {import('schema-dts').BreadcrumbList} A BreadcrumbList node.
  */
 function buildBreadcrumb (page, appHost) {
   return {
@@ -138,15 +160,20 @@ function buildBreadcrumb (page, appHost) {
   };
 }
 
+/** @type {Record<String, String>} */
+const navTypeByName = NAV_TYPE_BY_NAME;
+
 /**
- * Resolve the schema.org @type for a page, based on page.type / page.name.
+ * Resolve the schema.org type for a page, based on page.type / page.name.
  *
- * @param {Object} page - the page entry from siteData.pages.
- * @returns {String} A schema.org type name.
+ * @param {PageEntry} page - the page entry from siteData.pages.
+ * @returns {'WebPage' | 'AboutPage' | 'ContactPage'} A schema.org type name.
  */
 function resolvePageType (page) {
   if (page.type === 'nav') {
-    return NAV_TYPE_BY_NAME[page.name] || 'WebPage';
+    // The Record's values are the union by construction, but tsc sees
+    // plain string -- narrow explicitly at this single exit point.
+    return /** @type {'WebPage'|'AboutPage'|'ContactPage'} */ (navTypeByName[page.name] || 'WebPage');
   }
   // INFO: Add any future page.type tests here.
 
@@ -158,9 +185,10 @@ function resolvePageType (page) {
 /**
  * Build the page-specific WebPage-derived node for a single page.
  *
- * @param {Object} page - the page entry from siteData.pages.
- * @param {Object} siteData - global site-data.json.
- * @returns {Object} The page node, plus (if applicable) its breadcrumb node.
+ * @param {PageEntry} page - the page entry from siteData.pages.
+ * @param {SiteData} siteData - global site-data.json.
+ * @returns {{ node: PageNode, extras: Array<import('schema-dts').BreadcrumbList> }}
+ *   The page node, plus (if applicable) its breadcrumb node.
  */
 function buildPageNode (page, siteData) {
   const { appHost } = siteData;
@@ -168,35 +196,48 @@ function buildPageNode (page, siteData) {
   const orgId = `https://${appHost}/#organization`;
   const siteId = `https://${appHost}/#website`;
 
+  /**
+   * The concrete type is chosen at runtime (WebPage/AboutPage/ContactPage).
+   * Intersecting the three schema-dts types directly would collapse to never
+   * (each pins a different '@type' literal), so pin WebPage's shape and
+   * widen only '@type'.
+   *
+   * @typedef {Omit<import('schema-dts').WebPage, '@type'> & { '@type': 'WebPage' | 'AboutPage' | 'ContactPage' }} PageNode
+   */
   const node = {
-    '@type': resolvePageType(page),
+    '@type': /** @type {'WebPage'|'AboutPage'|'ContactPage'} */ (resolvePageType(page)),
     '@id': `${pageUrl}#webpage`,
     url: pageUrl,
     name: page.title,
     isPartOf: { '@id': siteId }
   };
+  /** @type {PageNode} */
+  const pageNode = node;
 
   if (page.description) {
-    node.description = page.description;
+    pageNode.description = page.description;
   } else {
-    node.description = siteData.defaultDescription;
+    pageNode.description = siteData.defaultDescription;
   }
 
   if (ABOUT_ORG_NAMES.has(page.name) || page.type === 'legal') {
-    node.about = { '@id': orgId };
+    pageNode.about = { '@id': orgId };
   }
   if (MAIN_ENTITY_ORG_NAMES.has(page.name)) {
-    node.mainEntity = { '@id': orgId };
+    pageNode.mainEntity = { '@id': orgId };
   }
 
+  /** @type {Array<import('schema-dts').BreadcrumbList>} */
   const extras = [];
   if (page.route !== '/') {
     const breadcrumb = buildBreadcrumb(page, appHost);
-    node.breadcrumb = { '@id': breadcrumb['@id'] };
+    // schema-dts marks @id optional, but buildBreadcrumb always sets it.
+    const breadcrumbId = /** @type {String} */ (breadcrumb['@id']);
+    pageNode.breadcrumb = { '@id': breadcrumbId };
     extras.push(breadcrumb);
   }
 
-  return { node, extras };
+  return { node: pageNode, extras };
 }
 
 /**
@@ -204,7 +245,7 @@ function buildPageNode (page, siteData) {
  * "shift-left" layer -- it runs on every local build via loadJsonLd() and
  * prints a warning, so a regression shows up the moment you edit
  * site-data.json or extend the builder registry, not weeks later in CI.
- * Pass { strict: true } (from a CI-only code path) to turn the same checks
+ * Pass strict = true (from a CI-only code path) to turn the same checks
  * into a hard build failure instead.
  *
  * Checks are deliberately structural/self-referential -- "does this graph
@@ -212,7 +253,12 @@ function buildPageNode (page, siteData) {
  * (does Google/an LLM crawler accept this) is a separate, heavier check
  * that belongs in CI against the built HTML; see README notes.
  *
- * @param {Object} graph - the { '@context', '@graph' } object for one page.
+ * The graph nodes are heterogeneous schema.org objects (and schema-dts
+ * leaf types carry no index signature), so the element type is
+ * intentionally loose -- this function only inspects '@type', 'name'
+ * and 'url'.
+ *
+ * @param {{ '@context': String, '@graph': any[] }} graph - the island object for one page.
  * @param {String} pageName - for warning/error messages.
  * @param {Boolean} strict - throw instead of warn.
  */
@@ -220,26 +266,32 @@ function validateGraph (graph, pageName, strict = false) {
   const issues = [];
   const ids = new Set(graph['@graph'].map(n => n['@id']).filter(Boolean));
  
-  // Walk the whole graph looking for { "@id": "..." } reference stubs that
+  // Walk the whole graph looking for single-key @id reference stubs that
   // don't resolve to an actual node with that @id in this same graph.
   // Given the fan-out design (sharedNodes spread into every page), this
   // should never fire -- if it does, someone broke the "always inline the
   // shared nodes" contract, e.g. by referencing an org by @id without also
-  // including it in the page's @graph array.
+  // including it in the page's graph list.
+  /**
+   * @param {unknown} obj
+   */
   const walk = (obj) => {
     if (Array.isArray(obj)) return obj.forEach(walk);
     if (obj && typeof obj === 'object') {
-      const keys = Object.keys(obj);
-      if (keys.length === 1 && keys[0] === '@id' && !ids.has(obj['@id'])) {
-        issues.push(`dangling @id reference: ${obj['@id']}`);
+      const rec = /** @type {Record<string, unknown>} */ (obj);
+      const keys = Object.keys(rec);
+      if (keys.length === 1 && keys[0] === '@id' && !ids.has(rec['@id'])) {
+        issues.push(`dangling @id reference: ${rec['@id']}`);
       } else {
-        Object.values(obj).forEach(walk);
+        Object.values(rec).forEach(walk);
       }
     }
   };
   walk(graph['@graph']);
  
-  for (const node of graph['@graph']) {
+  /** @type {Array<Record<string, any>>} */
+  const nodes = graph['@graph'];
+  for (const node of nodes) {
     if (!node['@type']) {
       issues.push(`node missing @type: ${JSON.stringify(node).slice(0, 80)}`);
     }
@@ -258,12 +310,12 @@ function validateGraph (graph, pageName, strict = false) {
 }
 
 /**
- * Build the full @graph island for one page (shared nodes + page node).
+ * Build the full island (shared nodes + page node) for one page.
  *
- * @param {Object} page - the page entry from siteData.pages.
- * @param {Object} siteData - global site-data.json.
- * @param {Array} sharedNodes - [Organization, WebSite] nodes, shared by reference.
- * @returns {Object|null} The { '@context', '@graph' } object, or null to skip.
+ * @param {PageEntry} page - the page entry from siteData.pages.
+ * @param {SiteData} siteData - global site-data.json.
+ * @param {Array<import('schema-dts').Organization|import('schema-dts').WebSite>} sharedNodes - [Organization, WebSite] nodes, shared by reference.
+ * @returns {{ '@context': String, '@graph': any[] }|null} The island object, or null to skip.
  */
 function buildPageGraph (page, siteData, sharedNodes) {
   if (SKIP_TYPES.has(page.type)) {
@@ -283,12 +335,13 @@ function buildPageGraph (page, siteData, sharedNodes) {
  * @param {Object} [options]
  * @param {Boolean} [options.strict] - fail the build instead of warning
  *   (wire this to a CI-only flag, e.g. args.ci in index.js).
- * @returns {Object} Hash of page.name -> <script> markup (only for pages that get one).
+ * @returns {Promise<{ [pageName: string]: string }>} Hash of page.name -> <script> markup (only for pages that get one).
  */
 export async function loadJsonLd (dataDir, { strict = false } = {}) {
-  const siteData = await loadSiteData(dataDir);
+  const siteData = /** @type {SiteData} */ (await loadSiteData(dataDir));
   const sharedNodes = [buildOrganization(siteData), buildWebsite(siteData)];
 
+  /** @type {Record<String, String>} */
   const jsonld = {};
   for (const page of Object.values(siteData.pages)) {
     const graph = buildPageGraph(page, siteData, sharedNodes);
