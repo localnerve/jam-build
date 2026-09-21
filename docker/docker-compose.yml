@@ -78,7 +78,7 @@ services:
 
   # The cache
   cache:
-    image: redis:8.10.0
+    image: redis:8.10.1
     restart: unless-stopped
     command: redis-server --save 20 1 --loglevel warning
     volumes:
@@ -88,7 +88,7 @@ services:
 
   # The database
   mariadb:
-    image: mariadb:12.3.2
+    image: mariadb:12.3.3
     environment:
       MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MARIADB_AUTO_UPGRADE: 1
@@ -112,7 +112,7 @@ services:
 
   # The database backup command
   backup:
-    image: mariadb:12.3.2
+    image: mariadb:12.3.3
     environment:
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     depends_on:
@@ -140,7 +140,7 @@ services:
 
   # The database hydration command: Restore from dump in the backup volume 
   restore:
-    image: mariadb:12.3.2
+    image: mariadb:12.3.3
     environment:
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       BACKUP_FILE: ${BACKUP_FILE}
