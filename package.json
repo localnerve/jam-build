@@ -173,7 +173,7 @@
     "stylelint-no-unsupported-browser-features": "^8.1.2",
     "tar": "^7.5.22",
     "testcontainers": "^12.1.0",
-    "typescript": "^5.9.0",
+    "typescript": "^7.0.2",
     "v8-to-istanbul": "^9.3.0",
     "workbox-build": "^7.4.1",
     "workbox-core": "^7.4.1",
