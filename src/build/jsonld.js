@@ -167,6 +167,16 @@ function buildBreadcrumb (page, appHost) {
   };
 }
 
+/**
+ * The concrete page-node type is chosen at runtime (WebPage/AboutPage/
+ * ContactPage). Intersecting the three schema-dts leaf types directly would
+ * collapse to never (each pins a different '@type' literal), so pin
+ * WebPageLeaf's shape and widen only '@type'. (schema-dts v2: union aliases
+ * like `WebPage` span all subtypes, so Omit must use the leaf interface.)
+ *
+ * @typedef {Omit<import('schema-dts').WebPageLeaf, '@type'> & { '@type': 'WebPage' | 'AboutPage' | 'ContactPage' }} PageNode
+ */
+
 /** @type {Record<String, String>} */
 const navTypeByName = NAV_TYPE_BY_NAME;
 
@@ -203,14 +213,6 @@ function buildPageNode (page, siteData) {
   const orgId = `https://${appHost}/#organization`;
   const siteId = `https://${appHost}/#website`;
 
-  /**
-   * The concrete type is chosen at runtime (WebPage/AboutPage/ContactPage).
-   * Intersecting the three schema-dts types directly would collapse to never
-   * (each pins a different '@type' literal), so pin WebPage's shape and
-   * widen only '@type'.
-   *
-   * @typedef {Omit<import('schema-dts').WebPage, '@type'> & { '@type': 'WebPage' | 'AboutPage' | 'ContactPage' }} PageNode
-   */
   const node = {
     '@type': /** @type {'WebPage'|'AboutPage'|'ContactPage'} */ (resolvePageType(page)),
     '@id': `${pageUrl}#webpage`,

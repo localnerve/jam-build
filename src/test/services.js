@@ -194,7 +194,7 @@ export async function createDatabaseAndAuthorizer() {
   }
 
   debug('Starting mariadb container...');
-  let mariadbBuilder = new MariaDbContainer('mariadb:12.3.2')
+  let mariadbBuilder = new MariaDbContainer('mariadb:12.3.3')
     .withDatabase(process.env.DB_DATABASE)
     .withUsername(process.env.DB_USER)
     .withRootPassword(process.env.DB_ROOT_PASSWORD)
