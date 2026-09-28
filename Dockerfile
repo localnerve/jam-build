@@ -1,4 +1,4 @@
-FROM node:24.18.0-alpine AS builder
+FROM node:24.21.0-alpine AS builder
 ARG AUTHZ_URL=http://localhost:9010
 ARG AUTHZ_CLIENT_ID=E37D308D-9068-4FCC-BFFB-2AA535014B64
 ARG DEV_BUILD=0
@@ -29,7 +29,7 @@ else \
 fi
 
 # Production runtime stage - minimal size with only production dependencies
-FROM node:24.18.0-alpine AS runtime-prod
+FROM node:24.21.0-alpine AS runtime-prod
 WORKDIR /home/node/app
 
 ARG UID=1000
@@ -63,7 +63,7 @@ ENTRYPOINT ["npm", "start", "--", "--PORT=5000", "--ENV-PATH=/run/secrets/jam-en
 # Production runtime with coverage stage - production build (fingerprinted,
 # minified, hashed CSP) plus devDependencies so the server can run under c8
 # and tests collect server-side coverage from a production-like app
-FROM node:24.18.0-alpine AS runtime-prod-cover
+FROM node:24.21.0-alpine AS runtime-prod-cover
 WORKDIR /home/node/app
 
 ARG UID=1000
@@ -101,7 +101,7 @@ EXPOSE 5000
 ENTRYPOINT ["npm", "start", "--", "--PORT=5000", "--ENV-PATH=/run/secrets/jam-env.json"]
 
 # Development runtime stage - includes all dependencies (c8, etc.) for testing
-FROM node:24.18.0-alpine AS runtime-dev
+FROM node:24.21.0-alpine AS runtime-dev
 WORKDIR /home/node/app
 
 ARG UID=1000
