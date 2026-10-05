@@ -1,6 +1,6 @@
 {
   "name": "jam-build",
-  "version": "2.12.4",
+  "version": "2.12.5",
   "description": "An adventurous, scalable, fullstack web application reference project",
   "main": "index.js",
   "type": "module",
@@ -35,6 +35,7 @@
     "test:build:prod": "npm run test:env:prod -- DEBUG=testcontainers*,server*,api*,test* FORCE_BUILD=1 node ./src/test/build.js",
     "test:chromium": "npm run test",
     "test:debug": "npm run test:env -- DEBUG=server*,api*,test* playwright test --project=Chromium --workers=1 --timeout=600000 --headed",
+    "test:debug:prod": "npm run test:env:prod -- DEBUG=server*,api*,test* playwright test --project=Chromium --workers=1 --timeout=600000 --headed",
     "test:devcontainer:diag": "npm run test:env -- node --experimental-vm-modules ./src/test/diagnose-network.js",
     "test:devcontainer:setup": "node ./devcontainer/setup.js",
     "test:env": "cross-env PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1 AUTHZ_NETWORK_ALIAS=jam-build-authorizer APP_NETWORK_ALIAS=jam-build-app AUTHZ_ADMIN_SECRET=deadbEf-2af536fa AUTHZ_CLIENT_ID=${AUTHZ_CLIENT_ID:-E37D308D-9068-4FCC-BFFB-2AA535014B64} DB_DATABASE=jam_build DB_USER=jbuser DB_APP_USER=jbadmin DB_PASSWORD=deadbEef-5dccb117 DB_ROOT_PASSWORD=deadbEef-0b62360e DB_APP_PASSWORD=deadbEef-47148f2f",
