@@ -18,52 +18,158 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import fs from 'node:fs';
-import { Transform } from 'node:stream';
-import gulp from 'gulp';
-import rev from 'gulp-rev';
-import revRewrite from 'gulp-rev-rewrite';
-import revDel from '@localnerve/gulp-rev-delete-original';
-import filter from 'gulp-filter';
+import fsp from 'node:fs/promises';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
+import { src, dest, through, pipeline, File } from 'node-build-stream';
+import { log } from './utils.js';
+
+/** Fixed hash length used in fingerprinted filenames (matches rollup's [hash:10]). */
+const HASH_LEN = 10;
+
+/** Matches an already-fingerprinted filename suffix, `-<10 hex chars>` before the extension. */
+const PRE_REVVED = new RegExp(`-[0-9a-f]{${HASH_LEN}}$`);
+
+/** Files that are never fingerprinted in pass 1 (css is handled in pass 2). */
+const SKIP_BASENAMES = new Set([ 'robots.txt', 'llms.txt', 'sitemap.xml' ]);
 
 /**
- * Rev the assets and rewrite index.html
+ * A manifest mapping original asset paths (relative to dist) to their
+ * fingerprinted names, e.g. `{ "images/logo.svg": "images/logo-a1b2c3d4e5.svg" }`.
+ *
+ * @typedef {Record<string, string>} Manifest
+ */
+
+/**
+ * Short SHA-256 hex digest of a buffer.
+ *
+ * @param {Buffer} buf The bytes to hash.
+ * @returns {string} A 10-hex-char content hash.
+ */
+function contentHash (buf) {
+  return createHash('sha256').update(buf).digest('hex').slice(0, HASH_LEN);
+}
+
+/**
+ * True when a dist-relative path should NOT be fingerprinted in pass 1:
+ * html/css (rewritten later), static root files, any manifest.json, the
+ * .well-known tree, and already-fingerprinted names.
+ *
+ * @param {string} relative Path of the file relative to dist/.
+ * @returns {boolean} True when the file is excluded from fingerprinting.
+ */
+function skipFingerprint (relative) {
+  const name = path.basename(relative);
+  if (name.endsWith('.html') || name.endsWith('.css')) return true;
+  if (SKIP_BASENAMES.has(name)) return true;
+  if (name.endsWith('manifest.json')) return true;
+  if (relative.startsWith(path.join('.well-known', path.sep))) return true;
+  const stem = name.replace(/\.[^.]+$/, '');
+  return PRE_REVVED.test(stem);
+}
+
+/**
+ * Load a JSON manifest from disk, resolving to {} when absent or invalid.
+ *
+ * @param {string} manifestFile Absolute path of the manifest to load.
+ * @returns {Promise<Manifest>} The parsed manifest, or {} when unreadable.
+ */
+async function loadManifest (manifestFile) {
+  try {
+    return /** @type {Manifest} */ (JSON.parse(
+      await fsp.readFile(manifestFile, 'utf8')));
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Build the site-rooted reference tokens from a manifest:
+ * `/images/logo.svg` → `/images/logo-a1b2c3d4e5.svg`.
+ *
+ * @param {Manifest} manifest The original→fingerprinted map.
+ * @returns {Record<string, string>} Token → replacement pairs.
+ */
+function refTokens (manifest) {
+  const refs = /** @type {Record<string, string>} */ ({});
+  for (const [from, to] of Object.entries(manifest)) {
+    refs[`/${from}`] = `/${to}`;
+  }
+  return refs;
+}
+
+/**
+ * Replace every occurrence of each reference token in a string.
+ * Iterates to a fixpoint because one replacement may itself introduce a
+ * token mapped by another entry (e.g. `/sw.reg.js` → rollup hash name →
+ * rev fingerprint), which a single pass would leave half-rewritten.
+ *
+ * @param {string} text The source text.
+ * @param {Record<string, string>} refs Token → replacement map.
+ * @returns {string} The rewritten text.
+ */
+function replaceAllTokens (text, refs) {
+  let out = text;
+  for (let i = 0; i < 5 && Object.values(refs).length; i++) {
+    let changed = false;
+    for (const [token, replacement] of Object.entries(refs)) {
+      if (out.includes(token)) {
+        out = out.split(token).join(replacement);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return out;
+}
+
+/**
+ * Write a manifest object to disk as pretty-printed JSON via a one-file stream.
+ *
+ * @param {string} dist The dist root directory (cwd-relative).
+ * @param {Manifest} manifest The manifest to write.
+ * @returns {Promise<void>} Resolves when the file is written.
+ */
+async function writeManifest (dist, manifest) {
+  const mf = new File({ path: `${dist}/rev-manifest.json` });
+  mf.contents = `${JSON.stringify(manifest, null, 2)}\n`;
+  await pipeline(Readable.from([mf]), dest(dist));
+}
+
+/**
+ * Fingerprint every non-html/css asset in dist/ and emit rev-manifest.json.
  * 
  * @param {Object} settings - build settings.
  * @param {String} settings.dist - dir root of dist production files.
  * @param {Boolean} settings.prod - True if production, false otherwise.
  */
-export function assetRevision (settings) {
+export async function assetRevision (settings) {
   const { prod, dist } = settings;
 
-  if (prod) {
-    const assetFilter = filter([
-      '**/*',
-      '!**/*.html',
-      '!**/*.css', // not yet, must be done next step
-      '!**/robots.txt',
-      '!**/llms.txt',
-      '!**/sitemap.xml',
-      '!**/*manifest.json',
-      '!**/.well-known/**',
-      '!**/*-+([a-f0-9]).*' // don't match any pre-revved
-    ], { restore: true });
+  if (!prod) return;
 
-    return gulp.src(`${dist}/**`, {
-      encoding: false
-    })
-      .pipe(assetFilter)
-      .pipe(rev())
-      .pipe(revDel())
-      .pipe(gulp.dest(dist))
-      .pipe(assetFilter.restore)
-      .pipe(revRewrite())
-      .pipe(gulp.dest(dist))
-      .pipe(rev.manifest())
-      .pipe(gulp.dest(dist));
-  }
+  const manifest = /** @type {Manifest} */ ({});
 
-  return Promise.resolve();
+  await pipeline(
+    src(`${dist}/**`),
+    through(async file => {
+      const relative = path.relative(dist, file.path);
+      if (skipFingerprint(relative)) return file; // passes through untouched
+      const oldPath = file.path;
+      const name = path.basename(file.path);
+      const stem = name.replace(/\.[^.]+$/, '').replace(PRE_REVVED, '');
+      const newRelative = `${path.dirname(relative) === '.' ? '' : `${path.dirname(relative)}/`}${stem}-${contentHash(/** @type {Buffer} */ (file.contents))}${path.extname(name)}`;
+      manifest[relative] = newRelative;
+      file.path = path.join(dist, newRelative);
+      await fsp.unlink(oldPath).catch(() => {});
+      return file;
+    }, 'fingerprint'),
+    dest(dist)
+  );
+
+  await writeManifest(dist, manifest);
+  log('build-rev', `fingerprinted ${Object.keys(manifest).length} assets`);
 }
 
 /**
@@ -75,34 +181,41 @@ export function assetRevision (settings) {
  * @param {String} settings.dist - dir root of dist production files.
  * @param {Boolean} settings.prod - True if production, false otherwise.
  */
-export function cssRevision (settings) {
+export async function cssRevision (settings) {
   const { prod, dist } = settings;
 
-  if (prod) {
-    const revManifestPath = `${dist}/rev-manifest.json`;
-    const revManifest = fs.readFileSync(revManifestPath);
+  if (!prod) return;
 
-    return gulp.src(`${dist}/**/*.css`, { encoding: false })
-      .pipe(revRewrite({ manifest: Buffer.from(revManifest) }))
-      .pipe(rev())
-      .pipe(revDel())
-      .pipe(gulp.dest(dist))
-      .pipe(rev.manifest({ base: dist }))
-      .pipe(new Transform({
-        objectMode: true,
-        transform (file, enc, cb) {
-          const existing = JSON.parse(revManifest);
-          const incoming = JSON.parse(file.contents.toString());
-          const merged = { ...existing, ...incoming };
-          file.contents = Buffer.from(JSON.stringify(merged, null, 2));
-          file.path = revManifestPath;
-          cb(null, file);
-        }
-      }))
-      .pipe(gulp.dest(dist));
-  }
+  const manifest = await loadManifest(`${dist}/rev-manifest.json`);
+  const refs = refTokens(manifest);
+  const updated = /** @type {Manifest} */ ({});
+  let count = 0;
 
-  return Promise.resolve();
+  await pipeline(
+    src(`${dist}/**/*.css`),
+    through(async file => {
+      // Rewrite url() references, then fingerprint every css file (matching the
+      // original pipeline: all css is hashed, whether or not refs were found).
+      const rewritten = replaceAllTokens(/** @type {string} */ (file.contents.toString()), refs);
+      file.contents = Buffer.from(rewritten);
+
+      const relative = path.relative(dist, file.path);
+      const oldPath = file.path;
+      const name = path.basename(file.path);
+      const stem = name.replace(/\.[^.]+$/, '').replace(PRE_REVVED, '');
+      const newRelative = `${path.dirname(relative) === '.' ? '' : `${path.dirname(relative)}/`}${stem}-${contentHash(/** @type {Buffer} */ (file.contents))}${path.extname(name)}`;
+
+      file.path = path.join(dist, newRelative);
+      await fsp.unlink(oldPath).catch(() => {});
+      updated[relative] = newRelative;
+      count += 1;
+      return file;
+    }, 'css-rev'),
+    dest(dist)
+  );
+
+  await writeManifest(dist, { ...manifest, ...updated });
+  log('build-rev', `revised ${count} css file${count === 1 ? '' : 's'}`);
 }
 
 /**
@@ -114,26 +227,31 @@ export function cssRevision (settings) {
  * @param {Boolean} settings.prod - True if production, false otherwise.
  * @param {String} settings.jsManifestFilename - The js revision manifest output from rollup pass.
  */
-export function pageRevision (settings) {
+export async function pageRevision (settings) {
   const { prod, dist, jsManifestFilename } = settings;
 
-  if (prod) {
-    const jsManifest = fs.readFileSync(`${dist}/${jsManifestFilename}`);
-    const revManifest = fs.readFileSync(`${dist}/rev-manifest.json`);
+  if (!prod) return;
 
-    const mergedManifest = {
-      ...JSON.parse(revManifest.toString()),
-      ...JSON.parse(jsManifest.toString())
-    };
+  const mergedManifest = {
+    ...await loadManifest(`${dist}/rev-manifest.json`),
+    .../** @type {Manifest} */ (JSON.parse(
+      await fsp.readFile(`${dist}/${jsManifestFilename}`, 'utf8')))
+  };
 
-    const manifest = Buffer.from(JSON.stringify(mergedManifest));
+  const refs = refTokens(mergedManifest);
+  let count = 0;
 
-    return gulp.src(`${dist}/**/*.html`)
-      .pipe(revRewrite({ manifest }))
-      .pipe(gulp.dest(dist));
-  }
-
-  return Promise.resolve();
+  await pipeline(
+    src(`${dist}/**/*.html`),
+    through(file => {
+      file.contents = Buffer.from(
+        replaceAllTokens(/** @type {string} */ (file.contents.toString()), refs));
+      count += 1;
+      return file;
+    }, 'page-rev'),
+    dest(dist)
+  );
+  log('build-rev', `rewrote asset refs in ${count} html page${count === 1 ? '' : 's'}`);
 }
 
 export default {

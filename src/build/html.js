@@ -20,7 +20,7 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import gulp from 'gulp';
+import { src, dest, pipeline } from 'node-build-stream';
 import { Transform } from 'node:stream';
 import gulpHtmlMin from 'gulp-html-minifier-terser';
 import { hashstream, removeCspMeta, createCspHash } from '@localnerve/csp-hashes';
@@ -91,16 +91,17 @@ export async function minifyHtml (settings) {
   const { dist, prod } = settings;
 
   if (prod) {
-    return gulp.src(`${dist}/**/*.html`)
-      .pipe(gulpHtmlMin({
+    return pipeline(
+      src(`${dist}/**/*.html`),
+      gulpHtmlMin({
         minifyJS: true,
         minifyCSS: true,
         collapseWhitespace: true,
         removeAttributeQuotes: true,
         removeComments: true,
-      }))
-      .pipe(await trustedTypesDirective(dist))
-      .pipe(hashstream({
+      }),
+      await trustedTypesDirective(dist),
+      hashstream({
         replace: true,
         callback: (p, hashes, s) => {
           const cssHashes = hashes.style.all.concat(editableObjectCspHash).join(' ');
@@ -112,11 +113,14 @@ export async function minifyHtml (settings) {
             `style-src $1 ${cssHashes}`
           );
         }
-      }))
-      .pipe(gulp.dest(dist));
+      }),
+      dest(dist)
+    );
   } else {
-    return gulp.src(`${dist}/**/*.html`)
-      .pipe(removeCspMeta())
-      .pipe(gulp.dest(dist));
+    return pipeline(
+      src(`${dist}/**/*.html`),
+      removeCspMeta(),
+      dest(dist)
+    );
   }
 }

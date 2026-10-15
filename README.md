@@ -86,7 +86,7 @@ This project serves as a starting point for a PWA (Progressive Web Application).
 * [Handlebars](https://handlebarsjs.com/guide/)
 * [Sass](https://sass-lang.com/documentation/)
 * [Playwright](https://playwright.dev)
-* [Gulp](https://gulpjs.com)
+* [node-build-stream](https://github.com/localnerve/node-build-stream)
 * [Rollup](https://rollupjs.org/)
 * [Docker](https://docker.com)
 * [Localnerve](https://github.com/localnerve)
