@@ -87,12 +87,12 @@ test.describe('performance audits', () => {
       seo
     } = result.lhr.categories;
 
+    await writeAuditReport(testInfo, result.report);
+
     expect(performance.score * 100).toBeGreaterThan(thresholds.performance);
     expect(accessibility.score * 100).toBeGreaterThan(thresholds.accessibility);
     expect(bestPractices.score * 100).toBeGreaterThan(thresholds.bestPractices);
     expect(seo.score * 100).toBeGreaterThan(thresholds.seo);
-    
-    await writeAuditReport(testInfo, result.report);
   }
 
   test.beforeAll(() => {

@@ -31,7 +31,8 @@ const webStyles = '/styles';
 const webScripts = '/';
 const jsManifestFilename = 'rollup-manifest.json';
 const swMainGenerated = `${dist}/sw.main.js`;
-const swCustomFilenameGlob = 'sw-*.custom.js';
+// Matches rollupNames() output for the sw.custom entry in both prod and dev.
+const swCustomFilenameGlob = 'sw.custom*.js';
 const apiVersion = '1.0.0';
 const schemaVersion = '1';
 const appVersion = pkg.version;
@@ -41,17 +42,20 @@ const appVersion = pkg.version;
  *
  * @param {Boolean} prod - True if production, false otherwise.
  */
+/**
+ * Rollup output filename pattern for all js bundles. Every entry uses the
+ * same `[name]-[hash:10].js` shape so the revision pass can recognize all
+ * rollup output as already fingerprinted (the hash must trail the stem, right
+ * before the extension).
+ *
+ * @param {Boolean} prod - True for production builds.
+ * @returns {string} The rollup `entryFileNames`/`chunkFileNames` pattern.
+ */
+export function rollupNames (prod) {
+  return prod ? '[name]-[hash:10].js' : '[name].js';
+}
+
 export function createSettings (prod = true) {
-  function rollupNames (info) {
-    if (prod) {
-      const swParts = info.name.match(/^sw\.(?<rest>.+)/);
-      if (swParts) {
-        return `sw-[hash:10].${swParts.groups.rest}.js`;
-      }
-      return '[name]-[hash:10].js';
-    }
-    return '[name].js';
-  }
 
   return {
     prod,
@@ -147,8 +151,8 @@ export function createSettings (prod = true) {
       rollupOutput: {
         dir: dist,
         hashCharacters: 'hex',
-        entryFileNames: rollupNames,
-        chunkFileNames: rollupNames
+        entryFileNames: rollupNames(prod),
+        chunkFileNames: rollupNames(prod)
       }
     },
     templates: {

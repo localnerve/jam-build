@@ -18,78 +18,78 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import { Transform } from 'node:stream';
 import path from 'node:path';
-import gulp from 'gulp';
-import PluginError from 'plugin-error';
-import gulpPostcss from 'gulp-postcss';
+import { series, src, dest, pipeline, through } from 'node-build-stream';
 import * as dartSass from 'sass';
+import postcss from 'postcss';
 import autoprefixer from 'autoprefixer';
 import assetFunctions from '@localnerve/sass-asset-functions';
 import { loadSiteData } from './data.js';
-import { getVersionBuildstamp } from './utils.js';
+import { getVersionBuildstamp, log } from './utils.js';
 
 /**
- * gulp-sass replacement plugin.
- * Bare minimum to just call sass.compile and produce the css file.
- * 
- * @param {String} appVersion - The application version string.
- * @returns {Function} A function to take the sass options and return a Transform stream.
+ * Sass compile transform for the style pipeline — a node-build-stream through()
+ * step replacing gulp-sass. Compiles each non-partial .scss entry with dart-sass
+ * and appends a version/buildstamp comment so the css fingerprint changes every
+ * build. Partial files (basename `_…`) are dropped: they still compile implicitly
+ * via loadPaths when an entry imports them, but are never emitted as css.
+ *
+ * @param {String} appVersion - The application version string (for the buildstamp).
+ * @param {Object} options - dart-sass `compile` options (style, loadPaths, functions).
+ * @returns {(file: import('node-build-stream/file').File) => Promise<import('node-build-stream/file').File|null>} An async per-file transform for through().
  */
-function streamSass (appVersion) {
-  const ss = options => new Transform({
-    transform: (file, encoding, callback) => {
-      if (file.isNull()) {
-        callback(null, file);
-        return;
+function sassCompile (appVersion, options) {
+  return async function compileSass (file) {
+    if (file.isNull()) {
+      return file;
+    }
+
+    // Partials are compiled implicitly via loadPaths — never emit them.
+    if (path.basename(file.path).startsWith('_')) {
+      return null;
+    }
+
+    try {
+      const result = dartSass.compile(file.path, options);
+      const versionBuildStamp = `/*! ${getVersionBuildstamp(appVersion)} */`;
+      // Append the stamp so the css is always unique per build (fingerprinting).
+      file.contents = Buffer.concat([Buffer.from(result.css), Buffer.from(versionBuildStamp)]);
+      file.path = file.path.replace('.scss', '.css');
+      if (file.stat) {
+        file.stat.atime = file.stat.mtime = file.stat.ctime = new Date();
       }
-
-      if (path.basename(file.path).startsWith('_')) {
-        callback();
-        return;
-      }
-
-      try {
-        const result = dartSass.compile(file.path, options);
-        const versionBuildStamp = `/*! ${getVersionBuildstamp(appVersion)} */`;
-        
-        const cssLen = Buffer.byteLength(result.css, 'utf8');
-        const vbsLen = Buffer.byteLength(versionBuildStamp, 'utf8');
-        const cssBuffer = Buffer.alloc(cssLen + vbsLen);
-
-        cssBuffer.write(result.css, 0, 'utf8');
-        cssBuffer.write(versionBuildStamp, cssLen, 'utf8'); // make sure css is always unique
-
-        file.contents = cssBuffer;
-        file.path = file.path.replace('.scss', '.css');
-        if (file.stat) {
-          file.stat.atime = file.stat.mtime = file.stat.ctime = new Date();
-        }
-
-        callback(null, file);
-      }
-      catch (error) {
-        const filePath = (error.file === 'stdin' ? file.path : error.file) || file.path;
-        const relativePath = path.relative(process.cwd(), filePath);
-        const message = `${relativePath}\n${error.formatted || error.message}`;
-      
-        error.messageFormatted = message;
-        error.messageOriginal = error.message;
-        error.relativePath = relativePath;
-      
-        callback(new PluginError('streamSass', error));
-      }
-    },
-    objectMode: true
-  });
-
-  ss.logError = function logError (error) {
-    const message = new PluginError('sass', error.messageFormatted).toString();
-    process.stderr.write(`${message}\n`);
-    this.emit('end');
+      return file;
+    } catch (error) {
+      const filePath = (error.file === 'stdin' ? file.path : error.file) || file.path;
+      const relativePath = path.relative(process.cwd(), filePath);
+      // Preserve dart-sass's formatted output (path + line + snippet) in the thrown
+      // message; node-build-stream wraps it in a FileError naming the stage/file.
+      throw new Error(`${relativePath}\n${error.formatted || error.message}`, { cause: error });
+    }
   };
+}
 
-  return ss;
+/**
+ * PostCSS transform for the style pipeline. Runs each compiled css file through
+ * autoprefixer as a pure node-build-stream through() step — replacing gulp-postcss.
+ * Contents arrive as Buffers from sassCompile; they are processed as strings and
+ * stored back as a Buffer (real vinyl File.contents rejects strings). Browserslist
+ * is picked up from the project's .browserslistrc automatically.
+ * 
+ * @returns {Function} An async per-file transform for through().
+ */
+function postcssProcess () {
+  return async function runPostcss (file) {
+    if (file.isNull()) {
+      return file;
+    }
+
+    const css = /** @type {Buffer} */ (file.contents).toString('utf8');
+    const result = await postcss([autoprefixer()]).process(css, { from: file.path });
+    // Real vinyl File.contents only accepts Buffer/Stream/null — not a string.
+    file.contents = Buffer.from(result.css);
+    return file;
+  };
 }
 
 /**
@@ -113,17 +113,18 @@ export async function getStyleSequence (settings) {
     appVersion, dist, srcClient, prod, distImages,
     webImages, distFonts, webFonts, dataDir, webStyles
   } = settings;
-  const sassStream = streamSass(appVersion);
   const data = await loadSiteData(dataDir);
 
   if (webStyles) {
     data.styles = { webStyles: webStyles.replace(/\/$/, '') };
   }
 
-  return gulp.series(
-    function createStyles () {
-      return gulp.src([`${srcClient}/**/*.scss`, `!${srcClient}/**/inline/**`])
-        .pipe(sassStream({
+  return series(
+    async function createStyles () {
+      let count = 0;
+      await pipeline(
+        src([`${srcClient}/**/*.scss`, `!${srcClient}/**/inline/**`]),
+        through(sassCompile(appVersion, {
           style: prod ? 'compressed' : 'expanded', // compressed === css minifier output.
           loadPaths: [
             `${srcClient}/styles`,
@@ -141,13 +142,12 @@ export async function getStyleSequence (settings) {
               images: data.images
             }
           })
-        }).on('error', sassStream.logError))
-        .pipe(
-          gulpPostcss([
-            autoprefixer()
-          ])
-        )
-        .pipe(gulp.dest(dist));
+        }), 'sass'),
+        through(postcssProcess()),
+        through(file => { count += 1; return file; }, 'count'),
+        dest(dist)
+      );
+      log('build-styles', `compiled ${count} stylesheet${count === 1 ? '' : 's'}`);
     }
   );
 }

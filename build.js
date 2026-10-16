@@ -16,47 +16,16 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import gulp from 'gulp';
+import { task, parseArgs } from 'node-build-stream';
 
 import {
   build,
   devBuild
 } from './src/build/index.js';
 
-/**
- * getTaskArguments parses command line arguments, --name value, to an object
- *   `gulp mytask --a 123 --b "my string" --c`
- *   produces:
- *     {
- *       "a": "123",
- *       "b": "my string",
- *       "c": true
- *     }
- * @param {String[]} argList - List of arguments, process.argv
- * @returns {Object} The command line arguments as an object
- */
-function getTaskArguments (argList) {
-  const arg = {};
-  let a, opt, thisOpt, curOpt;
-  for (a = 0; a < argList.length; a++) {
-    thisOpt = argList[a].trim();
-    opt = thisOpt.replace(/^-+/, '');
+const args = parseArgs(process.argv);
 
-    if (opt === thisOpt) {
-      // argument value
-      if (curOpt) arg[curOpt] = opt;
-      curOpt = null;
-    }
-    else {
-      // argument name
-      curOpt = opt;
-      arg[curOpt] = true;
-    }
-  }
-  return arg;  
-}
-
-const args = getTaskArguments(process.argv);
-
-gulp.task('build', await build(args));
-gulp.task('dev-build', await devBuild(args));
+// The task bodies return the (lazy) build schedules; node-build-stream starts
+// them when the task runs, so nothing executes at import time.
+task('build', () => build(args), 'Production build');
+task('dev-build', () => devBuild(args), 'Development build');

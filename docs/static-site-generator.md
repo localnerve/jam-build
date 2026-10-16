@@ -8,7 +8,7 @@ Title: Jam-Build Custom Static Site Generator
 
 ## Overview
 
-Jam-Build features a sophisticated custom static site generator built on top of Gulp, designed specifically for building high-performance, offline-first web applications. The generator combines Handlebars templating, Sass compilation, advanced JavaScript bundling with Rollup, responsive image processing, and comprehensive asset management.
+Jam-Build features a sophisticated custom static site generator built on top of [node-build-stream](https://github.com/localnerve/node-build-stream), designed specifically for building high-performance, offline-first web applications. The generator combines Handlebars templating, Sass compilation, advanced JavaScript bundling with Rollup, responsive image processing, and comprehensive asset management.
 
 ## Quick Links
 
@@ -64,7 +64,7 @@ The [main build sequence](/src/build/index.js) follows a carefully orchestrated 
 
 ```javascript
 export async function createBuild (settings, args) {
-  return gulp.series(
+  return series(
     // 1. Environment Setup
     prepare,                                        // Clean, create dirs, housekeeping
     

@@ -18,7 +18,7 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import gulp from 'gulp';
+import { series, src, dest, pipeline } from 'node-build-stream';
 import { initWasmModules, responsive, optimize, transform } from '@localnerve/gulp-images';
 import { loadSiteData } from './data.js';
 
@@ -38,29 +38,29 @@ export async function getImageSequence (settings) {
 
   await initWasmModules();
 
-  return gulp.series(
+  return series(
     function createResponsiveImages () {
-      return gulp.src(`${distImages}/**`, {
-        encoding: false
-      })
-        .pipe(responsive.responsive(settings, data.images))
-        .pipe(gulp.dest(distImages));
+      return pipeline(
+        src(`${distImages}/**`),
+        responsive.responsive(settings, data.images),
+        dest(distImages)
+      );
     },
     function optimizeImages () {
-      return gulp.src(`${distImages}/**`, {
-        encoding: false
-      })
-        .pipe(optimize.svg(settings))
-        .pipe(optimize.jpeg(settings))
-        .pipe(optimize.png(settings))
-        .pipe(gulp.dest(distImages));
+      return pipeline(
+        src(`${distImages}/**`),
+        optimize.svg(settings),
+        optimize.jpeg(settings),
+        optimize.png(settings),
+        dest(distImages)
+      );
     },
     function createDerivedFormats () {
-      return gulp.src(`${distImages}/**`, {
-        encoding: false
-      })
-        .pipe(transform.toWebp(settings, data.images))
-        .pipe(gulp.dest(distImages));
+      return pipeline(
+        src(`${distImages}/**`),
+        transform.toWebp(settings, data.images),
+        dest(distImages)
+      );
     }
   );
 }

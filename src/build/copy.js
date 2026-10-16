@@ -18,7 +18,8 @@
  *    by including the string: "Copyright (c) 2025 Alex Grant <info@localnerve.com> (https://www.localnerve.com), LocalNerve LLC"
  *    in this material, copies, or source code of derived works.
  */
-import gulp from 'gulp';
+import { src, dest, through, pipeline } from 'node-build-stream';
+import { log } from './utils.js';
 
 /**
  * Copy all files from srcDir to dist, copy favicon assets to dist.
@@ -26,13 +27,18 @@ import gulp from 'gulp';
  * @param {Object} settings - build settings.
  * @param {Array} settings.files - files to copy.
  * @param {String} settings.destDir - root dir for distribution.
- * @param {Object} [settings.options] - options for gulp.src.
- * @returns {Stream} gulp stream
+ * @param {Object} [settings.options] - options for src().
+ * @returns {Promise} Resolves when the copy is complete.
  */
-export function fileCopy (settings) {
-  const { destDir, files, options = {}} = settings;
-
-  return gulp.src(files, options).pipe(gulp.dest(destDir));
+export async function fileCopy (settings) {
+  const { destDir, files, options = {} } = settings;
+  let count = 0;
+  await pipeline(
+    src(files, options),
+    through(file => { count += 1; return file; }, 'copy'),
+    dest(destDir)
+  );
+  log('build-copy', `copied ${count} file${count === 1 ? '' : 's'} to ${destDir}`);
 }
 
 /**
@@ -41,16 +47,17 @@ export function fileCopy (settings) {
  * @param {Object} settings - build settings.
  * @param {String} settings.srcDir - srcDir to copy.
  * @param {String} settings.destDir - destDir to copy.
- * @returns {Stream} gulp stream
+ * @returns {Promise} Resolves when the copy is complete.
  */
-export function dirCopy (settings) {
+export async function dirCopy (settings) {
   const { srcDir, destDir } = settings;
-  return gulp.src([
-    `${srcDir}/**/*`
-  ], {
-    encoding: false
-  })
-    .pipe(gulp.dest(destDir));
+  let count = 0;
+  await pipeline(
+    src([`${srcDir}/**/*`]),
+    through(file => { count += 1; return file; }, 'copy'),
+    dest(destDir)
+  );
+  log('build-copy', `copied ${count} files from ${srcDir} to ${destDir}`);
 }
 
 export default {

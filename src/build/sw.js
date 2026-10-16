@@ -26,6 +26,7 @@ import { generateSW } from 'workbox-build';
 import { loadSiteData } from './data.js';
 import { getVersionBuildstamp } from './utils.js';
 import { createScripts } from './scripts.js';
+import { rollupNames } from './settings.js';
 
 /**
  * Generate the sw.custom.js runtime distribution.
@@ -75,18 +76,11 @@ async function generateSWCustom (settings, replacements) {
       dir: dist,
       format: 'umd',
       hashCharacters: 'hex',
-      entryFileNames: () => {
-        const parts = swCustomName.split('.');
-        let pattern = `${parts[0]}-[hash:10]`;
-        for (let i = 1; i < parts.length; i++) {
-          pattern += `.${parts[i]}`;
-        }
-        return `${pattern}.js`;
-      }
+      entryFileNames: rollupNames(prod)
     }
   });
 
-  // 4. resolve to public, reved /sw-a9reved9fa.custom.js filepath for importScripts
+  // 4. resolve to public, reved /sw.custom-<hash>.js filepath for importScripts
   const matches = glob(`${dist}/${swCustomFilenameGlob}`);
   if (matches.length !== 1) {
     throw new Error('Failed to find sw.custom.js final file in dist');
