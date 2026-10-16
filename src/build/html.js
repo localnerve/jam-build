@@ -20,9 +20,9 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { src, dest, pipeline } from 'node-build-stream';
+import { src, dest, through, pipeline } from 'node-build-stream';
 import { Transform } from 'node:stream';
-import gulpHtmlMin from 'gulp-html-minifier-terser';
+import { minify } from 'html-minifier-terser';
 import { hashstream, removeCspMeta, createCspHash } from '@localnerve/csp-hashes';
 import { getEditableObjectCssText } from '@localnerve/editable-object';
 import { extractTrustedTypesSources } from '@localnerve/trusted-types-rules';
@@ -32,6 +32,23 @@ const owner = 'build-html';
 
 // web-component shadow styles
 const editableObjectCspHash = createCspHash(await getEditableObjectCssText());
+
+/**
+ * Create an NBS through() callback that minifies html contents with
+ * html-minifier-terser. Real vinyl rejects string contents, so the result is
+ * written back as a Buffer.
+ *
+ * @param {Object} options - `minify()` options from html-minifier-terser.
+ * @returns {Function} Async per-file callback for `through()`.
+ */
+function minifyHtmlFiles (options) {
+  return async file => {
+    if (file.isNull()) return file;
+    const result = await minify(/** @type {string} */ (file.contents.toString()), options);
+    file.contents = Buffer.from(result);
+    return file;
+  };
+}
 
 /**
  * Replace the `trusted-types` CSP directive in html meta tags with the
@@ -93,13 +110,13 @@ export async function minifyHtml (settings) {
   if (prod) {
     return pipeline(
       src(`${dist}/**/*.html`),
-      gulpHtmlMin({
+      through(minifyHtmlFiles({
         minifyJS: true,
         minifyCSS: true,
         collapseWhitespace: true,
         removeAttributeQuotes: true,
         removeComments: true,
-      }),
+      }), 'minify'),
       await trustedTypesDirective(dist),
       hashstream({
         replace: true,
