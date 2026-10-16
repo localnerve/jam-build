@@ -100,10 +100,9 @@ function refTokens (manifest) {
 }
 
 /**
- * Replace every occurrence of each reference token in a string.
- * Iterates to a fixpoint because one replacement may itself introduce a
- * token mapped by another entry (e.g. `/sw.reg.js` → rollup hash name →
- * rev fingerprint), which a single pass would leave half-rewritten.
+ * Replace every occurrence of each reference token in a string. Each manifest
+ * entry maps an original name straight to its final fingerprinted name (rollup
+ * output is never re-fingerprinted), so a single pass always suffices.
  *
  * @param {string} text The source text.
  * @param {Record<string, string>} refs Token → replacement map.
@@ -111,15 +110,10 @@ function refTokens (manifest) {
  */
 function replaceAllTokens (text, refs) {
   let out = text;
-  for (let i = 0; i < 5 && Object.values(refs).length; i++) {
-    let changed = false;
-    for (const [token, replacement] of Object.entries(refs)) {
-      if (out.includes(token)) {
-        out = out.split(token).join(replacement);
-        changed = true;
-      }
+  for (const [token, replacement] of Object.entries(refs)) {
+    if (out.includes(token)) {
+      out = out.split(token).join(replacement);
     }
-    if (!changed) break;
   }
   return out;
 }
