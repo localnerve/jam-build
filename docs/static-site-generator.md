@@ -60,35 +60,41 @@ The generator is driven by a central [`site-data.json`](/data/site-data.json) fi
 
 ### 1. Build Orchestration (`index.js`)
 
-The [main build sequence](/src/build/index.js) follows a carefully orchestrated pipeline:
+The [main build sequence](/src/build/index.js) is a [node-build-stream](https://github.com/localnerve/node-build-stream) `series()` schedule, with every stage wrapped in a `stage(name, run)` helper that logs its start and completion (`→ name` / `✓ name`, or `✗ name failed` + rethrow) so the build reads as a progress narrative:
 
 ```javascript
-export async function createBuild (settings, args) {
+function createBuild (settings, args) {
   return series(
     // 1. Environment Setup
-    prepare,                                        // Clean, create dirs, housekeeping
-    
+    stage('prepare', prepare),                      // Clean dist/, create dirs
+
     // 2. Asset Processing
-    dirCopy.bind(null, settings.copyImages),        // Copy static images
-    imageProcessingSequence,                        // Generate responsive images
-    createStyles.bind(null, settings.styles),       // Compile Sass → CSS
-    createScripts.bind(null, settings.scripts),     // Bundle JavaScript
-    generateAssets.bind(null, settings.assets),     // Generate robots/security/sitemaps/llms.txt/manifests
-    
-    // 3. Versioning and Templates
-    assetRevision.bind(null, settings.revision),    // Add cache-busting hashes
-    renderHtml.bind(null, settings.templates, args),// Render Handlebars templates
-    pageRevision.bind(null, settings.revision),     // Update asset references
-    
+    stage('copy images', dirCopy.bind(null, settings.copyImages)), // Copy static images
+    stage('images', () => getImageSequence(settings.images)),      // Generate responsive images (thunk)
+    stage('styles', () => getStyleSequence(settings.styles)),      // Compile Sass → CSS (thunk)
+    stage('scripts', createScripts.bind(null, settings.scripts)),  // Bundle JavaScript with Rollup
+    stage('assets', generateAssets.bind(null, settings.assets)),   // Generate robots/security/sitemaps/llms.txt/manifests
+
+    // 3. Revisioning and Templates
+    stage('rev: assets', assetRevision.bind(null, settings.revision)), // Fingerprint non-html/css assets → rev-manifest.json
+    stage('rev: css', cssRevision.bind(null, settings.revision)),      // Rewrite url() refs, fingerprint css
+    stage('html templates', renderHtml.bind(null, settings.templates, args)), // Render Handlebars templates
+    stage('rev: pages', pageRevision.bind(null, settings.revision)),   // Rewrite asset refs in top-level pages
+
     // 4. Finalization
-    buildSwMain.bind(null, settings.sw),            // Generate service worker
-    minifyHtml.bind(null, settings.html),           // Minify HTML output
-    
+    stage('service worker', buildSwMain.bind(null, settings.sw)),      // Generate service worker
+    stage('minify html', minifyHtml.bind(null, settings.html)),        // Minify HTML output
+
     // 5. Optional Debugging
-    audit // Dump build data if --dump flag provided
+    stage('audit', audit)                            // Dump build data if --dump flag provided
   );
 }
 ```
+
+Two NBS-specific details keep the schedule correct:
+
+- **Thunks for sequence factories.** The `images` and `styles` stages pass zero-arg thunks (`() => getImageSequence(...)` / `() => getStyleSequence(...)`) rather than pre-built schedules. A series item that is an async factory returning a schedule would be auto-awaited by thenable-unwrapping and start immediately; the thunk defers execution until the series reaches its slot.
+- **Lazy export.** `createBuild` returns the schedule instead of awaiting it, and `build`/`devBuild` are bound factories — nothing runs at module import time. The build starts only when the NBS CLI awaits the task body in [`build.js`](/build.js).
 
 ### 2. Configuration Management (`settings.js`)
 
