@@ -213,7 +213,7 @@ export async function cssRevision (settings) {
 }
 
 /**
- * Update the html pages with the asset revisions.
+ * Update the top-level pages [*.{html,webmanifest,xml}] with the asset revisions.
  * Must run after assetRevision, cssRevision.
  * 
  * @param {Object} settings - build settings.
@@ -236,16 +236,20 @@ export async function pageRevision (settings) {
   let count = 0;
 
   await pipeline(
-    src(`${dist}/**/*.html`),
+    src(`${dist}/**/*.{html,webmanifest,xml}`),
     through(file => {
+      const startLength = file.contents.length;
       file.contents = Buffer.from(
         replaceAllTokens(/** @type {string} */ (file.contents.toString()), refs));
-      count += 1;
+      const endLength = file.contents.length;
+      if (endLength > startLength) {
+        count += 1;
+      }
       return file;
     }, 'page-rev'),
     dest(dist)
   );
-  log('build-rev', `rewrote asset refs in ${count} html page${count === 1 ? '' : 's'}`);
+  log('build-rev', `rewrote asset refs in ${count} top-level page${count === 1 ? '' : 's'}`);
 }
 
 export default {
