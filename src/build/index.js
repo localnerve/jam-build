@@ -31,7 +31,7 @@ import { renderHtml } from './templates.js';
 import { minifyHtml } from './html.js';
 import { buildSwMain } from './sw.js';
 import { getImageSequence } from './images.js';
-import { assetRevision, cssRevision, pageRevision } from './revision.js';
+import { assetRevision, midLevelRevision, pageRevision } from './revision.js';
 import { log } from './utils.js';
 
 /**
@@ -95,7 +95,7 @@ function createBuild (settings, args) {
     stage('scripts', createScripts.bind(null, settings.scripts)),
     stage('assets', generateAssets.bind(null, settings.assets)),
     stage('rev: assets', assetRevision.bind(null, settings.revision)),
-    stage('rev: css', cssRevision.bind(null, settings.revision)),
+    stage('rev: midlevel', midLevelRevision.bind(null, settings.revision)),
     stage('html templates', renderHtml.bind(null, settings.templates, args)),
     stage('rev: pages', pageRevision.bind(null, settings.revision)),
     stage('service worker', buildSwMain.bind(null, settings.sw)),

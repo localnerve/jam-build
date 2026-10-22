@@ -23,7 +23,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { src, dest, through, pipeline, File } from 'node-build-stream';
-import { log } from './utils.js';
+import { log, withDefault } from './utils.js';
 
 /** Fixed hash length used in fingerprinted filenames (matches rollup's [hash:10]). */
 const HASH_LEN = 10;
@@ -31,8 +31,11 @@ const HASH_LEN = 10;
 /** Matches an already-fingerprinted filename suffix, `-<10 hex chars>` before the extension. */
 const PRE_REVVED = new RegExp(`-[0-9a-f]{${HASH_LEN}}$`);
 
-/** Files that are never fingerprinted in pass 1 (css is handled in pass 2). */
+/** Files that are never fingerprinted in pass 1 (mid-level is handled in pass 2). */
 const SKIP_BASENAMES = new Set([ 'robots.txt', 'llms.txt', 'sitemap.xml' ]);
+
+/** Files that are non-css mid-level assets (assets that need revving that also contain revved assets) */
+const NONCSS_MIDLEVEL_BASENAMES = new Set([ 'site.webmanifest', 'browserconfig.xml' ]);
 
 /**
  * A manifest mapping original asset paths (relative to dist) to their
@@ -40,6 +43,19 @@ const SKIP_BASENAMES = new Set([ 'robots.txt', 'llms.txt', 'sitemap.xml' ]);
  *
  * @typedef {Record<string, string>} Manifest
  */
+
+/**
+ * Determine if a file is a midlevel asset (assets that need revving that also contain revved assets).
+ * These are all css files plus any basename in NONCSS_MIDLEVEL_BASENAMES.
+ * 
+ * @param {string} name The basename of the file to check.
+ * @returns {boolean} True when the file is a midlevel asset.
+ */
+function isMidlevelAsset (name) {
+  if (name.endsWith('.css')) return true;
+  if (NONCSS_MIDLEVEL_BASENAMES.has(name)) return true;
+  return false;
+}
 
 /**
  * Short SHA-256 hex digest of a buffer.
@@ -61,8 +77,9 @@ function contentHash (buf) {
  */
 function skipFingerprint (relative) {
   const name = path.basename(relative);
-  if (name.endsWith('.html') || name.endsWith('.css')) return true;
+  if (name.endsWith('.html')) return true;
   if (SKIP_BASENAMES.has(name)) return true;
+  if (isMidlevelAsset(name)) return true; // stage 2
   if (name.endsWith('manifest.json')) return true;
   if (relative.startsWith(path.join('.well-known', path.sep))) return true;
   const stem = name.replace(/\.[^.]+$/, '');
@@ -163,19 +180,21 @@ export async function assetRevision (settings) {
   );
 
   await writeManifest(dist, manifest);
-  log('build-rev', `fingerprinted ${Object.keys(manifest).length} assets`);
+  log('build-rev:assets', `fingerprinted ${Object.keys(manifest).length} assets`);
 }
 
 /**
- * Replace all assets referenced in css with their revisioned references.
- * Then revision the css files with the new references.
+ * Stage 2 asset revisioning: mid-level assets.
+ * Mid-level assets: assets that refer to revisioned assets.
+ * Replace all assets referenced in {css,xml,webmanifest} with their revisioned references.
+ * Then revision the {css,xml,webmanifest} files with the new references.
  * Merge the new revisions into the main rev-manifest file.
  *
  * @param {Object} settings - build settings.
  * @param {String} settings.dist - dir root of dist production files.
  * @param {Boolean} settings.prod - True if production, false otherwise.
  */
-export async function cssRevision (settings) {
+export async function midLevelRevision (settings) {
   const { prod, dist } = settings;
 
   if (!prod) return;
@@ -183,33 +202,51 @@ export async function cssRevision (settings) {
   const manifest = await loadManifest(`${dist}/rev-manifest.json`);
   const refs = refTokens(manifest);
   const updated = /** @type {Manifest} */ ({});
-  let count = 0;
+  const counts = withDefault({
+    '.css': { count: 0, ext: 'css' },
+    '.xml': { count: 0, ext: 'xml' },
+    '.webmanifest': { count: 0, ext: 'webmanifest' }
+  }, { count: 0, ext: 'unknown' });
 
   await pipeline(
-    src(`${dist}/**/*.css`),
+    src(`${dist}/**/*.{css,xml,webmanifest}`),
     through(async file => {
-      // Rewrite url() references, then fingerprint every css file (matching the
-      // original pipeline: all css is hashed, whether or not refs were found).
-      const rewritten = replaceAllTokens(/** @type {string} */ (file.contents.toString()), refs);
-      file.contents = Buffer.from(rewritten);
-
-      const relative = path.relative(dist, file.path);
-      const oldPath = file.path;
       const name = path.basename(file.path);
-      const stem = name.replace(/\.[^.]+$/, '').replace(PRE_REVVED, '');
-      const newRelative = `${path.dirname(relative) === '.' ? '' : `${path.dirname(relative)}/`}${stem}-${contentHash(/** @type {Buffer} */ (file.contents))}${path.extname(name)}`;
+      
+      if (isMidlevelAsset(name)) {
+        // Rewrite url() references, then fingerprint every css file (matching the
+        // original pipeline: all css is hashed, whether or not refs were found).
+        const rewritten = replaceAllTokens(/** @type {string} */ (file.contents.toString()), refs);
+        file.contents = Buffer.from(rewritten);
+        
+        const relative = path.relative(dist, file.path);
+        const oldPath = file.path;
+        const extname = path.extname(file.path);
+        const stem = name.replace(/\.[^.]+$/, '').replace(PRE_REVVED, '');
+        const newRelative = `${path.dirname(relative) === '.' ? '' : `${path.dirname(relative)}/`}${stem}-${contentHash(/** @type {Buffer} */ (file.contents))}${path.extname(name)}`;
 
-      file.path = path.join(dist, newRelative);
-      await fsp.unlink(oldPath).catch(() => {});
-      updated[relative] = newRelative;
-      count += 1;
+        file.path = path.join(dist, newRelative);
+        await fsp.unlink(oldPath).catch(() => {});
+        updated[relative] = newRelative;
+        counts[extname].count += 1;
+      }
+
       return file;
-    }, 'css-rev'),
+    }, 'mid-rev'),
     dest(dist)
   );
 
   await writeManifest(dist, { ...manifest, ...updated });
-  log('build-rev', `revised ${count} css file${count === 1 ? '' : 's'}`);
+
+  const mParts = [];
+  let total = 0;
+  const values = Object.values(counts);
+  for (const [index, val] of values.entries()) {
+    const isLast = (index === values.length - 1);
+    total += val.count;
+    mParts.push(`${val.ext}: ${val.count} file${val.count === 1 ? '' : 's'}${isLast ? '.' : ', '}`);
+  }
+  log('build-rev:midlevel', `Revved ${total} file${total === 1 ? '' : 's'}. ${mParts.length > 0 ? mParts.join(''): ''}`);
 }
 
 /**
@@ -236,24 +273,20 @@ export async function pageRevision (settings) {
   let count = 0;
 
   await pipeline(
-    src(`${dist}/**/*.{html,webmanifest,xml}`),
+    src(`${dist}/**/*.html`),
     through(file => {
-      const startLength = file.contents.length;
       file.contents = Buffer.from(
         replaceAllTokens(/** @type {string} */ (file.contents.toString()), refs));
-      const endLength = file.contents.length;
-      if (endLength > startLength) {
-        count += 1;
-      }
+      count += 1;
       return file;
     }, 'page-rev'),
     dest(dist)
   );
-  log('build-rev', `rewrote asset refs in ${count} top-level page${count === 1 ? '' : 's'}`);
+  log('build-rev:page', `rewrote asset refs in ${count} top-level page${count === 1 ? '' : 's'}`);
 }
 
 export default {
   assetRevision,
-  cssRevision,
+  midLevelRevision,
   pageRevision
 };
