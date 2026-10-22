@@ -23,8 +23,8 @@ import path from 'node:path';
 /**
  * Generate the version - build timestamp string.
  *
- * @param {String} appVersion - The application version string
- * @returns {String} The version and build time as a string
+ * @param {string} appVersion - The application version string
+ * @returns {string} The version and build time as a string
  */
 export function getVersionBuildstamp (appVersion) {
   return `${appVersion}-${(new Date()).toISOString()}`;
@@ -58,4 +58,32 @@ export function log (owner, message, method = 'log', file = null) {
   console[method](
     `[${colors.magenta}${timestring}${colors.reset}] ${owner}: ${method === 'log' ? colors.green : colors.red}${filepath ? `File ${filepath} - ` : ''}${colors.yellow}${message}${colors.reset}`
   );
+}
+
+/**
+ * Create an object for lookups with an iterable default value.
+ * 
+ * @param {object} target - The original target object to proxy
+ * @param {any} defaultValue - The default value to supply for key miss or iterable as 'default'
+ * @returns {any} The proxied target object with a default value for lookup or iteration.
+ */
+export function withDefault (target, defaultValue) {
+  return new Proxy(target, {
+    get: (obj, prop) => {
+      if (prop === 'default') return defaultValue;
+      return prop in obj ? obj[prop] : defaultValue;
+    },
+
+    ownKeys: (obj) => {
+      // Append a virtual 'default' key to the real keys array
+      return [...Reflect.ownKeys(obj), 'default'];
+    },
+
+    getOwnPropertyDescriptor: (obj, prop) => {
+      if (prop === 'default') {
+        return { enumerable: true, configurable: true, value: defaultValue };
+      }
+      return Reflect.getOwnPropertyDescriptor(obj, prop);
+    }
+  });
 }
