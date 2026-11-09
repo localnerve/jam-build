@@ -180,7 +180,10 @@
     "sourcemap-codec": "npm:@jridgewell/sourcemap-codec",
     "glob": "^14.0.4",
     "minimatch": "^11.0.5",
-    "stylelint": "$stylelint"
+    "stylelint": "$stylelint",
+    "stylelint-config-standard-scss": {
+      "stylelint-config-standard": "^41.0.0"
+    }
   },
   "engines": {
     "node": ">=24.8 <25"
